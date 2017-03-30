@@ -1,47 +1,21 @@
 #--------------------------------------------------------------------------
-# Projeto piRNA - Projeto para identificação de mutações em piRNAs
+# Projeto piRNA - Funções para identificação de mutações em piRNAs
 #--------------------------------------------------------------------------
 
-# Este arquivo piRNAproject.R realiza todas as etapas de análise dos arqui-
-# vos '.vcf' e '.gff' para identificação de mutações localizadas em piRNAs.
-# As duas principais funções criadas para reproduzir esta análise são 
-# "prePross()" e "piRNAcount()", disponíveis em piRNAfunctions.R juntamente
-# com descrição detalhado de seu funcionamento.
+# Este arquivo piRNAfunctions.R produz todas as funções necessárias à iden-
+# tificação de mutações localizadas em piRNAs, realizada em piRNAproject.R.
 
 # Definindo a biblioteca
 .libPaths(
       "C:/Users/JoséRoberto/AppData/Roaming/SPB_16.6/R/win-library/3.2")
 
-# Definindo pacotes não padrões a serem utilizados 
-suppressMessages(library(vcfR))
-suppressMessages(library(doSNOW))
-suppressMessages(library(foreach))
-suppressMessages(library(stringi))
-
-# Obtendo os arquivos '.vcf' e '.gff' que serão analisados
-pkg <- "pinfsc50"
-vcf_file <- system.file("extdata", "pinf_sc50.vcf.gz", package = pkg)
-dna_file <- system.file("extdata", "pinf_sc50.fasta", package = pkg)
-gff_file <- system.file("extdata", "pinf_sc50.gff", package = pkg)
-
-vcf <- read.vcfR(vcf_file, verbose = FALSE)
-dna <- ape::read.dna(dna_file, format = "fasta")
-gff <- read.table(gff_file, sep="\t", quote="", stringsAsFactors = F)
-
-# Algoritmo de preparação para o processamento paralelo
-n <- detectCores() # Esse número dividido por 2 é a quantidade de núcleos
-                   # de processamento do meu computador
-NumberOfCluster <- n/2 # Quantas tarefas serão executadas simultaneamente
-cl <- makeCluster(NumberOfCluster) # Cria os 'clusters'
-registerDoSNOW(cl) # Registra para utilização o 'cluster' definido acima
-getDoParWorkers() # Confirmação do número de núcleos disponiveis para pro-
-                  # cessamento
-
-# O código que será executado paralelamento pelo computador segue abaixo
-
-# OBSERVAÇÃO: O algoritmo a seguir tem uma grande limitação: não faz o 
-# 'split' adequado de vcf@gt!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+# A função ...
+# -------------------- Descrição dos argumentos ---------------------------
+# (1)
+# (2)
+# ------------------------ Descrição da saída -----------------------------
+# (1)
+# (2)
 prePross <- function(vcfFirst, gffFirst) {
       suppressMessages(library(vcfR))
       suppressMessages(library(stringi))
@@ -113,8 +87,37 @@ prePross <- function(vcfFirst, gffFirst) {
       uniGFF <<- unique.data.frame(gff)
 }
 
+# A função "piRNAcount()" produz um vetor com elementos nomeados que repre-
+# sentam informações sobre a quantidade de mutações em determinados piRNAs.
+# -------------------- Descrição dos argumentos ---------------------------
+# (1) "vcfNew": objeto da classe 'vcfR' que não apresenta registros mistos
+# de mais de uma mutação por linha de arquivo;
+# (2) "gffUnique": objeto da classe "data.frame" que apresenta informações
+# sobre um arquivo do tipo '.gff' sem redundância de registros; e
+# (3) "index": índice numérico inteiro que indica qual registro do arquivo
+# '.gff' terá suas mutações verificadas. 
+# ------------------------ Descrição da saída -----------------------------
+# (1) "piRNA": representa o identificador do piRNA de acordo com a base de
+# dados online 'http://regulatoryrna.org/database/piRNA/';
+# (2) "Local": representa a localização genômica do piRNA;
+# (3) "Total.mut", "Indel.mut" e "NonIndel.mut": representam, resp., o to-
+# tal de mutações encontradas, bem como as do tipo 'indel' e as demais 'não
+# indel'.
+# (4) "Info.AC" e "Info.AF": representam, resp., as informações de quantos
+# alelos (AC='Allele Count') sofreram as mutações contidas em "Total.mut" e
+# qual sua frequência alélica (AF='Allele Frequency') delas em relação ao
+# total de indivíduos analisados pelo projeto '1000 Genomes'.
 piRNAcount <- function(vcfNew, gffUnique, index) {
       suppressMessages(library(vcfR))
+      
+      # A função "lst2vct()" converte uma lista de vetores numéricos e/ou 
+      # de caracteres em uma único vector ordenados do primeiro ao último
+      # elemento da lista.
+      lst2vct <- function(lst) {
+            vct <- vector()
+            for (k in 1:length(lst)) vct <- c(vct, lst[[k]])
+            return(vct)
+      }
       
       vcfIndel <- vcfR::extract.indels(vcfNew, return.indels = TRUE)
       vcfNonIndel <- vcfR::extract.indels(vcfNew, return.indels = FALSE)
@@ -162,17 +165,6 @@ piRNAcount <- function(vcfNew, gffUnique, index) {
       }
       return(chrmTemp)
 }
-
-system.time({
-      prePross(vcf, gff)
-      chm22 <- foreach(idx=1:nrow(uniGFF), .combine='rbind') %dopar%
-            piRNAcount(newVCF, uniGFF, idx)
-      row.names(chm22) <- 1:nrow(chm22)
-})
-
-stopCluster(cl) # Encerramento dos 'clusters'. OBS.: sempre realizar este
-                # comando após o término do processamento paralelo 
-
 
 
 
