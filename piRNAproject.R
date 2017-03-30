@@ -20,12 +20,8 @@ n <- detectCores() # This number devided by 2 is the number of cores in your com
 NumberOfCluster <- n/2 # how many jobs you want the computer to run at the same time
 cl <- makeCluster(NumberOfCluster) # Make clusters
 registerDoSNOW(cl) # use the above cluster
+getDoParWorkers() # confirm how many cores are been used
 # your parallel programming code code code
-stopCluster(cl) # close clusters
-
-getDoParWorkers()
-registerDoParallel(cores=2)  
-getDoParWorkers()
 
 # O algoritmo a seguir tem uma grande limitação: não
 # faz o split adequado de vcf@gt!!!
@@ -94,7 +90,8 @@ if (!is.na(quant.mixtype)) {
 
 ugff <- unique.data.frame(gff)
 
-rm(list=stri_subset_regex(ls(),"^[a-z]?gff$|vcf(New)?$|lst2vct",negate=T))
+rm(list=stri_subset_regex(ls(),"^[a-z]?gff$|vcf(New)?$|lst2vct|^cl$",
+                          negate=T))
 
 piRNAcount <- function(vcfNew, ugff, i) {
       library(fpp)
@@ -150,7 +147,8 @@ system.time({
       row.names(chm22) <- 1:dim(chm22)[1]
 })
 
-
+stopCluster(cl) # close clusters. Always use this command after don't need
+                # the parallel computing anymore. 
 
 
 
