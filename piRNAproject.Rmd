@@ -1,0 +1,56 @@
+---
+title: "Identificação de mutações localizadas em piRNAs"
+author: " "
+date: "13 de março de 2017"
+fontsize: 12 pt
+linkcolor: cyan
+---
+***
+## Comparação de dados entre arquivos .gff e .vcf  
+
+Foram verificados os 40 primeiros piRNAs não colocalizados presentes no
+cromossomo 1[^1]. 
+
+[^1]: As informações sobre os piRNAs estão presentes no arquivo **/home/miseq/pirna.base.collapsed.gff**.  
+
+Entre eles, 25% (ou 10 piRNAs) sofreram mutações: todas elas, num total de
+20 mutações, foram de caráter substitutivo - ou seja, houve a troca de uma
+base nitrogenada por outra. Além disso, os parâmetros de qualidade para a
+inferência das mutações especificadas são iguais: a taxa de erro é de
+$1:10^{10}$.  
+
+A tabela a seguir mostrará informações como: (1) nome do piRNA[^2], bem
+como seus piRNAs colocalizados; (2) sua localização genômica de acordo com
+o genoma de referência[^3]; (3) a quantidade de mutações presentes em cada
+piRNA; e (4) a contagem de alelos (AC) no genótico, bem como as frequências
+alélicas (AF), de cada mutação verificada[^4].  
+
+[^2]: Informação contida na base de dados online [pirbase](http://regulatoryrna.org/database/piRNA/).
+
+[^3]: O genoma humano de referência é o **hs37d5**, que inclui dados de
+GRCh37, sequencia mitocondrial rCRS, Herpes vírus humano 4 tipo 1 e _the concatenated decoy sequences_ (Ver o arquivo
+[README_human_reference_20110707](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/phase2_reference_assembly_sequence/README_human_reference_20110707) para mais informações). Já o arquivo _hs37d5.fa.gz_ está 
+localizado [aqui](http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz).  
+
+[^4]: O arquivo .vcf (_Variant Call Format_), localizado no diretório
+**/data/resources/1000_genomes/variants/phase3**, apresenta
+informações importantes obtidas no _**1000 Genomes Project**_ a respeito
+das variações nas sequências gênicas do cromossomo 1.  
+
+
+$\mathbf{piRNA}$|$\mathbf{localização}$|$\mathbf{Quant.~mutações}$|$\mathbf{Info~alélicas}$
+----------------|----------------------|--------------------------|------------------------
+piR-hsa-19904+piR-hsa-30937| 61971-62001 |1|AC=19 e AF=0.0038
+piR-hsa-12461              | 88342-88370 |3|AC=14 e AF=0.0028
+piR-hsa-19749              |138817-138849|5|AC=14 e AF=0.0028
+piR-hsa-27199              |138884-138915|1|AC=18 e AF=0.0036
+piR-hsa-3112+piR-hsa-7798  |138981-139034|4|AC=5 e AF=0.0010
+piR-hsa-14843              |139168-139196|1|AC=17 e AF=0.0034
+
+
+Entre os 10 piRNAs onde se verificou mutações, apenas duas mutações possuem
+identificadores no _Single Nucleotide Polymorphism Database_ ou **dbSNP**.
+São estas: a única mutação do *piR-hsa-19904+piR-hsa-30937*,
+localizada na posição *61993*, apresenta o ID *rs 190553843*;
+ademais, a terceira mutação do *piR-hsa-12461*, localizada na posição
+*88370*, apresenta o ID *rs 185487977*.  
