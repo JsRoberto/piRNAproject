@@ -13,7 +13,7 @@
 # '.vcf' em termos de "ID" (somente aqueles que possuam ID válido), "FILTER"
 # (definir filtros específicos), "QUAL" (definir limites superior e/ou in-
 # ferior para o parâmetro de qualidade) e escolher previamente as etnias
-# desejadas (americana, asiatica, europeia, africana).
+# desejadas (americana, asiatica, europeia, africana, aceânica).
 # 
 # Outra função para pré-selecionar, no arquivo '.gff', apenas os piRNAs que
 # estiverem integralmente contidos em posições de entrada.
@@ -26,7 +26,7 @@
 # AF por etnias.
 
 preSelect <- function(vcfFirst, gffFirst, ID.only=F, QUAL.min=NULL,
-                      QUAL.max=NULL, 
+                      QUAL.max=NULL, LOC.pirna=NULL,
                       selectETN=c("EAS","AMR","AFR","EUR","SAS")) {
       suppressMessages(library(vcfR))
       suppressMessages(library(stringi))
@@ -51,41 +51,15 @@ preSelect <- function(vcfFirst, gffFirst, ID.only=F, QUAL.min=NULL,
             pos.qual <- pos.qual & allnewVCF@fix[,"QUAL"] %>%
                   as.numeric <= QUAL.max
       }
-}
-# Selecionando por etnia desejada (EAS_AF, AMR_AF, AFR_AF, EUR_AF e
-# SAS_AF)
-# OBS.: Essa tarefa será bem mais difícil do que o esperado. ALém 
-# disso, está função não é o local adequado para este subset. 
-# Possivelmente, o melhor lugar seria dentro da função "piRNAcount()"
-# , uma vez que é no momento da criação das variáveis infoAC e infoAF
-# que esse subset deve acontecer.
-# 
-# <função em construção>
-selectETN <- function(newVCFix, selETN) {
-      suppressMessages(library(vcfR))
-      suppressMessages(library(stringi))
-      
-      etno <- stri_join(selETN, collapse="_AF=|")
-      info <- if (is.matrix(newVCFix)) {
-            strsplit(newVCFix[,"INFO"],";")
-      } else {
-            strsplit(newVCFix[8],";")
+      # Selecionando apenas os pirnas integralmente contidos nos limites de
+      # LOC.pirna
+      allnewGFF <- gffFirst
+      if (!is.null(LOC.pirna)) {
+            local <- gffFirst$V4 >= min(LOC.pirna) &
+                  gffFirst$V5 <= max(LOC.pirna)
+            allnewGFF <- gffFirst[local,]
       }
-      infoAF <- info %>% lapply(stri_subset_regex(etno)) %>% unlist %>%
-            stri_extract(regex="[0-9]+\\.?[0-9]*") %>% as.numeric
-      infoAC <<- info %>% lapply(stri_subset_fixed(x, "AN")) %>% unlist %>%
-            stri_extract(regex="[0-9]+\\.?[0-9]*") %>% as.numeric * 
-            infoAF %>% sum %>% round
-      infoAF <<- sum(infoAF)
 }
-
-# função abaixo pode ser útil
-extractAF <- function(pop, vec) {
-      info <- unlist((strsplit(vec, ";", fixed=TRUE)))
-      AF <- as.numeric(unlist(strsplit((info[grep(pop, (unlist((strsplit(vec, ";", fixed=TRUE)))))]), "=", fixed=TRUE))[2])
-      return(AF)
-}
-###########      
 
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
 # '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
@@ -245,5 +219,8 @@ piRNAcount <- function(vcfNew, gffUnique, index) {
       return(chrmTemp)
 }
 
-
+# Anotações E OBSERVAÇÕES: ....
+posSelect <- function(chrm, AC, AF) {
+      
+}
 
