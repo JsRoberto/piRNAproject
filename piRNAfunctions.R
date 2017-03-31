@@ -25,21 +25,67 @@
 # terminados valores (superior e/ou inferior) de AC e/ou AF, bem como de
 # AF por etnias.
 
-preSelect <- function(vcfFirst, gffFirst, ID.exists=F, QUAL.min=NULL,
-                      QUAL.max=NULL) {
+preSelect <- function(vcfFirst, gffFirst, ID.only=F, QUAL.min=NULL,
+                      QUAL.max=NULL, 
+                      selectETN=c("EAS","AMR","AFR","EUR","SAS")) {
+      suppressMessages(library(vcfR))
       suppressMessages(library(stringi))
       
+      selectPOP <<- selectETN
       # Selecionando por IDs: apenas válidos ou todos
       allnewVCF <- vcfFirst
-      if (ID.exists) {
+      if (ID.only) {
             validID <- !stri_detect(vcfFirst@fix[,"ID"],regex=".*")
             allnewVCF@fix <- vcfFirst@fix[validID,]
             allnewVCF@gt <- vcfFirst@gt[validID,]
       }
-      # Selecionando por parâmetro de qualidade
-      
-      
+      # Selecionando por parâmetro QUAL
+      if (is.null(QUAL.min)) {
+            pos.qual <- T
+      } else {
+            pos.qual <- allnewVCF@fix[,"QUAL"] %>% as.numeric >= QUAL.min
+      }
+      if (is.null(QUAL.max)) {
+            pos.qual <- pos.qual
+      } else {
+            pos.qual <- pos.qual & allnewVCF@fix[,"QUAL"] %>%
+                  as.numeric <= QUAL.max
+      }
 }
+# Selecionando por etnia desejada (EAS_AF, AMR_AF, AFR_AF, EUR_AF e
+# SAS_AF)
+# OBS.: Essa tarefa será bem mais difícil do que o esperado. ALém 
+# disso, está função não é o local adequado para este subset. 
+# Possivelmente, o melhor lugar seria dentro da função "piRNAcount()"
+# , uma vez que é no momento da criação das variáveis infoAC e infoAF
+# que esse subset deve acontecer.
+# 
+# <função em construção>
+selectETN <- function(newVCFix, selETN) {
+      suppressMessages(library(vcfR))
+      suppressMessages(library(stringi))
+      
+      etno <- stri_join(selETN, collapse="_AF=|")
+      info <- if (is.matrix(newVCFix)) {
+            strsplit(newVCFix[,"INFO"],";")
+      } else {
+            strsplit(newVCFix[8],";")
+      }
+      infoAF <- info %>% lapply(stri_subset_regex(etno)) %>% unlist %>%
+            stri_extract(regex="[0-9]+\\.?[0-9]*") %>% as.numeric
+      infoAC <<- info %>% lapply(stri_subset_fixed(x, "AN")) %>% unlist %>%
+            stri_extract(regex="[0-9]+\\.?[0-9]*") %>% as.numeric * 
+            infoAF %>% sum %>% round
+      infoAF <<- sum(infoAF)
+}
+
+# função abaixo pode ser útil
+extractAF <- function(pop, vec) {
+      info <- unlist((strsplit(vec, ";", fixed=TRUE)))
+      AF <- as.numeric(unlist(strsplit((info[grep(pop, (unlist((strsplit(vec, ";", fixed=TRUE)))))]), "=", fixed=TRUE))[2])
+      return(AF)
+}
+###########      
 
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
 # '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
@@ -145,16 +191,32 @@ prePross <- function(vcfFirst, gffFirst) {
 # -------------------------------------------------------------------------
 piRNAcount <- function(vcfNew, gffUnique, index) {
       suppressMessages(library(vcfR))
+      suppressMessages(library(stringi))
       
-      vcfIndel <- vcfR::extract.indels(vcfNew, return.indels = TRUE)
-      vcfNonIndel <- vcfR::extract.indels(vcfNew, return.indels = FALSE)
+      selectETN <- function(newVCFix, selETN) {
+            etno <- stri_join(selETN, collapse="_AF=|")
+            info <- if (is.matrix(newVCFix)) {
+                  strsplit(newVCFix[,"INFO"],";")
+            } else {
+                  strsplit(newVCFix[8],";")
+            }
+            infoAF <- info %>% lapply(stri_subset_regex(etno)) %>% unlist %>%
+                  stri_extract(regex="[0-9]+\\.?[0-9]*") %>% as.numeric
+            infoAC <<- info %>% lapply(stri_subset_fixed(x, "AN")) %>% unlist %>%
+                  stri_extract(regex="[0-9]+\\.?[0-9]*") %>% as.numeric * 
+                  infoAF %>% sum %>% round
+            infoAF <<- sum(infoAF)
+      }
       
-      pos.all <- (vcfR::getPOS(vcfNew)>=gffUnique$V4[index] &
-                        vcfR::getPOS(vcfNew)<=gffUnique$V5[index])
-      pos.indel <- (vcfR::getPOS(vcfIndel)>=gffUnique$V4[index] &
-                          vcfR::getPOS(vcfIndel)<=gffUnique$V5[index])
-      pos.nonindel <- (vcfR::getPOS(vcfNonIndel)>=gffUnique$V4[index] &
-                             vcfR::getPOS(vcfNonIndel)<=gffUnique$V5[index])
+      vcfIndel <- extract.indels(vcfNew, return.indels = TRUE)
+      vcfNonIndel <- extract.indels(vcfNew, return.indels = FALSE)
+      
+      pos.all <- getPOS(vcfNew)>=gffUnique$V4[index] &
+                        getPOS(vcfNew)<=gffUnique$V5[index]
+      pos.indel <- getPOS(vcfIndel)>=gffUnique$V4[index] &
+                          getPOS(vcfIndel)<=gffUnique$V5[index]
+      pos.nonindel <- getPOS(vcfNonIndel)>=gffUnique$V4[index] &
+                             getPOS(vcfNonIndel)<=gffUnique$V5[index]
       
       quant.mut <- sum(pos.all)
       if (quant.mut >= 1) {
@@ -163,17 +225,7 @@ piRNAcount <- function(vcfNew, gffUnique, index) {
             
             newVCFix <- vcfNew@fix[cond.all,]
             
-            info <- if (is.matrix(newVCFix)) {
-                  stringi::strsplit(newVCFix[,"INFO"],";")
-            } else {
-                  stringi::strsplit(newVCFix[8],";")
-            }
-            info <- info %>% lapply(function(x) x[1:2]) %>% unlist %>%
-                  stringi::strsplit("=")
-            infoAC <- info[seq(1,length(info),2)] %>% 
-                  sapply(function(x) x[2]) %>% as.numeric %>% sum
-            infoAF <- info[seq(2,length(info),2)] %>% 
-                  sapply(function(x) x[2]) %>% as.numeric %>% sum
+            selectETN(newVCFix, selectPOP)
             
             chrmTemp <- 
                   cbind(piRNA=strsplit(gffUnique$V9[index],";")[[1]][1],
@@ -188,7 +240,7 @@ piRNAcount <- function(vcfNew, gffUnique, index) {
                         Local=paste(gffUnique$V4[index],gffUnique$V5[index]
                                     , sep="-"),
                         Total.mut=0, Indel.mut=0, NonIndel.mut=0,
-                        Info.AC=0, Info.AC=0.00)
+                        Info.AC=0, Info.AF=0.00)
       }
       return(chrmTemp)
 }
