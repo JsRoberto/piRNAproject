@@ -9,6 +9,38 @@
 .libPaths(
       "C:/Users/JoséRoberto/AppData/Roaming/SPB_16.6/R/win-library/3.2")
 
+# Nova função para pré-selecionar os registros das mutações do arquivo 
+# '.vcf' em termos de "ID" (somente aqueles que possuam ID válido), "FILTER"
+# (definir filtros específicos), "QUAL" (definir limites superior e/ou in-
+# ferior para o parâmetro de qualidade) e escolher previamente as etnias
+# desejadas (americana, asiatica, europeia, africana).
+# 
+# Outra função para pré-selecionar, no arquivo '.gff', apenas os piRNAs que
+# estiverem integralmente contidos em posições de entrada.
+# 
+# OBS: talvez juntar as duas funções em uma só!
+# 
+# OBS.: provavelmente, deverei definir uma função para pós-selecionar os 
+# dados da tabela final: por exemplo, escolhendo os piRNAs que tiverem de-
+# terminados valores (superior e/ou inferior) de AC e/ou AF, bem como de
+# AF por etnias.
+
+preSelect <- function(vcfFirst, gffFirst, ID.exists=F, QUAL.min=NULL,
+                      QUAL.max=NULL) {
+      suppressMessages(library(stringi))
+      
+      # Selecionando por IDs: apenas válidos ou todos
+      allnewVCF <- vcfFirst
+      if (ID.exists) {
+            validID <- !stri_detect(vcfFirst@fix[,"ID"],regex=".*")
+            allnewVCF@fix <- vcfFirst@fix[validID,]
+            allnewVCF@gt <- vcfFirst@gt[validID,]
+      }
+      # Selecionando por parâmetro de qualidade
+      
+      
+}
+
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
 # '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
 # da função "piRNAcount()" logo abaixo. 
@@ -27,15 +59,6 @@
 prePross <- function(vcfFirst, gffFirst) {
       suppressMessages(library(vcfR))
       suppressMessages(library(stringi))
-      
-      # A função "lst2vct()" converte uma lista "lst" de vetores numéricos
-      # e/ou de caracteres em um único vector ordenado a partir do primeiro
-      # até o último elemento da lista.
-      lst2vct <- function(lst) {
-            vct <- vector()
-            for (k in 1:length(lst)) vct <- c(vct, lst[[k]])
-            return(vct)
-      }
       
       # A função "correctINFO()" é aplicada sobre uma lista "lst", com cada
       # elemento representando um registro específico do arquivo '.vcf': o
@@ -81,7 +104,7 @@ prePross <- function(vcfFirst, gffFirst) {
                   vcfSplit2[(1:sum(commas>=i))+aux,"ALT"] <- 
                         vcfSplit2[(1:sum(commas>=i))+aux,"ALT"] %>% 
                         strsplit(",") %>% lapply(function(x) x[i+1]) %>%
-                        lst2vct
+                        unlist
             }
             vcfSplit2[,"INFO"] <- stri_join_list(info, sep = ";")
             
@@ -123,15 +146,6 @@ prePross <- function(vcfFirst, gffFirst) {
 piRNAcount <- function(vcfNew, gffUnique, index) {
       suppressMessages(library(vcfR))
       
-      # A função "lst2vct()" converte uma lista de vetores numéricos e/ou 
-      # de caracteres em uma único vector ordenados do primeiro ao último
-      # elemento da lista.
-      lst2vct <- function(lst) {
-            vct <- vector()
-            for (k in 1:length(lst)) vct <- c(vct, lst[[k]])
-            return(vct)
-      }
-      
       vcfIndel <- vcfR::extract.indels(vcfNew, return.indels = TRUE)
       vcfNonIndel <- vcfR::extract.indels(vcfNew, return.indels = FALSE)
       
@@ -154,7 +168,7 @@ piRNAcount <- function(vcfNew, gffUnique, index) {
             } else {
                   stringi::strsplit(newVCFix[8],";")
             }
-            info <- info %>% lapply(function(x) x[1:2]) %>% lst2vct %>%
+            info <- info %>% lapply(function(x) x[1:2]) %>% unlist %>%
                   stringi::strsplit("=")
             infoAC <- info[seq(1,length(info),2)] %>% 
                   sapply(function(x) x[2]) %>% as.numeric %>% sum
