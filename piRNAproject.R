@@ -2,11 +2,11 @@
 # Projeto piRNA - Projeto para identificação de mutações em piRNAs
 #--------------------------------------------------------------------------
 
-# Este arquivo piRNAproject.R realiza todas as etapas de análise dos arqui-
-# vos '.vcf' e '.gff' para identificação de mutações localizadas em piRNAs.
-# As duas principais funções criadas para reproduzir esta análise são 
-# "prePross()" e "piRNAcount()", disponíveis em piRNAfunctions.R juntamente
-# com descrição detalhado de seu funcionamento.
+# Este arquivo "piRNAproject.R" realiza todas as etapas de análise dos ar-
+# quivos '.vcf' e '.gff' para identificação de mutações localizadas em 
+# piRNAs. As duas principais funções criadas para reproduzir esta análise
+# são "prePross()" e "piRNAcount()", disponíveis em "piRNAfunctions.R" jun-
+# tamente com descrição detalhada de seu funcionamento.
 
 # Definindo a biblioteca
 .libPaths(
@@ -17,6 +17,22 @@ suppressMessages(library(vcfR))
 suppressMessages(library(doSNOW))
 suppressMessages(library(foreach))
 suppressMessages(library(stringi))
+
+# Baixar os arquivos "piRNAproject.R" e "piRNAfunctions.R", caso ainda não
+# estejam no "getwd()" atual.
+Url <- c(paste0("https://raw.githubusercontent.com/JsRoberto/piRNAproject",
+                "/master/piRNAproject.R"),
+         paste0("https://raw.githubusercontent.com/JsRoberto/piRNAproject",
+                "/master/piRNAfunctions.R"))
+Local <- c("piRNAproject.R","piRNAfunctions.R")
+
+download <- function(Local, Url) {
+      if (!file.exists(Local)) {
+            download.file(Url, Local)
+      }
+}
+
+mapply(download, Local, Url)
 
 # Obtendo os arquivos '.vcf' e '.gff' que serão analisados
 pkg <- "pinfsc50"
@@ -42,126 +58,8 @@ getDoParWorkers() # Confirmação do número de núcleos disponiveis para pro-
 # OBSERVAÇÃO: O algoritmo a seguir tem uma grande limitação: não faz o 
 # 'split' adequado de vcf@gt!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-prePross <- function(vcfFirst, gffFirst) {
-      suppressMessages(library(vcfR))
-      suppressMessages(library(stringi))
-      
-      # A função "lst2vct()" converte uma lista "lst" de vetores numéricos
-      # e/ou de caracteres em um único vector ordenado a partir do primeiro
-      # até o último elemento da lista.
-      lst2vct <- function(lst) {
-            vct <- vector()
-            for (k in 1:length(lst)) vct <- c(vct, lst[[k]])
-            return(vct)
-      }
-      
-      # A função "correctINFO()" é aplicada sobre uma lista "lst", com cada
-      # elemento representando um registro específico do arquivo '.vcf': o
-      # campo "INFO" cujos sub-campos estão separados uns dos outros como
-      # um vetor de caracteres.
-      correctINFO <- function(lst,i) {
-            lapply(lst, function(x) {
-                  if (i==1) aux <- x else {
-                        for (j in seq(1,i-1)) {
-                              aux <- if (exists("aux")) {
-                                    stri_replace(regex="=[0-9]*\\.?[0-9]*,"
-                                                 , aux, "=")
-                              } else {
-                                    stri_replace(regex="=[0-9]*\\.?[0-9]*,"
-                                                 , x, "=")
-                              }
-                        }
-                  }
-                  aux <- stri_replace_all_regex(aux,",[0-9]*\\.?[0-9]*","")
-                  return(aux)
-            })
-      }
-      
-      pos.mixtype <- vcf@fix[,"ALT"] %>% stri_detect_fixed(",")
-      quant.mixtype <- sum(pos.mixtype)
-      if (quant.mixtype >= 1) {
-            vcfGT2 <- vcfGT <- vcf@gt[pos.mixtype,]
-            vcfSplit2 <- vcfSplit <- vcf@fix[pos.mixtype,]
-            commas <- stri_count_fixed(vcfSplit[,"ALT"],",")
-            for (i in 1:max(commas)) {
-                  vcfSplit2 <- rbind(vcfSplit2,vcfSplit[commas>=i,])
-                  vcfGT2 <- rbind(vcfGT2,vcfGT[commas>=i,])
-            }
-            info <- strsplit(vcfSplit2[,"INFO"],";")
-            for (i in 0:max(commas)) {
-                  aux <- ifelse(exists("aux"), aux + sum(commas>=i-1), 0)
-                  info[(1:sum(commas>=i))+aux] <- 
-                        info[(1:sum(commas>=i))+aux] %>% correctINFO(i)
-                  vcfSplit2[(1:sum(commas>=i))+aux,"ALT"] <- 
-                        vcfSplit2[(1:sum(commas>=i))+aux,"ALT"] %>% 
-                        strsplit(",") %>% lapply(function(x) x[i+1]) %>%
-                        lst2vct
-            }
-            vcfSplit2[,"INFO"] <- stri_join_list(info, sep = ";")
-            
-            vcfALL <- cbind(vcfSplit2,vcfGT2)
-            vcfALL <- vcfALL[order(vcfALL[,"POS"] %>% as.numeric),]
-            
-            vcfNew <- vcf
-            vcfNew@fix <- rbind(vcfNew@fix[!pos.mixtype,],
-                                subset(vcfALL, select = CHROM:INFO))
-            vcfNew@gt <- rbind(vcfNew@gt[!pos.mixtype,],
-                               subset(vcfALL, select = -(CHROM:INFO)))
-      } else {quant.mixtype<-0; vcfNew<-vcf}
-      
-      newVCF <<- vcfNew
-      uniGFF <<- unique.data.frame(gff)
-}
-
-piRNAcount <- function(vcfNew, gffUnique, index) {
-      suppressMessages(library(vcfR))
-      
-      vcfIndel <- vcfR::extract.indels(vcfNew, return.indels = TRUE)
-      vcfNonIndel <- vcfR::extract.indels(vcfNew, return.indels = FALSE)
-      
-      pos.all <- (vcfR::getPOS(vcfNew)>=gffUnique$V4[index] &
-                        vcfR::getPOS(vcfNew)<=gffUnique$V5[index])
-      pos.indel <- (vcfR::getPOS(vcfIndel)>=gffUnique$V4[index] &
-                          vcfR::getPOS(vcfIndel)<=gffUnique$V5[index])
-      pos.nonindel <- (vcfR::getPOS(vcfNonIndel)>=gffUnique$V4[index] &
-                             vcfR::getPOS(vcfNonIndel)<=gffUnique$V5[index])
-      
-      quant.mut <- sum(pos.all)
-      if (quant.mut >= 1) {
-            indel.mut <- sum(pos.indel)
-            noind.mut <- sum(pos.nonindel)
-            
-            newVCFix <- vcfNew@fix[cond.all,]
-            
-            info <- if (is.matrix(newVCFix)) {
-                  stringi::strsplit(newVCFix[,"INFO"],";")
-            } else {
-                  stringi::strsplit(newVCFix[8],";")
-            }
-            info <- info %>% lapply(function(x) x[1:2]) %>% lst2vct %>%
-                  stringi::strsplit("=")
-            infoAC <- info[seq(1,length(info),2)] %>% 
-                  sapply(function(x) x[2]) %>% as.numeric %>% sum
-            infoAF <- info[seq(2,length(info),2)] %>% 
-                  sapply(function(x) x[2]) %>% as.numeric %>% sum
-            
-            chrmTemp <- 
-                  cbind(piRNA=gffUnique$V9[index],
-                        Local=paste(gffUnique$V4[index],gffUnique$V5[index],
-                                    sep="-"),
-                        Total.mut=quant.mut, Indel.mut=indel.mut,
-                        NonIndel.mut=noind.mut,
-                        Info.AC=infoAC, Info.AF=infoAF/100)
-      } else {
-            chrmTemp <- 
-                  cbind(piRNA=ugff$V9[index],
-                        Local=paste(gffUnique$V4[index],gffUnique$V5[index],
-                                    sep="-"),
-                        Total.mut=0, Indel.mut=0, NonIndel.mut=0,
-                        Info.AC=0, Info.AC=0.00)
-      }
-      return(chrmTemp)
-}
+# Estabelemento das funções armazenadas em "piRNAfunctions.R"
+source("piRNAfunctions.R", encoding = "UTF-8")
 
 system.time({
       prePross(vcf, gff)
@@ -171,8 +69,4 @@ system.time({
 })
 
 stopCluster(cl) # Encerramento dos 'clusters'. OBS.: sempre realizar este
-                # comando após o término do processamento paralelo 
-
-
-
-
+                # comando após o término do processamento paralelo

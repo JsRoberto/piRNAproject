@@ -9,13 +9,21 @@
 .libPaths(
       "C:/Users/JoséRoberto/AppData/Roaming/SPB_16.6/R/win-library/3.2")
 
-# A função ...
+# A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
+# '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
+# da função "piRNAcount()" logo abaixo. 
 # -------------------- Descrição dos argumentos ---------------------------
-# (1)
-# (2)
-# ------------------------ Descrição da saída -----------------------------
-# (1)
-# (2)
+# (1) "vcfFirst": objeto da classe 'vcfR' correspondente ao arquivo '.vcf'
+# original; e
+# (2) "gffFirst": objeto da classe 'data.frame' correspondente ao arquivo
+# '.gff' original.
+# ---------------------- Descrição das saídas -----------------------------
+# (1) "newVCF": objeto da classe 'vcfR' correspondente a "vcfFirst", porém
+# não apresenta registros mistos, isto é, mais de uma mutação por linha de
+# arquivo; e
+# (2) "uniGFF": objeto da classe 'data.frame' correspondente a "gffFirst",
+# porém sem redundência de registros.
+# -------------------------------------------------------------------------
 prePross <- function(vcfFirst, gffFirst) {
       suppressMessages(library(vcfR))
       suppressMessages(library(stringi))
@@ -54,14 +62,18 @@ prePross <- function(vcfFirst, gffFirst) {
       pos.mixtype <- vcf@fix[,"ALT"] %>% stri_detect_fixed(",")
       quant.mixtype <- sum(pos.mixtype)
       if (quant.mixtype >= 1) {
+            
             vcfGT2 <- vcfGT <- vcf@gt[pos.mixtype,]
             vcfSplit2 <- vcfSplit <- vcf@fix[pos.mixtype,]
             commas <- stri_count_fixed(vcfSplit[,"ALT"],",")
+            
             for (i in 1:max(commas)) {
                   vcfSplit2 <- rbind(vcfSplit2,vcfSplit[commas>=i,])
                   vcfGT2 <- rbind(vcfGT2,vcfGT[commas>=i,])
             }
+            
             info <- strsplit(vcfSplit2[,"INFO"],";")
+            
             for (i in 0:max(commas)) {
                   aux <- ifelse(exists("aux"), aux + sum(commas>=i-1), 0)
                   info[(1:sum(commas>=i))+aux] <- 
@@ -90,9 +102,9 @@ prePross <- function(vcfFirst, gffFirst) {
 # A função "piRNAcount()" produz um vetor com elementos nomeados que repre-
 # sentam informações sobre a quantidade de mutações em determinados piRNAs.
 # -------------------- Descrição dos argumentos ---------------------------
-# (1) "vcfNew": objeto da classe 'vcfR' que não apresenta registros mistos
-# de mais de uma mutação por linha de arquivo;
-# (2) "gffUnique": objeto da classe "data.frame" que apresenta informações
+# (1) "vcfNew": objeto da classe 'vcfR' que não apresenta registros mistos,
+# isto é, de mais de uma mutação por linha de arquivo;
+# (2) "gffUnique": objeto da classe 'data.frame' que apresenta informações
 # sobre um arquivo do tipo '.gff' sem redundância de registros; e
 # (3) "index": índice numérico inteiro que indica qual registro do arquivo
 # '.gff' terá suas mutações verificadas. 
@@ -107,6 +119,7 @@ prePross <- function(vcfFirst, gffFirst) {
 # alelos (AC='Allele Count') sofreram as mutações contidas em "Total.mut" e
 # qual sua frequência alélica (AF='Allele Frequency') delas em relação ao
 # total de indivíduos analisados pelo projeto '1000 Genomes'.
+# -------------------------------------------------------------------------
 piRNAcount <- function(vcfNew, gffUnique, index) {
       suppressMessages(library(vcfR))
       
@@ -149,17 +162,17 @@ piRNAcount <- function(vcfNew, gffUnique, index) {
                   sapply(function(x) x[2]) %>% as.numeric %>% sum
             
             chrmTemp <- 
-                  cbind(piRNA=gffUnique$V9[index],
-                        Local=paste(gffUnique$V4[index],gffUnique$V5[index],
-                                    sep="-"),
+                  cbind(piRNA=strsplit(gffUnique$V9[index],";")[[1]][1],
+                        Local=paste(gffUnique$V4[index],gffUnique$V5[index]
+                                    , sep="-"),
                         Total.mut=quant.mut, Indel.mut=indel.mut,
                         NonIndel.mut=noind.mut,
                         Info.AC=infoAC, Info.AF=infoAF/100)
       } else {
             chrmTemp <- 
-                  cbind(piRNA=ugff$V9[index],
-                        Local=paste(gffUnique$V4[index],gffUnique$V5[index],
-                                    sep="-"),
+                  cbind(piRNA=strsplit(gffUnique$V9[index],";")[[1]][1],
+                        Local=paste(gffUnique$V4[index],gffUnique$V5[index]
+                                    , sep="-"),
                         Total.mut=0, Indel.mut=0, NonIndel.mut=0,
                         Info.AC=0, Info.AC=0.00)
       }
