@@ -16,16 +16,19 @@
 # não tenham sido
 if(!require(vcfR)) {
       install.packages("vcfR"); suppressMessages(require(vcfR))
-}
+} else suppressMessages(require(vcfR))
 if(!require(doSNOW)) {
       install.packages("doSNOW"); suppressMessages(require(doSNOW))
-}
+} else suppressMessages(require(doSNOW))
 if(!require(foreach)) {
       install.packages("foreach"); suppressMessages(require(foreach))
-}
+} else suppressMessages(require(foreach))
 if(!require(stringi)) {
       install.packages("stringi"); suppressMessages(require(stringi))
-}
+} else suppressMessages(require(stringi))
+if(!require(doParallel)) {
+      install.packages("doParallel"); suppressMessages(require(doParallel))
+} else suppressMessages(require(doParallel))
 
 # Baixar os arquivos "piRNAproject.R" e "piRNAfunctions.R", caso ainda não
 # estejam no "getwd()" atual.
