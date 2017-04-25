@@ -14,9 +14,6 @@
 
 # Definindo pacotes não padrões a serem utilizados, baixando-os caso ainda
 # não tenham sido
-if(!require(vcfR)) {
-      install.packages("vcfR"); suppressMessages(require(vcfR))
-} else suppressMessages(require(vcfR))
 if(!require(doSNOW)) {
       install.packages("doSNOW"); suppressMessages(require(doSNOW))
 } else suppressMessages(require(doSNOW))
@@ -26,9 +23,22 @@ if(!require(foreach)) {
 if(!require(stringi)) {
       install.packages("stringi"); suppressMessages(require(stringi))
 } else suppressMessages(require(stringi))
+if(!require(magrittr)) {
+      install.packages("magrittr"); suppressMessages(require(magrittr))
+} else suppressMessages(require(magrittr))
+if(!require(data.table)) {
+      install.packages("data.table"); suppressMessages(require(data.table))
+} else suppressMessages(require(data.table))
 if(!require(doParallel)) {
       install.packages("doParallel"); suppressMessages(require(doParallel))
 } else suppressMessages(require(doParallel))
+if(!require(VariantAnnotation)) {
+      source("https://bioconductor.org/biocLite.R")
+      biocLite("VariantAnnotation")
+      suppressMessages(require(VariantAnnotation))
+} else {
+      suppressMessages(require(VariantAnnotation))
+}
 
 # Baixar os arquivos "piRNAproject.R" e "piRNAfunctions.R", caso ainda não
 # estejam no "getwd()" atual.
@@ -46,27 +56,13 @@ download <- function(Local, Url) {
 
 mapply(download, Local, Url)
 
-# --------------------------------TESTE------------------------------------
 # Obtendo os arquivos '.vcf' e '.gff' que serão analisados
-pkg <- "pinfsc50"
-vcf_file <- system.file("extdata", "pinf_sc50.vcf.gz", package = pkg)
-dna_file <- system.file("extdata", "pinf_sc50.fasta", package = pkg)
-gff_file <- system.file("extdata", "pinf_sc50.gff", package = pkg)
+gff_file <- "pirna.pirbase.collapsed.gff"
+vcf_file <- stringi::stri_join("ALL.chr22.phase3_shapeit2_mvncall_integr",
+                               "ated_v5.20130502.genotypes.vcf.gz")
 
-vcf <- read.vcfR(vcf_file, verbose = FALSE)
-dna <- ape::read.dna(dna_file, format = "fasta")
-gff <- read.table(gff_file, sep="\t", quote="", stringsAsFactors = F)
-# -------------------------------------------------------------------------
-# -----------------------------DEFINITIVO----------------------------------
-# Obtendo os arquivos '.vcf' e '.gff' que serão analisados
-gff_file <- "/home/miseq/pirna.pirbase.collapsed.gff"
-vcf_file <- paste0("/data/resources/1000_genomes/variants/phase3/ALL.chr2",
-                   "2.phase3_shapedit2_mvncall_integrated_v5.20130502.gen",
-                   "otypes.vcf.gz")
-
-vcf <- read.vcfR(vcf_file, verbose = FALSE)
-gff <- read.table(gff_file, sep="\t", quote="", stringsAsFactors = F)
-# -------------------------------------------------------------------------
+# Estabelemento das funções armazenadas em "piRNAfunctions.R"
+source("piRNAfunction.R", encoding = "UTF-8")
 
 # Algoritmo de preparação para o processamento paralelo
 n <- detectCores() # Esse número dividido por 2 é a quantidade de núcleos
@@ -79,26 +75,22 @@ getDoParWorkers() # Confirmação do número de núcleos disponiveis para pro-
 
 # O código que será executado paralelamento pelo computador segue abaixo
 
-# OBSERVAÇÃO: O algoritmo a seguir tem uma grande limitação: não faz o 
-# 'split' adequado de vcf@gt!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-# Estabelemento das funções armazenadas em "piRNAfunctions.R"
-source("piRNAfunctions.R", encoding = "UTF-8")
-
-preSelect(100)
-
-prePross(vcf, gff)
-
-# Testando a função "piRNAcount()"
-piRNAcount(newVCF, uniGFF, idx)
-
-# 
-system.time({
-      foreach(idx=1:nrow(uniGFF), .combine='rbind') %dopar%
+piRNAcalc <- function(vcf_file, gff_file, chrm, rng,
+                      QUAL.min=NULL, QUAL.max=NULL) {
+      piRNAfiles(vcf_file, gff_file, chrm, rng)
+      preSelect(QUAL.min, QUAL.max)
+      prePross(newVCF)
+      foreach(idx=1:nrow(uniGFF), .combine='rbind') %do%
             piRNAcount(newVCF, uniGFF, idx)
-})
+}
 
-posSelect(CHRM, AF.min=3, AF.max=8, ID.choice="both", QUAL.choice="all")
+#----------
+system.time({
+      foreach(rng=1:19) %do% piRNAcalc(vcf_file, gff_file, 22, rng, 100)
+})
+# OBS.: (1) Estou encontrando problemas com a computação paralela;
+
+posSelect(CHRM, AF.min=3, AF.max=8)
 
 stopCluster(cl) # Encerramento dos 'clusters'. OBS.: sempre realizar este
                 # comando após o término do processamento paralelo
