@@ -45,8 +45,8 @@ if(!require(VariantAnnotation)) {
 Url <- c(paste0("https://raw.githubusercontent.com/JsRoberto/piRNAproject",
                 "/master/piRNAproject.R"),
          paste0("https://raw.githubusercontent.com/JsRoberto/piRNAproject",
-                "/master/piRNAfunctions.R"))
-Local <- c("piRNAproject.R","piRNAfunctions.R")
+                "/master/piRNAfunction.R"))
+Local <- c("piRNAproject.R","piRNAfunction.R")
 
 download <- function(Local, Url) {
       if (!file.exists(Local)) {
@@ -58,8 +58,8 @@ mapply(download, Local, Url)
 
 # Obtendo os arquivos '.vcf' e '.gff' que serão analisados
 gff_file <- "pirna.pirbase.collapsed.gff"
-vcf_file <- stringi::stri_join("ALL.chr22.phase3_shapeit2_mvncall_integr",
-                               "ated_v5.20130502.genotypes.vcf.gz")
+vcf_file <- paste0("ALL.chr16.phase3_shapeit2_mvncall_integrated_v5.20130",
+                   "502.genotypes.vcf.gz")
 
 # Estabelemento das funções armazenadas em "piRNAfunctions.R"
 source("piRNAfunction.R", encoding = "UTF-8")
@@ -78,19 +78,35 @@ getDoParWorkers() # Confirmação do número de núcleos disponiveis para pro-
 piRNAcalc <- function(vcf_file, gff_file, chrm, rng,
                       QUAL.min=NULL, QUAL.max=NULL) {
       piRNAfiles(vcf_file, gff_file, chrm, rng)
-      preSelect(QUAL.min, QUAL.max)
-      prePross(newVCF)
-      foreach(idx=1:nrow(uniGFF), .combine='rbind') %do%
-            piRNAcount(newVCF, uniGFF, idx)
+      if (exe.cond) {
+            preSelect(QUAL.min, QUAL.max)
+            prePross(newVCF)
+            foreach(idx=1:nrow(uniGFF), .combine='rbind') %do%
+                  piRNAcount(newVCF, uniGFF, idx)
+      }
 }
 
 #----------
 system.time({
-      foreach(rng=1:19) %do% piRNAcalc(vcf_file, gff_file, 22, rng, 100)
+      foreach(rng=1:8) %do% piRNAcalc(vcf_file, gff_file, 16, rng, 100)
+      saveRDS(CHRM, file="CHRM16_1.Rda")
 })
 # OBS.: (1) Estou encontrando problemas com a computação paralela;
 
-posSelect(CHRM, AF.min=3, AF.max=8)
+# Salvando e regatando a array resultante!
+saveRDS(CHRM, file="CHRM17_1.Rda")
+CHRM18 <- readRDS(file="CHRM18.Rda")
+
+CHRM18 <- array(dim=c(nrow(CHRM18.1)+nrow(CHRM18.2)+nrow(CHRM18.3)+nrow(CHRM18.4),
+                      dim(CHRM18.1)[2], dim(CHRM18.1)[3]),
+                dimnames=dimnames(CHRM18.1))
+
+for (j in 1:4) {
+      CHRM18[,,j] <- rbind(CHRM18.1[,,j],CHRM18.2[,,j],
+                           CHRM18.3[,,j],CHRM18.4[,,j])
+}
+
+posSelect(CHRM18)
 
 stopCluster(cl) # Encerramento dos 'clusters'. OBS.: sempre realizar este
                 # comando após o término do processamento paralelo

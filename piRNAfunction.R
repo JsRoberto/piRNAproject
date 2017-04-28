@@ -14,35 +14,54 @@ piRNAfiles <- function(vcf_file, gff_file, chrm, rng) {
       suppressMessages(require(data.table))
       suppressMessages(require(VariantAnnotation))
       
-      gff <- read.table(
-            gff_file,sep="\t",quote="",comment.char="",stringsAsFactors=F, 
-            colClasses = c(character(),character(),character(),numeric(),
-                           numeric(),numeric(),character(),character(),
-                           character()))
-      gffchrm <- gff[gff$V1==stringi::stri_join("chr",chrm),] %>%
-            as.data.table
-      
-      try(if (gffchrm[,V5[1]+2e6*rng,] >= gffchrm[,V5[length(V5)]+4e6,]){
-            stop("Condição de parada foi atingida!")
-      })
-      
-      if (vcf_file %>% stri_detect(regex="vcf.gz$")) {
-            zipVCF <- vcf_file 
-      } else {
-            zipVCF <- bgzip(vcf_file, tempfile())
+      if (rng==1 & exists("gffchrm", envir=.GlobalEnv) &
+          exists("rngLim", envir=.GlobalEnv)) {
+            rm(list=c("gffchrm","rngLim"), envir=.GlobalEnv)
       }
       
-      range <- GRanges(
-            seqnames=chrm,
-            ranges=IRanges(start = ini <- gffchrm$V4[1]+2e6*(rng-1),
-                           end = fim <- gffchrm$V5[1]+2e6*rng))
-      myparam <- ScanVcfParam(which=range)
-      idx <- indexTabix(zipVCF, "vcf")
-      tab <- TabixFile(zipVCF, idx)
+      if (!exists("gffchrm", envir=.GlobalEnv)) {
+            gff <- read.table(
+                  gff_file,sep="\t",quote="",comment.char="",
+                  stringsAsFactors=F, 
+                  colClasses = c(character(),character(),character(),
+                                 numeric(),numeric(),numeric(),character(),
+                                 character(),character()))
+            gffchrm <<- gff[gff$V1==paste0("chr",chrm),] %>% as.data.table
+      }
       
-      newVCF <<- readVcf(tab, param=myparam)
-      uniGFF <<- gffchrm[gffchrm$V4 >= ini & gffchrm$V5 <= fim,] %>%
-            unique.data.frame
+      if (!exists("rngLim", envir=.GlobalEnv)) {
+            for (i in 1:1e4) {
+                  if (gffchrm[,V5[1]+2e6*i,] >= gffchrm[,V5[length(V5)]+4e6,]) {
+                        rngLim <<- i - 1; break
+                  }
+            }
+      }
+      
+      if (rng <= rngLim) {
+            if (vcf_file %>% stri_detect(regex="vcf.gz$")) {
+                  zipVCF <- vcf_file 
+            } else {
+                  zipVCF <- bgzip(vcf_file, tempfile())
+            }
+            
+            range <- GRanges(
+                  seqnames=chrm,
+                  ranges=IRanges(start = ini <- gffchrm$V4[1]+2e6*(rng-1),
+                                 end = fim <- gffchrm$V5[1]+2e6*rng))
+            
+            if (sum(gffchrm$V4 >= ini & gffchrm$V5 <= fim) != 0) {
+                  myparam <- ScanVcfParam(which=range)
+                  idx <- indexTabix(zipVCF, "vcf")
+                  tab <- TabixFile(zipVCF, idx)
+                  
+                  newVCF <<- readVcf(tab, param=myparam)
+                  uniGFF <<- gffchrm[gffchrm$V4 >= ini &
+                                           gffchrm$V5 <= fim,] %>%
+                        unique.data.frame
+                  
+                  exe.cond <<- TRUE
+            } else exe.cond <<- FALSE
+      } else exe.cond <<- FALSE
 }
 
 # OBS.: provavelmente, deverei definir uma função para pós-selecionar os 
@@ -78,6 +97,7 @@ prePross <- function(vcf) {
       quant.mixtype <- sum(pos.mixtype)
       if (quant.mixtype >= 1) {
             rep <- vcf@fixed@listData$ALT %>% as.list %>% listLen
+            
             ANorg <- vcf@info@listData$AN
             IDorg <- 
                   ifelse(vcf@rowRanges@ranges@NAMES %>% 
@@ -88,8 +108,8 @@ prePross <- function(vcf) {
             POSorg <- vcf@rowRanges@ranges@start
             QUALorg <- vcf@fixed@listData$QUAL
             
-            ACnew <- vcf@info@listData$AC %>% as.list %>% unlist
-            AFnew <- vcf@info@listData$AF %>% as.list %>% unlist
+            ACnew <- vcf@info@listData$AC@unlistData
+            AFnew <- vcf@info@listData$AF@unlistData
             ANnew <- mapply(function(x,y) rep(x,y),ANorg,rep) %>% unlist
             IDnew <- mapply(function(x,y) rep(x,y),IDorg,rep) %>% unlist
             REFnew <- mapply(function(x,y) rep(x,y),REForg,rep) %>% unlist
@@ -350,11 +370,13 @@ posSelect <- function(CHRM, AC.min=NULL, AC.max=NULL, AF.min=NULL,
                       ID.choice=c("both","valid","invalid"),
                       QUAL.choice=c("all","interval","out.interval")) {
       
-      allnewCHRM <- array(CHRM %>% stri_extract(regex="^[0-9]+") %>% 
-                                as.numeric, dim(CHRM), dimnames(CHRM))
-      rmVAR <- function() rm(c("allnewAUX","allnewAUX2"), envir=.GlobalEnv)
-      allnewVAR <- function(nameAUX, nameTAB, numTAB) {
-            if (!exists(nameAUX, envir=.GlobalEnv)) {
+      allnewCHRM <- 
+            array(CHRM %>% stri_extract(regex="^[0-9]+\\.*[0-9]*") %>% 
+                        as.numeric, dim(CHRM), dimnames(CHRM))
+      rmVAR <- function() rm(list=c("allnewAUX","allnewAUX2"),
+                             envir=.GlobalEnv)
+      allnewVAR <- function(nameTAB) {
+            if (!exists("allnewAUX", envir=.GlobalEnv)) {
                   dim1 <- NULL
                   dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
                             "NonIndel.mut","Info.AC","Info.AF_nsamples",
@@ -364,24 +386,40 @@ posSelect <- function(CHRM, AC.min=NULL, AC.max=NULL, AF.min=NULL,
                             "SAS.AF_nsamples")
                   allnewAUX <<- 
                         array(dim=c(dim(allnewCHRM)[1],dim(allnewCHRM)[2],
-                                    numTAB),
+                                    2),
                               dimnames=list(dim1,dim2,nameTAB))
             }
       }
+      allnewVAR2 <- function(nameTAB) {
+            if (!exists("allnewAUX2", envir=.GlobalEnv)) {
+                  dim1 <- NULL
+                  dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
+                            "NonIndel.mut","Info.AC","Info.AF_nsamples",
+                            "AFR.AC","AFR.AF_nsamples","AMR.AC",
+                            "AMR.AF_nsamples","EAS.AC", "EAS.AF_nsamples",
+                            "EUR.AC", "EUR.AF_nsamples","SAS.AC",
+                            "SAS.AF_nsamples")
+                  allnewAUX2 <<- 
+                        array(dim=c(dim(allnewCHRM)[1],dim(allnewCHRM)[2],
+                                    1),
+                              dimnames=list(dim1,dim2,nameTAB))
+            }
+      }
+      
       
       # Selecionando os IDs
       try(if (ID.choice[1]!="both" & ID.choice[1]!="valid" &
               ID.choice[1]!="invalid") {
             stop("O argumento 'ID.choice' não apresenta entrada válida")
       })
-      try(if (QUAL.choice!="all" & QUAL.choice!="interval" &
-              QUAL.choice!="out.interval") {
+      try(if (QUAL.choice[1]!="all" & QUAL.choice[1]!="interval" &
+              QUAL.choice[1]!="out.interval") {
             stop("O argumento 'QUAL.choice' não apresenta entrada válida")
       })
       # Selecionando os IDs
       if (ID.choice[1]=="both") {
             nameTab <- c("QUAL","!QUAL")
-            allnewVAR("allnewAUX", nameTab, 2)
+            allnewVAR(nameTab)
             for (i in 1:2) {
                   allnewAUX[,-(1:2),i] <- allnewCHRM[,-(1:2),i] +
                         allnewCHRM[,-(1:2),i+2]
@@ -389,35 +427,35 @@ posSelect <- function(CHRM, AC.min=NULL, AC.max=NULL, AF.min=NULL,
       }
       if (ID.choice[1]=="valid") {
             nameTab <- c("ID & QUAL","ID & !QUAL")
-            allnewVAR("allnewAUX", nameTab, 2)
-            allnewAUX[,,] <- allnewCHRM[,,1:2]
+            allnewVAR(nameTab)
+            allnewAUX[,-(1:2),] <- allnewCHRM[,-(1:2),1:2]
       }
       if (ID.choice[1]=="invalid") {
             nameTab <- c("!ID & QUAL","!ID & !QUAL") 
-            allnewVAR("allnewAUX", nameTab, 2)
-            allnewAUX[,,] <- allnewCHRM[,,3:4]
+            allnewVAR(nameTab)
+            allnewAUX[,-(1:2),] <- allnewCHRM[,-(1:2),3:4]
       }
       # Selecionando os QUALs
       if (QUAL.choice[1]=="all") {
-            nameTab <- 
-                  if (nameTab==c("QUAL","!QUAL")) NULL else {
+            nameTab <-
+                  if (nameTab[1]=="QUAL"&nameTab[2]=="!QUAL") "ALL" else {
                         stri_extract(regex="!*ID")[1]
                   }
-            allnewVAR("allnewAUX2", nameTab, 1)
+            allnewVAR2(nameTab)
             allnewAUX2[,-(1:2),1] <- allnewAUX[,-(1:2),1] +
                   allnewAUX[,-(1:2),2]
       }
       if (QUAL.choice[1]=="interval") {
             nameTab <- nameTab[1]
-            allnewVAR("allnewAUX2",nameTab,1)
-            allnewAUX2[,,] <- allnewAUX[,,1:2]
+            allnewVAR2(nameTab)
+            allnewAUX2[,-(1:2),1] <- allnewAUX[,-(1:2),1]
       }
       if (QUAL.choice[1]=="out.interval") {
             nameTab <- nameTab[2]
-            allnewVAR("allnewAUX2",nameTab,1)
-            allnewAUX2[,,] <- allnewAUX[,,3:4]
+            allnewVAR2(nameTab)
+            allnewAUX2[,-(1:2),1] <- allnewAUX[,-(1:2),2]
       }
-      allnewCHRM <- allnewAUX2
+      allnewCHRM <- cbind(CHRM[,1:2,1],allnewAUX2[,-(1:2),1])
       rmVAR()
       
       # Selecionando apenas os pirnas integralmente contidos nos limites de
@@ -465,87 +503,86 @@ posSelect <- function(CHRM, AC.min=NULL, AC.max=NULL, AF.min=NULL,
       coef <- c(AFR.AF_nsamples=1322,AMR.AF_nsamples=694,
                 EAS.AF_nsamples=1008,EUR.AF_nsamples=1006,
                 SAS.AF_nsamples=978)/5008
+      
       if (POP.by[1]=="all") {
-            etnoAF <- stri_join(POP.select, collapse=".AF_nsamples|")
-            popAF <- stri_extract(dimnames(allnewCHRM)[2],regex=etno)
-            etnoAC <- stri_join(POP.select, collapse=".AC|")
-            popAC <- stri_extract(dimnames(allnewCHRM)[2],regex=etno)
+            popAF <- stri_join(POP.select,".AF_nsamples")
+            popAC <- stri_join(POP.select, ".AC")
+            
             minAF <- ifelse(!AF.min %>% is.null, AF.min,
-                            allnewCHRM[,popAF,1] %>% t %>% stri_extract(
+                            allnewCHRM[,popAF] %>% t %>% stri_extract(
                                   regex="^[0-9]+") %>% as.numeric *
                                   coef[popAF] %>% min)
             maxAF <- ifelse(!AF.max %>% is.null, AF.max,
-                            allnewCHRM[,popAF,1] %>% t %>% stri_extract(
+                            allnewCHRM[,popAF] %>% t %>% stri_extract(
                                   regex="^[0-9]+") %>% as.numeric *
                                   coef[popAF] %>% max)
             minAC <- ifelse(!AC.min %>% is.null, AC.min,
-                            allnewCHRM[,popAC,1] %>% t %>% as.numeric %>% 
+                            allnewCHRM[,popAC] %>% t %>% as.numeric %>% 
                                   tapply(gl(allnewCHRM %>% nrow, popAC %>%
                                         length), sum) %>% min)
             maxAC <- ifelse(!AC.max %>% is.null, AC.max,
-                            allnewCHRM[,popAC,1] %>% t %>% as.numeric %>% 
+                            allnewCHRM[,popAC] %>% t %>% as.numeric %>% 
                                   tapply(gl(allnewCHRM %>% nrow, popAC %>%
                                         length), sum) %>% max)
             
             cond.AF <-
-                  allnewCHRM[,popAF,1] %>% t %>% stri_extract(
+                  allnewCHRM[,popAF] %>% t %>% stri_extract(
                         regex="^[0-9]+") %>% as.numeric %>% 
                               tapply(gl(allnewCHRM %>% nrow, popAF %>%
                                     length), sum) >= minAF &
-                  allnewCHRM[,popAF,1] %>% t %>% stri_extract(
+                  allnewCHRM[,popAF] %>% t %>% stri_extract(
                         regex="^[0-9]+") %>% as.numeric %>% 
                               tapply(gl(allnewCHRM %>% nrow, popAF %>%
                                     length), sum) <= maxAF
             cond.AC <-
-                  allnewCHRM[,popAC,1] %>% t %>% as.numeric %>% 
+                  allnewCHRM[,popAC] %>% t %>% as.numeric %>% 
                         tapply(gl(allnewCHRM %>% nrow, popAC %>%
                               length), sum) >= minAC &
-                  allnewCHRM[,popAC,1] %>% t %>% as.numeric %>% 
+                  allnewCHRM[,popAC] %>% t %>% as.numeric %>% 
                         tapply(gl(allnewCHRM %>% nrow, popAC %>%
                               length), sum) <= maxAC
             cond <- cond.AF & cond.AC
             
-            allnewCHRM <- allnewCHRM[cond,,1]
+            allnewCHRM <- allnewCHRM[cond,]
       }
       if (POP.by[1]=="each") {
-            etnoAF <- stri_join(POP.select, collapse=".AF_nsamples|")
-            popAF <- stri_extract(dimnames(allnewCHRM)[2],regex=etno)
-            etnoAC <- stri_join(POP.select, collapse=".AC|")
-            popAC <- stri_extract(dimnames(allnewCHRM)[2],regex=etno)
+            popAF <- stri_join(POP.select,".AF_nsamples")
+            popAC <- stri_join(POP.select, ".AC")
             
             minAF <- ifelse(!AF.min %>% is.null, AF.min,
-                            allnewCHRM[,popAF,1] %>% stri_extract(
+                            allnewCHRM[,popAF] %>% stri_extract(
                                   regex="^[0-9]+") %>% as.numeric %>% min)
             maxAF <- ifelse(!AF.max %>% is.null, AF.max,
-                            allnewCHRM[,popAF,1] %>% stri_extract(
+                            allnewCHRM[,popAF] %>% stri_extract(
                                   regex="^[0-9]+") %>% as.numeric %>% max)
             minAC <- ifelse(!AC.min %>% is.null, AC.min,
-                            allnewCHRM[,popAC,1] %>% as.numeric %>% min)
+                            allnewCHRM[,popAC] %>% as.numeric %>% min)
             maxAC <- ifelse(!AC.max %>% is.null, AC.max,
-                            allnewCHRM[,popAC,1] %>% as.numeric %>% max)
+                            allnewCHRM[,popAC] %>% as.numeric %>% max)
             
             cond.AF <- 
-                  matrix(allnewCHRM[,popAF,1] %>% 
+                  matrix(allnewCHRM[,popAF] %>% 
                                stri_extract(regex="^[0-9]+")%>% as.numeric,
                          allnewCHRM %>% nrow, popAF %>% length) >= minAF &
-                  matrix(allnewCHRM[,popAF,1] %>%
+                  matrix(allnewCHRM[,popAF] %>%
                                stri_extract(regex="^[0-9]+")%>% as.numeric,
                          allnewCHRM %>% nrow, popAF %>% length) <= maxAF
             cond.AC <- 
-                  matrix(allnewCHRM[,popAC,1] %>% as.numeric,
+                  matrix(allnewCHRM[,popAC] %>% as.numeric,
                          allnewCHRM %>% nrow, popAF %>% length) >= minAC &
-                  matrix(allnewCHRM[,popAC,1] %>% as.numeric,
+                  matrix(allnewCHRM[,popAC] %>% as.numeric,
                          allnewCHRM %>% nrow, popAF %>% length) <= maxAC
             cond <- cond.AF & cond.AC %>% apply(1, prod) == 1
             
-            allnewCHRM <- allnewCHRM[cond,,1]
+            allnewCHRM <- allnewCHRM[cond,]
       }
       
       coef <- c(Info.AF_nsamples=1, coef) * 5008
       allnewCHRM[,names(coef)] <- 
             matrix(paste0(allnewCHRM[,names(coef)] %>% t %>% as.vector,
                           rep(paste0("(",coef,")"),nrow(allnewCHRM))),
-                   nrow(allnewCHRM), ncol(allnewCHRM), byrow=T)
+                   nrow(allnewCHRM), ncol(allnewCHRM[,names(coef)]),
+                   byrow=T)
       
       allnewCHRM <<- allnewCHRM
 }
