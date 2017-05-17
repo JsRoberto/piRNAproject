@@ -14,29 +14,36 @@
 
 # Definindo pacotes não padrões a serem utilizados, baixando-os caso ainda
 # não tenham sido
-if(!require(doSNOW)) {
-      install.packages("doSNOW"); suppressMessages(require(doSNOW))
-} else suppressMessages(require(doSNOW))
-if(!require(foreach)) {
-      install.packages("foreach"); suppressMessages(require(foreach))
-} else suppressMessages(require(foreach))
-if(!require(stringi)) {
-      install.packages("stringi"); suppressMessages(require(stringi))
-} else suppressMessages(require(stringi))
-if(!require(magrittr)) {
-      install.packages("magrittr"); suppressMessages(require(magrittr))
-} else suppressMessages(require(magrittr))
-if(!require(data.table)) {
-      install.packages("data.table"); suppressMessages(require(data.table))
-} else suppressMessages(require(data.table))
-if(!require(doParallel)) {
-      install.packages("doParallel"); suppressMessages(require(doParallel))
-} else suppressMessages(require(doParallel))
-if(!require(VariantAnnotation)) {
+if(!suppressMessages(require(foreach))) {
+      install.packages("foreach")
+      suppressMessages(require(foreach))
+}
+if(!suppressMessages(require(stringi))) {
+      install.packages("stringi")
+      suppressMessages(require(stringi))
+}
+if(!suppressMessages(require(filehash))) {
+      install.packages("filehash")
+      suppressMessages(require(filehash))
+}
+if(!suppressMessages(require(magrittr))) {
+      install.packages("magrittr")
+      suppressMessages(require(magrittr))
+}
+if(!suppressMessages(require(data.table))) {
+      install.packages("data.table")
+      suppressMessages(require(data.table))
+}
+if(!suppressMessages(require(VariantAnnotation))) {
       source("https://bioconductor.org/biocLite.R")
       biocLite("VariantAnnotation")
-      suppressMessages(require(VariantAnnotation))
-} else {
+      
+      download.file(
+            stri_join("https://bioconductor.org/packages/release/bioc/src",
+                      "/contrib/VariantAnnotation_1.22.0.tar.gz"),
+            path_to_file <- "VariantAnnotation_1.22.0.tar.gz")
+      install.packages(path_to_file, repos=NULL, type="source", 
+                       dependencies=TRUE)[,.libPaths()[2]]
       suppressMessages(require(VariantAnnotation))
 }
 
@@ -45,68 +52,47 @@ if(!require(VariantAnnotation)) {
 Url <- c(paste0("https://raw.githubusercontent.com/JsRoberto/piRNAproject",
                 "/master/piRNAproject.R"),
          paste0("https://raw.githubusercontent.com/JsRoberto/piRNAproject",
-                "/master/piRNAfunction.R"))
-Local <- c("piRNAproject.R","piRNAfunction.R")
+                "/master/piRNAfunction.R"),
+         paste0("https://github.com/JsRoberto/piRNAproject/blob/master/",
+                chrmFILES <- paste0("CHRM",12:16,".Rda"),
+                "?raw=true"))
+Local <- c("piRNAproject.R","piRNAfunction.R", chrmFILES)
 
-download <- function(Local, Url) {
+Download <- function(Local, Url) {
       if (!file.exists(Local)) {
             download.file(Url, Local)
       }
 }
 
-mapply(download, Local, Url)
+mapply(Download, Local, Url)
 
 # Obtendo os arquivos '.vcf' e '.gff' que serão analisados
 gff_file <- "pirna.pirbase.collapsed.gff"
-vcf_file <- paste0("ALL.chr16.phase3_shapeit2_mvncall_integrated_v5.20130",
-                   "502.genotypes.vcf.gz")
+vcf_file <- stri_join("ALL.chr10.phase3_shapeit2_mvncall_integrated_v5.20",
+                      "130502.genotypes.vcf.gz")
 
-# Estabelemento das funções armazenadas em "piRNAfunctions.R"
+# Estabelemento das funções armazenadas em "piRNAfunction.R"
 source("piRNAfunction.R", encoding = "UTF-8")
 
-# Algoritmo de preparação para o processamento paralelo
-n <- detectCores() # Esse número dividido por 2 é a quantidade de núcleos
-                   # de processamento do meu computador
-NumberOfCluster <- n/2 # Quantas tarefas serão executadas simultaneamente
-cl <- makeCluster(NumberOfCluster) # Cria os 'clusters'
-registerDoSNOW(cl) # Registra para utilização o 'cluster' definido acima
-getDoParWorkers() # Confirmação do número de núcleos disponiveis para pro-
-                  # cessamento
+# 
+piRNAsDB()
 
-# O código que será executado paralelamento pelo computador segue abaixo
-
-piRNAcalc <- function(vcf_file, gff_file, chrm, rng,
-                      QUAL.min=NULL, QUAL.max=NULL) {
-      piRNAfiles(vcf_file, gff_file, chrm, rng)
-      if (exe.cond) {
-            preSelect(QUAL.min, QUAL.max)
-            prePross(newVCF)
-            foreach(idx=1:nrow(uniGFF), .combine='rbind') %do%
-                  piRNAcount(newVCF, uniGFF, idx)
-      }
-}
-
-#----------
+#
 system.time({
-      foreach(rng=1:8) %do% piRNAcalc(vcf_file, gff_file, 16, rng, 100)
-      saveRDS(CHRM, file="CHRM16_1.Rda")
+      foreach(rng=1) %do% 
+            piRNAcalc(vcf_file, gff_file, chrm <- 10, rng, 100)
 })
-# OBS.: (1) Estou encontrando problemas com a computação paralela;
 
-# Salvando e regatando a array resultante!
-saveRDS(CHRM, file="CHRM17_1.Rda")
-CHRM18 <- readRDS(file="CHRM18.Rda")
+readRDS("CHRM.Rda") %>% saveRDS(file="CHRM10.Rda")
 
-CHRM18 <- array(dim=c(nrow(CHRM18.1)+nrow(CHRM18.2)+nrow(CHRM18.3)+nrow(CHRM18.4),
-                      dim(CHRM18.1)[2], dim(CHRM18.1)[3]),
-                dimnames=dimnames(CHRM18.1))
+CHRM22 <- readRDS(file="CHRM22.Rda")
 
-for (j in 1:4) {
-      CHRM18[,,j] <- rbind(CHRM18.1[,,j],CHRM18.2[,,j],
-                           CHRM18.3[,,j],CHRM18.4[,,j])
-}
+piRNAposSelect(CHRM22, MUT.min=1, AF.min=0.005, AF.max=0.5, NMAX.map=3,
+               ID.choice="yes", QUAL.choice="yes")
 
-posSelect(CHRM18)
 
-stopCluster(cl) # Encerramento dos 'clusters'. OBS.: sempre realizar este
-                # comando após o término do processamento paralelo
+
+
+
+
+
