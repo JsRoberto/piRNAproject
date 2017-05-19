@@ -1,7 +1,7 @@
 #
 #
 
-.libPaths("C:/Rdir/library_R-3.4.0")
+#.libPaths("C:/Rdir/library_R-3.4.0")
 
 if(!suppressMessages(require(stringi))) {
       install.packages("stringi")
