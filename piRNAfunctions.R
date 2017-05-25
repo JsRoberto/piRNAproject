@@ -55,9 +55,9 @@ piRNAfiles <- function(vcf_file, gff_file) {
       
       # Parâmetros de busca dos dados de frequencias alélicas das super-
       # populações
-      POP.select <- c("AFR","AMR","EAS","EUR","SAS_AF=")
-      popAF <- stri_join(POP.select, collapse="_AF=|")
-      popALL <- stri_join(c(popAF,"AC","AF="), collapse="=|")
+      POP.select <- c("AFR","AMR","EAS","EUR","SAS_AF")
+      popAF <- stri_join(POP.select, collapse="_AF|")
+      popALL <- stri_join(c(popAF,"AC","AF"), collapse="|")
       
       # Laço de interação para obtenção e tratamento da ssutabelas
       serie <- seq(0,numLines,1e5)
@@ -70,42 +70,48 @@ piRNAfiles <- function(vcf_file, gff_file) {
             
             vcfinfo <- vcf$INFO %>% stri_split_fixed(";")
             cinfo <- 
-                  lapply(vcfinfo, function(x) stri_detect_regex(x,popAF))
+                  lapply(vcfinfo, function(x) stri_detect_regex(x,popALL))
             
             vcfinfo <- mapply(function(x,y) x[y], vcfinfo, cinfo) 
             
-            vcfinfo <- sapply(vcfinfo, function(x)
-                  stri_extract_all(x,regex="[0-9]+\\.*[0-9]*") %>%
-                        stri_join_list(",")) %>% t
+            namesinfo <- stri_split(popALL, fixed="|")[[1]]
+            ginfo <- gl(n, length(namesinfo))
+            vcfinfo <- tapply(vcfinfo, ginfo, function(x) stri_extract_all(
+                  x, regex="[0-9]+\\.*[0-9]*") %>% stri_join_list(","))
             
-            colnames(vcfinfo) <- stri_split(popAF, fixed="=|")[[1]]
+            vcfinfo <- vcfinfo %>% unlist() %>% 
+                  matrix(n, length(namesinfo), byrow=T)
             
-            vcf <- cbind(vcf[,-c(1,6:8)], vcfinfo)
+            colnames(vcfinfo) <- namesinfo
+            
+            vcf <- cbind(vcf[,-c(1,6:8)], vcfinfo, stringsAsFactors=F)
             
             #
             
-            cond <- stri_count(vcf$ALT, fixed=",")
+            count <- stri_count(vcf$ALT, fixed=",")
             
-            vcfTemp <- vcf[cond > 0,]
-            cond <- cond[cond > 0]
+            vcfTemp <- vcf[count > 0,]
+            subcount <- count[count > 0]
             
-            vcfAux1 <- subset(vcfTemp, select=-c("ALT",colnames(vcfinfo)))
-            vcfAux2 <- subset(vcfTemp, select=c("ALT",colnames(vcfinfo)))
+            vcfAux1 <- subset(vcfTemp, select=1:3)
+            vcfAux2 <- subset(vcfTemp, select=-c(1:3))
             
             for (j in 1:nrow(vcfTemp)) {
                   vcfAUX2 <- 
                         vcfAux2[j,] %>% stri_split(fixed=",") %>% 
                         as.data.frame(row.names=colnames(vcfAux2),
-                                      col.names=0:cond[j]+1) %>% t
+                                      col.names=0:subcount[j]+1,
+                                      stringAsFactors=F) %>% t
                   
                   vcfAUX1 <- vcfAux1[rep(j,nrow(vcfAUX2)),]
                   
                   if (!file.exists(vcfNew)) vcfNew <- data.frame()
-                  vcfNew <- rbind(vcfNew, cbind(vcfAUX1,vcfAUX2))
+                  vcfNew <- 
+                        rbind(vcfNew, cbind(vcfAUX1,vcfAUX2))
             }
             #
             if (!file.exists(vcfNEW)) vcfNEW <- data.frame()
-            vcfNEW <- rbind(vcfNEW, vcf[cond == 0,], vcfNew)
+            vcfNEW <- rbind(vcfNEW, vcf[count == 0,], vcfNew)
       }
       NEWVCF <<- vcfNEW
 }
