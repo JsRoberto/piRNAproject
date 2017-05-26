@@ -10,6 +10,17 @@
 #      "C:/Users/JoséRoberto/AppData/Roaming/SPB_16.6/R/win-library/3.2")
 .libPaths("C:/Rdir/library_R-3.4.0")
 
+# Definindo pacotes não padrões a serem utilizados, baixando-os caso ainda
+# não tenham sido
+if(!suppressMessages(require(stringi))) {
+      install.packages("stringi")
+      suppressMessages(require(stringi))
+}
+if(!suppressMessages(require(magrittr))) {
+      install.packages("magrittr")
+      suppressMessages(require(magrittr))
+}
+
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
 # '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
 # da função "piRNAcount()" logo abaixo. 
