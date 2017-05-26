@@ -88,29 +88,32 @@ piRNAfiles <- function(vcf_file, gff_file) {
             colnames(vcf)[1:4] <- c("POS", "ID", "REF", "ALT") 
             #
             
-            count <- stri_count(vcf$V5, fixed=",")
+            count <- stri_count(vcf$ALT, fixed=",")
             
-            vcfTemp <- vcf[count > 0,]
-            subcount <- count[count > 0]
-            
-            vcfAux1 <- subset(vcfTemp, select=1:3)
-            vcfAux2 <- subset(vcfTemp, select=-c(1:3))
-            
-            for (j in 1:nrow(vcfTemp)) {
-                  vcfAUX2 <- 
-                        vcfAux2[j,] %>% stri_split(fixed=",") %>% 
-                        as.data.frame(row.names=0:subcount[j]+1,
-                                      col.names=colnames(vcfAux2),
-                                      stringAsFactors=F)
+            if (sum(count > 0)==0) {
+                  vcfTemp <- vcf[count > 0,]
+                  subcount <- count[count > 0]
                   
-                  vcfAUX1 <- vcfAux1[rep(j,nrow(vcfAUX2)),]
+                  vcfAux1 <- subset(vcfTemp, select=1:3)
+                  vcfAux2 <- subset(vcfTemp, select=-c(1:3))
                   
-                  if (!exists("vcfNew") | j==1) vcfNew <- data.frame()
-                  vcfNew <- 
-                        rbind(vcfNew, cbind(vcfAUX1,vcfAUX2))
+                  for (j in 1:nrow(vcfTemp)) {
+                        vcfAUX2 <- 
+                              vcfAux2[j,] %>% stri_split(fixed=",") %>% 
+                              as.data.frame(row.names=0:subcount[j]+1,
+                                            col.names=colnames(vcfAux2),
+                                            stringAsFactors=F)
+                        
+                        vcfAUX1 <- vcfAux1[rep(j,nrow(vcfAUX2)),]
+                        
+                        if (!exists("vcfNew") | j==1) vcfNew <- data.frame()
+                        vcfNew <- 
+                              rbind(vcfNew, cbind(vcfAUX1,vcfAUX2))
+                  }
+            } else {
+                  vcfNew <- data.frame()
             }
-            #
-            if (exists("vcfNEW") | i==1) vcfNEW <- data.frame()
+            if (!exists("vcfNEW") | i==1) vcfNEW <- data.frame()
             vcfNEW <- rbind(vcfNEW, vcf[count == 0,], vcfNew)
       }
       NEWVCF <<- vcfNEW
@@ -193,23 +196,23 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
                               Info.AC=stri_join(vcfAUX$AC, collapse=";"),
                               Info.AF=stri_join(vcfAUX$AF, collapse=";") %>% 
                                     stri_join("(", coef %>% sum,")"),
-                              AFR.AC=stri_join(coef[1]*vcfAUX$AFR_AF %>% round,
+                              AFR.AC=stri_join((coef[1]*as.numeric(vcfAUX$AFR_AF)) %>% round,
                                                collapse=";"),
                               AFR.AF=stri_join(vcfAUX$AFR_AF, collapse=";") %>%
                                     stri_join("(",coef[1],")"),
-                              AMR.AC=stri_join(coef[2]*vcfAUX$AMR_AF %>% round,
+                              AMR.AC=stri_join((coef[2]*as.numeric(vcfAUX$AMR_AF)) %>% round,
                                                collapse=";"),
                               AMR.AF=stri_join(vcfAUX$AMR_AF, collapse=";") %>%
                                     stri_join("(",coef[2],")"), 
-                              EAS.AC=stri_join(coef[3]*vcfAUX$EAS_AF %>% round,
+                              EAS.AC=stri_join((coef[3]*as.numeric(vcfAUX$EAS_AF)) %>% round,
                                                collapse=";"),
                               EAS.AF=stri_join(vcfAUX$EAS_AF, collapse=";") %>% 
                                     stri_join("(",coef[3],")"),
-                              EUR.AC=stri_join(coef[4]*vcfAUX$EUR_AF %>% round,
+                              EUR.AC=stri_join((coef[4]*as.numeric(vcfAUX$EUR_AF)) %>% round,
                                                collapse=";"),
                               EUR.AF=stri_join(vcfAUX$EUR_AF, collapse=";") %>%
                                     stri_join("(",coef[4],")"),
-                              SAS.AC=stri_join(coef[5]*vcfAUX$SAS_AF %>% round,
+                              SAS.AC=stri_join((coef[5]*as.numeric(vcfAUX$SAS_AF)) %>% round,
                                                collapse=";"),
                               SAS.AF=stri_join(vcfAUX$SAS_AF,collapse=";") %>%
                                     stri_join("(",coef[5],")"))
@@ -235,7 +238,7 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
             if (!exists("CHRMaux", envir=.GlobalEnv)) {
                   dim1 <- NULL
                   dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-                            "NonIndel.mut","ID.mut","Info.AC","Info.AF","AFR.AC",
+                            "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
                             "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
                             "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
                   dim3 <- c("ID","!ID")
@@ -254,7 +257,7 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
                   } else {
                         dim1 <- NULL
                         dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-                                  "NonIndel.mut","ID.mut","Info.AC","Info.AF","AFR.AC",
+                                  "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
                                   "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
                                   "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
                         dim3 <- c("ID","!ID")
