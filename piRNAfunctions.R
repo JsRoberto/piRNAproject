@@ -47,7 +47,7 @@ piRNAfiles <- function(vcf_file, gff_file) {
             download.file(urlNumLines, localNumLines)
       }
       
-      numLines <- read.delim("numLines.txt")
+      numLines <- read.delim("numLines.txt", stringsAsFactors=F)
       
       chrm <<- vcf_file %>% stri_extract_first(regex="[0-9]+")
       lines <- numLines$lines[numLines$chrm==chrm]
