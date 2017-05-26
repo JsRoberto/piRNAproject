@@ -55,26 +55,25 @@ piRNAfiles <- function(vcf_file, gff_file) {
       
       # Parâmetros de busca dos dados de frequencias alélicas das super-
       # populações
-      POP.select <- c("AFR","AMR","EAS","EUR","SAS_AF")
-      popAF <- stri_join(POP.select, collapse="_AF|")
-      popALL <- stri_join(c(popAF,"AC","AF"), collapse="|")
+      popALL <- "AC=|AF=|AFR_AF=|AMR_AF=|EAS_AF=|EUR_AF=|SAS_AF="
       
-      # Laço de interação para obtenção e tratamento da ssutabelas
+      # Laço de interação para obtenção e tratamento da subtabelas
       serie <- seq(0,numLines,1e5)
       last <- serie[length(serie)]
       
       for (i in serie) {
             if (i==last) n <- numLines - i else n <- 1e5
-            vcf <- read.delim(vcf_file, stringsAsFactors=F, 
-                              skip=249+i, nrows=n)[,1:8]
+            vcf <- read.delim(vcf_file, stringsAsFactors=F, header=F,
+                              comment.char="#", nrows=n)[,1:8]
             
-            vcfinfo <- vcf$INFO %>% stri_split_fixed(";")
+            vcfinfo <- vcf$V8 %>% stri_split_fixed(";")
             cinfo <- 
                   lapply(vcfinfo, function(x) stri_detect_regex(x,popALL))
             
-            vcfinfo <- mapply(function(x,y) x[y], vcfinfo, cinfo) 
+            vcfinfo <- mapply(function(x,y) x[y] %>% sort, vcfinfo, cinfo) 
             
-            namesinfo <- stri_split(popALL, fixed="|")[[1]]
+            namesinfo <- stri_split(popALL, fixed="=|")[[1]] %>% sort
+            namesinfo[2] <- "AF"
             ginfo <- gl(n, length(namesinfo))
             vcfinfo <- tapply(vcfinfo, ginfo, function(x) stri_extract_all(
                   x, regex="[0-9]+\\.*[0-9]*") %>% stri_join_list(","))
@@ -86,9 +85,10 @@ piRNAfiles <- function(vcf_file, gff_file) {
             
             vcf <- cbind(vcf[,-c(1,6:8)], vcfinfo, stringsAsFactors=F)
             
+            colnames(vcf)[1:4] <- c("POS", "ID", "REF", "ALT") 
             #
             
-            count <- stri_count(vcf$ALT, fixed=",")
+            count <- stri_count(vcf$V5, fixed=",")
             
             vcfTemp <- vcf[count > 0,]
             subcount <- count[count > 0]
@@ -99,18 +99,18 @@ piRNAfiles <- function(vcf_file, gff_file) {
             for (j in 1:nrow(vcfTemp)) {
                   vcfAUX2 <- 
                         vcfAux2[j,] %>% stri_split(fixed=",") %>% 
-                        as.data.frame(row.names=colnames(vcfAux2),
-                                      col.names=0:subcount[j]+1,
-                                      stringAsFactors=F) %>% t
+                        as.data.frame(row.names=0:subcount[j]+1,
+                                      col.names=colnames(vcfAux2),
+                                      stringAsFactors=F)
                   
                   vcfAUX1 <- vcfAux1[rep(j,nrow(vcfAUX2)),]
                   
-                  if (!file.exists(vcfNew)) vcfNew <- data.frame()
+                  if (!exists("vcfNew") | j==1) vcfNew <- data.frame()
                   vcfNew <- 
                         rbind(vcfNew, cbind(vcfAUX1,vcfAUX2))
             }
             #
-            if (!file.exists(vcfNEW)) vcfNEW <- data.frame()
+            if (exists("vcfNEW") | i==1) vcfNEW <- data.frame()
             vcfNEW <- rbind(vcfNEW, vcf[count == 0,], vcfNew)
       }
       NEWVCF <<- vcfNEW
