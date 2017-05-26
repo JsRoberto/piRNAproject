@@ -37,7 +37,8 @@ piRNAfiles <- function(vcf_file, gff_file) {
       numLines <- read.delim("numLines.txt")
       
       chrm <<- vcf_file %>% stri_extract_first(regex="[0-9]+")
-      numLines <- numLines$lines[numLines$chrm==chrm]
+      lines <- numLines$lines[numLines$chrm==chrm]
+      comms <- numLines$comments[numLines$chrm==chrm]
       
       # Obtendo o arquivo .gff
       gff <- read.delim(gff_file, stringsAsFactors=F, header=F)
@@ -58,11 +59,11 @@ piRNAfiles <- function(vcf_file, gff_file) {
       popALL <- "AC=|AF=|AFR_AF=|AMR_AF=|EAS_AF=|EUR_AF=|SAS_AF="
       
       # Laço de interação para obtenção e tratamento da subtabelas
-      serie <- seq(0,numLines,1e5)
+      serie <- seq(0, lines - comms, 1e5)
       last <- serie[length(serie)]
       
       for (i in serie) {
-            if (i==last) n <- numLines - i else n <- 1e5
+            if (i==last) n <- lines - comms - i else n <- 1e5
             vcf <- read.delim(vcf_file, stringsAsFactors=F, header=F,
                               comment.char="#", nrows=n)[,1:8]
             
@@ -106,7 +107,7 @@ piRNAfiles <- function(vcf_file, gff_file) {
                         
                         vcfAUX1 <- vcfAux1[rep(j,nrow(vcfAUX2)),]
                         
-                        if (!exists("vcfNew") | j==1) vcfNew <- data.frame()
+                        if (!exists("vcfNew")|j==1) vcfNew <- data.frame()
                         vcfNew <- 
                               rbind(vcfNew, cbind(vcfAUX1,vcfAUX2))
                   }
@@ -193,28 +194,38 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
                         cbind(piRNA=piRNAname, Local=piRNAlocal,
                               Total.mut=quant.mut, Indel.mut=indel.mut,
                               NonIndel.mut=noind.mut, ID.mut=piRNAid,
-                              Info.AC=stri_join(vcfAUX$AC, collapse=";"),
-                              Info.AF=stri_join(vcfAUX$AF, collapse=";") %>% 
+                              AC=stri_join(vcfAUX$AC, collapse=";"),
+                              AF=stri_join(vcfAUX$AF, collapse=";") %>% 
                                     stri_join("(", coef %>% sum,")"),
-                              AFR.AC=stri_join((coef[1]*as.numeric(vcfAUX$AFR_AF)) %>% round,
-                                               collapse=";"),
-                              AFR.AF=stri_join(vcfAUX$AFR_AF, collapse=";") %>%
+                              AFR.AC=stri_join(
+                                    (coef[1]*as.numeric(vcfAUX$AFR_AF)) %>%
+                                          round, collapse=";"),
+                              AFR.AF=stri_join(
+                                    vcfAUX$AFR_AF, collapse=";") %>% 
                                     stri_join("(",coef[1],")"),
-                              AMR.AC=stri_join((coef[2]*as.numeric(vcfAUX$AMR_AF)) %>% round,
-                                               collapse=";"),
-                              AMR.AF=stri_join(vcfAUX$AMR_AF, collapse=";") %>%
+                              AMR.AC=stri_join(
+                                    (coef[2]*as.numeric(vcfAUX$AMR_AF)) %>%
+                                          round, collapse=";"),
+                              AMR.AF=stri_join(
+                                    vcfAUX$AMR_AF, collapse=";") %>%
                                     stri_join("(",coef[2],")"), 
-                              EAS.AC=stri_join((coef[3]*as.numeric(vcfAUX$EAS_AF)) %>% round,
-                                               collapse=";"),
-                              EAS.AF=stri_join(vcfAUX$EAS_AF, collapse=";") %>% 
+                              EAS.AC=stri_join(
+                                    (coef[3]*as.numeric(vcfAUX$EAS_AF)) %>%
+                                          round, collapse=";"),
+                              EAS.AF=stri_join(
+                                    vcfAUX$EAS_AF, collapse=";") %>% 
                                     stri_join("(",coef[3],")"),
-                              EUR.AC=stri_join((coef[4]*as.numeric(vcfAUX$EUR_AF)) %>% round,
-                                               collapse=";"),
-                              EUR.AF=stri_join(vcfAUX$EUR_AF, collapse=";") %>%
+                              EUR.AC=stri_join(
+                                    (coef[4]*as.numeric(vcfAUX$EUR_AF)) %>%
+                                          round, collapse=";"),
+                              EUR.AF=stri_join(
+                                    vcfAUX$EUR_AF, collapse=";") %>%
                                     stri_join("(",coef[4],")"),
-                              SAS.AC=stri_join((coef[5]*as.numeric(vcfAUX$SAS_AF)) %>% round,
-                                               collapse=";"),
-                              SAS.AF=stri_join(vcfAUX$SAS_AF,collapse=";") %>%
+                              SAS.AC=stri_join(
+                                    (coef[5]*as.numeric(vcfAUX$SAS_AF)) %>%
+                                          round, collapse=";"),
+                              SAS.AF=stri_join(
+                                    vcfAUX$SAS_AF,collapse=";") %>%
                                     stri_join("(",coef[5],")"))
             } else {
                   CHRMaux <- 
@@ -222,11 +233,16 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
                               Total.mut=0, Indel.mut=0,
                               NonIndel.mut=0, ID.mut=piRNAid, Info.AC=0, 
                               Info.AF=stri_join(0.00,"(",coef%>%sum,")"),
-                              AFR.AC=0, AFR.AF=stri_join(0.00,"(",coef[1],")"),
-                              AMR.AC=0, AMR.AF=stri_join(0.00,"(",coef[2],")"),
-                              EAS.AC=0, EAS.AF=stri_join(0.00,"(",coef[3],")"),
-                              EUR.AC=0, EUR.AF=stri_join(0.00,"(",coef[4],")"),
-                              SAS.AC=0, SAS.AF=stri_join(0.00,"(",coef[5],")"))
+                              AFR.AC=0, AFR.AF=stri_join(
+                                    0.00,"(",coef[1],")"),
+                              AMR.AC=0, AMR.AF=stri_join(
+                                    0.00,"(",coef[2],")"),
+                              EAS.AC=0, EAS.AF=stri_join(
+                                    0.00,"(",coef[3],")"),
+                              EUR.AC=0, EUR.AF=stri_join(
+                                    0.00,"(",coef[4],")"),
+                              SAS.AC=0, SAS.AF=stri_join(
+                                    0.00,"(",coef[5],")"))
             }
             return(CHRMaux)
       }
@@ -257,9 +273,10 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
                   } else {
                         dim1 <- NULL
                         dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-                                  "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
-                                  "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
-                                  "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
+                                  "NonIndel.mut","ID.mut","AC","AF",
+                                  "AFR.AC","AFR.AF","AMR.AC","AMR.AF",
+                                  "EAS.AC","EAS.AF","EUR.AC","EUR.AF",
+                                  "SAS.AC","SAS.AF")
                         dim3 <- c("ID","!ID")
                         dimension <- 
                               c(nrow(readRDS(file=CHRMfile)) + nrow(CHRMaux),
@@ -336,7 +353,7 @@ posSelect <- function(CHRM, AC.min=NULL, AC.max=NULL, AF.min=NULL,
       # Selecionando os IDs
       
       try(if (!ID.choice[1] %>% is.null & ID.choice!="both" & 
-          ID.choice!="valid" & ID.choice!="invalid") {
+              ID.choice!="valid" & ID.choice!="invalid") {
             stop("O argumento 'ID.choice' não apresenta entrada válida")
       })
       try(if (!QUAL.choice[1] %>% is.null & QUAL.choice!="all" & 
@@ -420,11 +437,11 @@ posSelect <- function(CHRM, AC.min=NULL, AC.max=NULL, AF.min=NULL,
       if (!LOC.pirna %>% is.null) {
             local <- 
                   allnewCHRM[,"Local",1] %>% 
-                        stri_extract(regex="^[0-9]+") %>%
-                        as.numeric >= min(LOC.pirna) &
+                  stri_extract(regex="^[0-9]+") %>%
+                  as.numeric >= min(LOC.pirna) &
                   allnewCHRM[,"Local",1] %>% 
-                        stri_extract(regex="[0-9]+&") %>%
-                        as.numeric <= max(LOC.pirna)
+                  stri_extract(regex="[0-9]+&") %>%
+                  as.numeric <= max(LOC.pirna)
             try(if (sum(local)==0) {
                   stop(stri_join("Não há piRNAs completamente inseridos na",
                                  " localização especificada"))
