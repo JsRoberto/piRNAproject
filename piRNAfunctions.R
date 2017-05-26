@@ -40,8 +40,10 @@ piRNAfiles <- function(vcf_file, gff_file) {
       
       # Obtendo o arquivo "numLines.txt" 
       localNumLines <- "numLines.txt"
-      urlNumLines <- ""
-      if (!file.exists(numberOfLines)) {
+      urlNumLines <- 
+            stri_join("https://raw.githubusercontent.com/",
+                      "JsRoberto/piRNAproject/master/numLines.txt")
+      if (!file.exists(localNumLines)) {
             download.file(urlNumLines, localNumLines)
       }
       
