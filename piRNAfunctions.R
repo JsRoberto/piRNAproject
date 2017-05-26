@@ -39,7 +39,8 @@ if(!suppressMessages(require(magrittr))) {
 piRNAfiles <- function(vcf_file, gff_file) {
       
       # Obtendo o arquivo "numLines.txt" 
-      localNumLines <- "numLines.txt"
+      localNumLines <- stri_join("/data/projects/metagenomaCG/jose/",
+                                 "piRNAproject/numLines.txt")
       urlNumLines <- 
             stri_join("https://raw.githubusercontent.com/",
                       "JsRoberto/piRNAproject/master/numLines.txt")
@@ -47,7 +48,7 @@ piRNAfiles <- function(vcf_file, gff_file) {
             download.file(urlNumLines, localNumLines)
       }
       
-      numLines <- read.delim("numLines.txt", stringsAsFactors=F)
+      numLines <- read.delim(localNumLines, stringsAsFactors=F)
       
       chrm <<- vcf_file %>% stri_extract_first(regex="[0-9]+")
       lines <- numLines$lines[numLines$chrm==chrm]
