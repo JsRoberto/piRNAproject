@@ -20,6 +20,16 @@ if(!suppressMessages(require(magrittr))) {
       install.packages("magrittr")
       suppressMessages(require(magrittr))
 }
+if(!suppressMessages(require(parallel))) {
+      install.packages("parallel")
+      suppressMessages(require(parallel))
+}
+
+
+#
+piRNAparallel <- function() {
+      
+}
 
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
 # '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
@@ -36,7 +46,7 @@ if(!suppressMessages(require(magrittr))) {
 # (2) "uniGFF": objeto da classe 'data.frame' correspondente a "gffFirst",
 # porém sem redundência de registros.
 # -------------------------------------------------------------------------
-piRNAfiles <- function(vcf_file, gff_file) {
+piRNAprep <- function(vcf_file, gff_file) {
       
       # Obtendo o arquivo "numLines.txt" 
       localNumLines <- stri_join("/data/projects/metagenomaCG/jose/",
@@ -156,7 +166,6 @@ piRNAfiles <- function(vcf_file, gff_file) {
 # total de indivíduos analisados pelo projeto '1000 Genomes'.
 # -------------------------------------------------------------------------
 piRNAcount <- function(NEWVCF, UNIGFF, index) {
-      
       countCHRM <- function(NEWVCF, UNIGFF, index, ID=c(TRUE,FALSE)) {
             vcfAUX <- NEWVCF
             
@@ -260,54 +269,80 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
             }
             return(CHRMaux)
       }
-      
       calcCHRM <- function() {
-            if (exists("CHRMaux", envir=.GlobalEnv) & index == 1) {
-                  rm("CHRMaux", envir=.GlobalEnv)
-            }
-            if (!exists("CHRMaux", envir=.GlobalEnv)) {
+            
+            arrayInfo <- function(nrow) {
                   dim1 <- NULL
                   dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
                             "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
                             "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
                             "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
                   dim3 <- c("ID","!ID")
-                  dimensions <- 
-                        c(nrow(UNIGFF),length(dim2),length(dim3))
-                  CHRMaux <- 
-                        array(dimnames=list(dim1,dim2,dim3),dim=dimensions)
+                  dimensions <- c(nrow,length(dim2),length(dim3))
             }
-            CHRMaux[index,,1] <- countCHRM(NEWVCF,UNIGFF,index,T)
-            CHRMaux[index,,2] <- countCHRM(NEWVCF,UNIGFF,index,F)
-            CHRMaux <<- CHRMaux
+            
+            arrayInfo(1)
+            CHRMaux[[index]] <<- 
+                  array(c(countCHRM(NEWVCF,UNIGFF,index,T),
+                          countCHRM(NEWVCF,UNIGFF,index,F)),
+                        dimnames=list(dim1,dim2,dim3),dim=dimensions)
+            
             if (index == nrow(UNIGFF)) {
-                  CHRMfile <- stri_join("CHRM",chrm,".Rda")
-                  if (!file.exists(CHRMfile)) {
-                        saveRDS(CHRMaux, file=CHRMfile)
-                  } else {
-                        dim1 <- NULL
-                        dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-                                  "NonIndel.mut","ID.mut","AC","AF",
-                                  "AFR.AC","AFR.AF","AMR.AC","AMR.AF",
-                                  "EAS.AC","EAS.AF","EUR.AC","EUR.AF",
-                                  "SAS.AC","SAS.AF")
-                        dim3 <- c("ID","!ID")
-                        dimension <- 
-                              c(nrow(readRDS(file=CHRMfile)) + nrow(CHRMaux),
-                                length(dim2), length(dim3))
-                        CHRMtemp <- 
-                              array(dimnames=list(dim1,dim2,dim3), dim=dimension)
-                        for (i in 1:2) {
-                              CHRMtemp[,,i] <- rbind(readRDS(CHRMfile)[,,i],
-                                                     CHRMaux[,,i])
-                        }
-                        saveRDS(CHRMtemp, CHRMfile)
-                  }
+                  arrayInfo(index)
+                  CHRM <- array(dimnames=list(dim1,dim2,dim3),
+                                dim=dimensions)
+                  for (idx in 1:index) CHRM[idx,,] <- CHRMaux[[idx]]
+                  CHRMaux <<- list()
+                  CHRMfile <- stri_join("/data/projects/metagenomaCG/jose",
+                                        "/piRNAproject/CHRM",chrm,".Rda")
+                  saveRDS(CHRM, file=CHRMfile)
             }
+            
+            #########
+            # if (exists("CHRMaux", envir=.GlobalEnv) & index == 1) {
+            #       rm("CHRMaux", envir=.GlobalEnv)
+            # }
+            # if (!exists("CHRMaux", envir=.GlobalEnv)) {
+            #       dim1 <- NULL
+            #       dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
+            #                 "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
+            #                 "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
+            #                 "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
+            #       dim3 <- c("ID","!ID")
+            #       dimensions <- 
+            #             c(nrow(UNIGFF),length(dim2),length(dim3))
+            #       CHRMaux <- 
+            #             array(dimnames=list(dim1,dim2,dim3),dim=dimensions)
+            # }
+            # CHRMaux[index,,1] <- countCHRM(NEWVCF,UNIGFF,index,T)
+            # CHRMaux[index,,2] <- countCHRM(NEWVCF,UNIGFF,index,F)
+            # CHRMaux <<- CHRMaux
+            # if (index == nrow(UNIGFF)) {
+            #       CHRMfile <- stri_join("/data/projects/metagenomaCG/jose",
+            #                             "/piRNAproject/CHRM",chrm,".Rda")
+            #       if (!file.exists(CHRMfile)) {
+            #             saveRDS(CHRMaux, file=CHRMfile)
+            #       } else {
+            #             dim1 <- NULL
+            #             dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
+            #                       "NonIndel.mut","ID.mut","AC","AF",
+            #                       "AFR.AC","AFR.AF","AMR.AC","AMR.AF",
+            #                       "EAS.AC","EAS.AF","EUR.AC","EUR.AF",
+            #                       "SAS.AC","SAS.AF")
+            #             dim3 <- c("ID","!ID")
+            #             dimension <- 
+            #                   c(nrow(readRDS(file=CHRMfile)) + nrow(CHRMaux),
+            #                     length(dim2), length(dim3))
+            #             CHRMtemp <- 
+            #                   array(dimnames=list(dim1,dim2,dim3), dim=dimension)
+            #             for (i in 1:2) {
+            #                   CHRMtemp[,,i] <- rbind(readRDS(CHRMfile)[,,i],
+            #                                          CHRMaux[,,i])
+            #             }
+            #             saveRDS(CHRMtemp, CHRMfile)
+            #       }
       }
-      
       calcCHRM()
-      
 }
 
 #
