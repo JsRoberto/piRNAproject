@@ -59,7 +59,6 @@ piRNAparallel <- function(task) {
 # porém sem redundência de registros.
 # -------------------------------------------------------------------------
 piRNAprep <- function(vcf_file, gff_file) {
-      
       # Obtendo o arquivo "numLines.txt" 
       localNumLines <- 
             "/data/projects/metagenomaCG/jose/piRNAproject/numLines.txt"
@@ -98,11 +97,66 @@ piRNAprep <- function(vcf_file, gff_file) {
       serie <- seq(0, lines - comms, 1e5)
       last <- serie[length(serie)]
       
-      for (i in serie) {
+      # for (i in serie) {
+      #       if (i==last) n <- lines - comms - i else n <- 1e5
+      #       vcf <- read.delim(vcf_file, stringsAsFactors=F, header=F,
+      #                         comment.char="#", nrows=n)[,1:8]
+      #       
+      #       vcfinfo <- vcf$V8 %>% stri_split_fixed(";")
+      #       cinfo <- 
+      #             lapply(vcfinfo, function(x) stri_detect_regex(x,popALL))
+      #       
+      #       vcfinfo <- mapply(function(x,y) x[y] %>% sort, vcfinfo, cinfo) 
+      #       
+      #       namesinfo <- stri_split(popALL, fixed="=|")[[1]] %>% sort
+      #       namesinfo[2] <- "AF"
+      #       ginfo <- gl(n, length(namesinfo))
+      #       vcfinfo <- tapply(vcfinfo, ginfo, function(x) stri_extract_all(
+      #             x, regex="[0-9]+\\.*[0-9]*") %>% stri_join_list(","))
+      #       
+      #       vcfinfo <- vcfinfo %>% unlist %>% 
+      #             matrix(n, length(namesinfo), byrow=T)
+      #       
+      #       colnames(vcfinfo) <- namesinfo
+      #       
+      #       vcf <- cbind(vcf[,-c(1,6:8)], vcfinfo, stringsAsFactors=F)
+      #       
+      #       colnames(vcf)[1:4] <- c("POS", "ID", "REF", "ALT") 
+      #       #
+      #       
+      #       count <- stri_count(vcf$ALT, fixed=",")
+      #       
+      #       if (sum(count > 0)==0) {
+      #             vcfTemp <- vcf[count > 0,]
+      #             subcount <- count[count > 0]
+      #             
+      #             vcfAux1 <- subset(vcfTemp, select=1:3)
+      #             vcfAux2 <- subset(vcfTemp, select=-c(1:3))
+      #             
+      #             for (j in 1:nrow(vcfTemp)) {
+      #                   vcfAUX2 <- 
+      #                         vcfAux2[j,] %>% stri_split(fixed=",") %>% 
+      #                         as.data.frame(row.names=0:subcount[j]+1,
+      #                                       col.names=colnames(vcfAux2),
+      #                                       stringAsFactors=F)
+      #                   
+      #                   vcfAUX1 <- vcfAux1[rep(j,nrow(vcfAUX2)),]
+      #                   
+      #                   if (!exists("vcfNew")|j==1) vcfNew <- data.frame()
+      #                   vcfNew <- 
+      #                         rbind(vcfNew, cbind(vcfAUX1,vcfAUX2))
+      #             }
+      #       } else {
+      #             vcfNew <- data.frame()
+      #       }
+      #       if (!exists("vcfNEW") | i==1) vcfNEW <- data.frame()
+      #       vcfNEW <- rbind(vcfNEW, vcf[count == 0,], vcfNew)
+      # }
+      
+      updateVCF <- function(vcf_file, serie) {
             if (i==last) n <- lines - comms - i else n <- 1e5
-            vcf <- read.delim(vcf_file, stringsAsFactors=F, header=F,
-                              comment.char="#", nrows=n)[,1:8]
-            
+            vcf <- read.delim(vcf_file,stringsAsFactors=F,header=F,
+                              comment.char="#",skip=sequence,nrows=n)[,1:8]
             vcfinfo <- vcf$V8 %>% stri_split_fixed(";")
             cinfo <- 
                   lapply(vcfinfo, function(x) stri_detect_regex(x,popALL))
@@ -134,26 +188,29 @@ piRNAprep <- function(vcf_file, gff_file) {
                   vcfAux1 <- subset(vcfTemp, select=1:3)
                   vcfAux2 <- subset(vcfTemp, select=-c(1:3))
                   
-                  for (j in 1:nrow(vcfTemp)) {
+                  simplifyVCF <- function(vcfAux1, vcfAux2, row) {
                         vcfAUX2 <- 
-                              vcfAux2[j,] %>% stri_split(fixed=",") %>% 
-                              as.data.frame(row.names=0:subcount[j]+1,
+                              vcfAux2[row,] %>% stri_split(fixed=",") %>% 
+                              as.data.frame(row.names=0:subcount[row]+1,
                                             col.names=colnames(vcfAux2),
                                             stringAsFactors=F)
                         
-                        vcfAUX1 <- vcfAux1[rep(j,nrow(vcfAUX2)),]
-                        
-                        if (!exists("vcfNew")|j==1) vcfNew <- data.frame()
-                        vcfNew <- 
-                              rbind(vcfNew, cbind(vcfAUX1,vcfAUX2))
+                        vcfAUX1 <- vcfAux1[rep(row,nrow(vcfAUX2)),]
+                        vcfNew <- cbind(vcfAUX1,vcfAUX2)
+                        return(vcfNew)
                   }
-            } else {
-                  vcfNew <- data.frame()
+                  
+                  vcfNew <- foreach (rows=1:nrow(vcfTemp),
+                                     .combine='rbind') %dopar%
+                        simplifyVCF(vcfAux1, vcfAux2, rows)
             }
-            if (!exists("vcfNEW") | i==1) vcfNEW <- data.frame()
-            vcfNEW <- rbind(vcfNEW, vcf[count == 0,], vcfNew)
+            vcfNEW <- rbind(vcf[count == 0,], vcfNew)
+            return(vcfNEW)
       }
-      NEWVCF <<- vcfNEW
+      
+      vcfNEW <- foreach (sequence=serie, .combine='rbind') %dopar% 
+            updateVCF(vcf_file, sequence)
+      
 }
 
 # A função "piRNAcount()" produz um vetor com elementos nomeados que repre-
@@ -360,10 +417,9 @@ piRNAsave <- function(index) {
       }
 }
 
-#
 piRNAcalc <- function(vcf_file, gff_file) {
-      piRNAprep(vcf_file, gff_file)
       piRNAparallel("open")
+      piRNAprep(vcf_file, gff_file)
       CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %dopar%
             piRNAcount(NEWVCF, UNIGFF, idx)
       piRNAparallel("close")
