@@ -362,12 +362,12 @@ piRNAsave <- function(index) {
 
 #
 piRNAcalc <- function(vcf_file, gff_file) {
-      piRNAparallel("open")
       piRNAprep(vcf_file, gff_file)
+      piRNAparallel("open")
       CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %dopar%
             piRNAcount(NEWVCF, UNIGFF, idx)
-      piRNAsave(nrow(UNIGFF))
       piRNAparallel("close")
+      piRNAsave(nrow(UNIGFF))
 }
 
 # A função "posSelect()" tem o objetivo de transformar os informações do
