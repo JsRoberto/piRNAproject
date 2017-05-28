@@ -164,6 +164,10 @@ piRNAprep <- function(vcf_file, gff_file) {
       # }
       
       updateVCF <- function(vcf_file, serie) {
+            suppressMessages(require(doSNOW))
+            suppressMessages(require(stringi))
+            suppressMessages(require(magrittr))
+            suppressMessages(require(parallel))
             if (serie==last) n <- lines - comms - serie else n <- 1e5
             vcf <- read.delim(vcf_file,stringsAsFactors=F,header=F,
                               comment.char="#",skip=sequence,nrows=n)[,1:8]
@@ -191,7 +195,7 @@ piRNAprep <- function(vcf_file, gff_file) {
             
             count <- stri_count(vcf$ALT, fixed=",")
             
-            if (sum(count > 0)==0) {
+            if (sum(count > 0) == 0) {
                   vcfTemp <- vcf[count > 0,]
                   subcount <- count[count > 0]
                   
