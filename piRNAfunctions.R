@@ -154,7 +154,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       # }
       
       updateVCF <- function(vcf_file, serie) {
-            if (i==last) n <- lines - comms - i else n <- 1e5
+            if (i==last) n <- lines - comms - serie else n <- 1e5
             vcf <- read.delim(vcf_file,stringsAsFactors=F,header=F,
                               comment.char="#",skip=sequence,nrows=n)[,1:8]
             vcfinfo <- vcf$V8 %>% stri_split_fixed(";")
