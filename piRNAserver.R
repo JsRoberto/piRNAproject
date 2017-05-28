@@ -15,6 +15,10 @@
 
 # Definindo pacotes não padrões a serem utilizados, baixando-os caso ainda
 # não tenham sido
+if(!suppressMessages(require(doSNOW))) {
+      install.packages("doSNOW")
+      suppressMessages(require(doSNOW))
+}
 if(!suppressMessages(require(stringi))) {
       install.packages("stringi")
       suppressMessages(require(stringi))
@@ -23,16 +27,19 @@ if(!suppressMessages(require(magrittr))) {
       install.packages("magrittr")
       suppressMessages(require(magrittr))
 }
+if(!suppressMessages(require(parallel))) {
+      install.packages("parallel")
+      suppressMessages(require(parallel))
+}
 
 # Baixar os arquivos "piRNAproject.R" e "piRNAfunctions.R", caso ainda não
 # estejam no "getwd()" atual.
-Url <- c(paste0("https://raw.githubusercontent.com/JsRoberto/piRNAproject",
-                "/master/piRNAproject.R"),
-         paste0("https://raw.githubusercontent.com/JsRoberto/piRNAproject",
-                "/master/piRNAfunction.R"),
-         paste0("https://github.com/JsRoberto/piRNAproject/blob/master/",
-                CHRMfiles <- paste0("CHRM",12:16,".Rda"),
-                "?raw=true"))
+Url <- c("https://raw.githubusercontent.com/JsRoberto/piRNAproject" %s+%
+               "/master/piRNAproject.R",
+         "https://raw.githubusercontent.com/JsRoberto/piRNAproject" %s+%
+               "/master/piRNAfunction.R",
+         "https://github.com/JsRoberto/piRNAproject/blob/master/" %s+%
+               (CHRMfiles <- "CHRM"%s+%12:16%s+%".Rda") %s+% "?raw=true")  
 Local <- c("piRNAproject.R","piRNAfunction.R", CHRMfiles)
 
 Download <- function(Local, Url) {
@@ -44,15 +51,17 @@ Download <- function(Local, Url) {
 mapply(Download, Local, Url)
 
 # Obtendo os arquivos '.vcf' e '.gff' que serão analisados
-gff_file <- "pirna.pirbase.collapsed.gff"
-vcf_file <- "ALL.chr22.phase3.vcf"
+gff_file <- "/home/miseq/pirna.pirbase.collapsed.gff"
+vcf_file <- "/data/projects/metagenomaCG/jose/piRNAproject/" %s+%
+      "ALL.chr22.phase3.vcf"
 
 # Estabelemento das funções armazenadas em "piRNAfunction.R"
-source("piRNAfunctions.R", encoding = "UTF-8")
+source("/data/projects/metagenomaCG/jose/piRNAproject/piRNAfunctions.R",
+       encoding="UTF-8")
 
 system.time(piRNAcalc(vcf_file, gff_file))
 
-#
+##########
 CHRM22 <- readRDS(file="CHRM22.Rda")
 
 piRNAposSelect(CHRM22, NMAX.map=3, ID.choice="yes", QUAL.choice="yes")

@@ -12,6 +12,10 @@
 
 # Definindo pacotes não padrões a serem utilizados, baixando-os caso ainda
 # não tenham sido
+if(!suppressMessages(require(doSNOW))) {
+      install.packages("doSNOW")
+      suppressMessages(require(doSNOW))
+}
 if(!suppressMessages(require(stringi))) {
       install.packages("stringi")
       suppressMessages(require(stringi))
@@ -25,10 +29,17 @@ if(!suppressMessages(require(parallel))) {
       suppressMessages(require(parallel))
 }
 
-
 #
-piRNAparallel <- function() {
-      
+piRNAparallel <- function(task) {
+      do <- stri_trans_tolower(task)
+      try(if (do != "open" | do != "close") 
+            stop("Parâmetro 'task' invalido!"))
+      if (do == "open") {
+            NumbersOfCluster <- detectCores()/2
+            cl <- makeCluster(NumbersOfCluster)
+            registerDoSNOW(cl)
+      }
+      if (do == "close") stopCluster(cl)
 }
 
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
@@ -49,11 +60,11 @@ piRNAparallel <- function() {
 piRNAprep <- function(vcf_file, gff_file) {
       
       # Obtendo o arquivo "numLines.txt" 
-      localNumLines <- stri_join("/data/projects/metagenomaCG/jose/",
-                                 "piRNAproject/numLines.txt")
+      localNumLines <- 
+            "/data/projects/metagenomaCG/jose/piRNAproject/numLines.txt"
       urlNumLines <- 
-            stri_join("https://raw.githubusercontent.com/",
-                      "JsRoberto/piRNAproject/master/numLines.txt")
+            "https://raw.githubusercontent.com/JsRoberto/piRNAproject" %s+%
+            "/master/numLines.txt"
       if (!file.exists(localNumLines)) {
             download.file(urlNumLines, localNumLines)
       }
@@ -66,7 +77,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       
       # Obtendo o arquivo .gff
       gff <- read.delim(gff_file, stringsAsFactors=F, header=F)
-      UNIGFF <<- gffchrm <- gff[gff$V1==stri_join("chr",chrm),] %>%
+      UNIGFF <<- gffchrm <- gff[gff$V1 == "chr" %s+% chrm,] %>%
             unique.data.frame
       
       # Pre´-Processamento do arquivo .vcf
@@ -103,7 +114,7 @@ piRNAprep <- function(vcf_file, gff_file) {
             vcfinfo <- tapply(vcfinfo, ginfo, function(x) stri_extract_all(
                   x, regex="[0-9]+\\.*[0-9]*") %>% stri_join_list(","))
             
-            vcfinfo <- vcfinfo %>% unlist() %>% 
+            vcfinfo <- vcfinfo %>% unlist %>% 
                   matrix(n, length(namesinfo), byrow=T)
             
             colnames(vcfinfo) <- namesinfo
@@ -166,7 +177,7 @@ piRNAprep <- function(vcf_file, gff_file) {
 # total de indivíduos analisados pelo projeto '1000 Genomes'.
 # -------------------------------------------------------------------------
 piRNAcount <- function(NEWVCF, UNIGFF, index) {
-      countCHRM <- function(NEWVCF, UNIGFF, index, ID=c(TRUE,FALSE)) {
+      countCHRM <- function(NEWVCF, UNIGFF, index, ID) {
             vcfAUX <- NEWVCF
             
             condaux <- ! vcfAUX$ID %>% is.na
@@ -270,34 +281,19 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
             return(CHRMaux)
       }
       calcCHRM <- function() {
-            
-            arrayInfo <- function(nrow) {
-                  dim1 <- NULL
-                  dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-                            "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
-                            "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
-                            "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
-                  dim3 <- c("ID","!ID")
-                  dimensions <- c(nrow,length(dim2),length(dim3))
-            }
-            
-            arrayInfo(1)
-            CHRMaux[[index]] <<- 
+            dim1 <- NULL
+            dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
+                      "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
+                      "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
+                      "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
+            dim3 <- c("ID","!ID")
+            dimensions <- c(1,length(dim2),length(dim3))
+            CHRMaux <- 
                   array(c(countCHRM(NEWVCF,UNIGFF,index,T),
                           countCHRM(NEWVCF,UNIGFF,index,F)),
                         dimnames=list(dim1,dim2,dim3),dim=dimensions)
             
-            if (index == nrow(UNIGFF)) {
-                  arrayInfo(index)
-                  CHRM <- array(dimnames=list(dim1,dim2,dim3),
-                                dim=dimensions)
-                  for (idx in 1:index) CHRM[idx,,] <- CHRMaux[[idx]]
-                  CHRMaux <<- list()
-                  CHRMfile <- stri_join("/data/projects/metagenomaCG/jose",
-                                        "/piRNAproject/CHRM",chrm,".Rda")
-                  saveRDS(CHRM, file=CHRMfile)
-            }
-            
+            return(CHRMaux)
             #########
             # if (exists("CHRMaux", envir=.GlobalEnv) & index == 1) {
             #       rm("CHRMaux", envir=.GlobalEnv)
@@ -345,10 +341,32 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
       calcCHRM()
 }
 
+piRNAsave <- function(index) {
+      if (index == nrow(UNIGFF)) {
+            dim1 <- NULL
+            dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
+                      "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
+                      "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
+                      "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
+            dim3 <- c("ID","!ID")
+            dimensions <- c(index,length(dim2),length(dim3))
+            CHRM <- array(dimnames=list(dim1,dim2,dim3),
+                          dim=dimensions)
+            for (idx in 1:index) CHRM[idx,,] <- CHRMaux[[idx]]
+            CHRMfile <- "/data/projects/metagenomaCG/jose/" %s+%
+                  "piRNAproject/CHRM" %s+% chrm %s+% ".Rda"
+            saveRDS(CHRM, file=CHRMfile)
+      }
+}
+
 #
 piRNAcalc <- function(vcf_file, gff_file) {
-      piRNAfiles(vcf_file, gff_file)
-      for(idx in 1:nrow(UNIGFF)) piRNAcount(NEWVCF, UNIGFF, idx)
+      piRNAparallel("open")
+      piRNAprep(vcf_file, gff_file)
+      CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %dopar%
+            piRNAcount(NEWVCF, UNIGFF, idx)
+      piRNAsave(nrow(UNIGFF))
+      piRNAparallel("close")
 }
 
 # A função "posSelect()" tem o objetivo de transformar os informações do
