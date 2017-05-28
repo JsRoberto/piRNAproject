@@ -32,7 +32,7 @@ if(!suppressMessages(require(parallel))) {
 #
 piRNAparallel <- function(task) {
       do <- stri_trans_tolower(task)
-      try(if (do != "open" | do != "close") 
+      try(if (do != "open" & do != "close") 
             stop("Parâmetro 'task' invalido!"))
       if (do == "open") {
             NumbersOfCluster <- detectCores()/2
