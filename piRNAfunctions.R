@@ -32,14 +32,10 @@ if(!suppressMessages(require(parallel))) {
 
 #
 piRNAparallel <- function(task) {
-      if(!suppressMessages(require(doSNOW))) {
-            install.packages("doSNOW")
-            suppressMessages(require(doSNOW))
-      }
-      if(!suppressMessages(require(parallel))) {
-            install.packages("parallel")
-            suppressMessages(require(parallel))
-      }
+      suppressMessages(require(doSNOW))
+      suppressMessages(require(stringi))
+      suppressMessages(require(magrittr))
+      suppressMessages(require(parallel))
       
       do <- stri_trans_tolower(task)
       try(if (do != "open" & do != "close") 
@@ -68,22 +64,10 @@ piRNAparallel <- function(task) {
 # porém sem redundência de registros.
 # -------------------------------------------------------------------------
 piRNAprep <- function(vcf_file, gff_file) {
-      if(!suppressMessages(require(doSNOW))) {
-            install.packages("doSNOW")
-            suppressMessages(require(doSNOW))
-      }
-      if(!suppressMessages(require(stringi))) {
-            install.packages("stringi")
-            suppressMessages(require(stringi))
-      }
-      if(!suppressMessages(require(magrittr))) {
-            install.packages("magrittr")
-            suppressMessages(require(magrittr))
-      }
-      if(!suppressMessages(require(parallel))) {
-            install.packages("parallel")
-            suppressMessages(require(parallel))
-      }
+      suppressMessages(require(doSNOW))
+      suppressMessages(require(stringi))
+      suppressMessages(require(magrittr))
+      suppressMessages(require(parallel))
       
       # Obtendo o arquivo "numLines.txt" 
       localNumLines <- 
@@ -261,22 +245,10 @@ piRNAprep <- function(vcf_file, gff_file) {
 # total de indivíduos analisados pelo projeto '1000 Genomes'.
 # -------------------------------------------------------------------------
 piRNAcount <- function(NEWVCF, UNIGFF, index) {
-      if(!suppressMessages(require(doSNOW))) {
-            install.packages("doSNOW")
-            suppressMessages(require(doSNOW))
-      }
-      if(!suppressMessages(require(stringi))) {
-            install.packages("stringi")
-            suppressMessages(require(stringi))
-      }
-      if(!suppressMessages(require(magrittr))) {
-            install.packages("magrittr")
-            suppressMessages(require(magrittr))
-      }
-      if(!suppressMessages(require(parallel))) {
-            install.packages("parallel")
-            suppressMessages(require(parallel))
-      }
+      suppressMessages(require(doSNOW))
+      suppressMessages(require(stringi))
+      suppressMessages(require(magrittr))
+      suppressMessages(require(parallel))
       
       countCHRM <- function(NEWVCF, UNIGFF, index, ID) {
             vcfAUX <- NEWVCF
@@ -443,22 +415,10 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
 }
 
 piRNAsave <- function(index) {
-      if(!suppressMessages(require(doSNOW))) {
-            install.packages("doSNOW")
-            suppressMessages(require(doSNOW))
-      }
-      if(!suppressMessages(require(stringi))) {
-            install.packages("stringi")
-            suppressMessages(require(stringi))
-      }
-      if(!suppressMessages(require(magrittr))) {
-            install.packages("magrittr")
-            suppressMessages(require(magrittr))
-      }
-      if(!suppressMessages(require(parallel))) {
-            install.packages("parallel")
-            suppressMessages(require(parallel))
-      }
+      suppressMessages(require(doSNOW))
+      suppressMessages(require(stringi))
+      suppressMessages(require(magrittr))
+      suppressMessages(require(parallel))
       if (index == nrow(UNIGFF)) {
             dim1 <- NULL
             dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
