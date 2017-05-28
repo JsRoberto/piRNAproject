@@ -226,6 +226,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       vcfNEW <- foreach (sequence=serie, .combine='rbind') %dopar% 
             updateVCF(vcf_file, sequence)
       
+      NEWVCF <<- vcfNEW
 }
 
 # A função "piRNAcount()" produz um vetor com elementos nomeados que repre-
