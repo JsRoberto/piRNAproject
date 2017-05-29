@@ -42,7 +42,7 @@ piRNAparallel <- function(task) {
             stop("Parâmetro 'task' invalido!"))
       if (do == "open") {
             NumbersOfCluster <- detectCores()/2
-            cl <- makeCluster(NumbersOfCluster)
+            cl <<- makeCluster(NumbersOfCluster)
             registerDoSNOW(cl)
       }
       if (do == "close") stopCluster(cl)
