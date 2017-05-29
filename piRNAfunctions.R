@@ -30,26 +30,6 @@ if(!suppressMessages(require(parallel))) {
       suppressMessages(require(parallel))
 }
 
-# #
-# piRNAparallel <- function(task) {
-#       suppressMessages(require(doSNOW))
-#       suppressMessages(require(stringi))
-#       suppressMessages(require(magrittr))
-#       suppressMessages(require(parallel))
-#       
-#       do <- stri_trans_tolower(task)
-#       try(if (do != "open" & do != "close") 
-#             stop("Parâmetro 'task' invalido!"))
-#       if (do == "open") {
-#             NumbersOfCluster <- detectCores()/2
-#             cl <- makeCluster(NumbersOfCluster)
-#             registerDoSNOW(cl)
-#             #
-#             dopar <<- TRUE
-#       }
-#       if (do == "close") stopCluster(cl)
-# }
-
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
 # '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
 # da função "piRNAcount()" logo abaixo. 
@@ -109,70 +89,13 @@ piRNAprep <- function(vcf_file, gff_file) {
       serie <- seq(0, lines - comms, 1e5)
       last <- serie[length(serie)]
       
-      # for (i in serie) {
-      #       if (i==last) n <- lines - comms - i else n <- 1e5
-      #       vcf <- read.delim(vcf_file, stringsAsFactors=F, header=F,
-      #                         comment.char="#", nrows=n)[,1:8]
-      #       
-      #       vcfinfo <- vcf$V8 %>% stri_split_fixed(";")
-      #       cinfo <- 
-      #             lapply(vcfinfo, function(x) stri_detect_regex(x,popALL))
-      #       
-      #       vcfinfo <- mapply(function(x,y) x[y] %>% sort, vcfinfo, cinfo) 
-      #       
-      #       namesinfo <- stri_split(popALL, fixed="=|")[[1]] %>% sort
-      #       namesinfo[2] <- "AF"
-      #       ginfo <- gl(n, length(namesinfo))
-      #       vcfinfo <- tapply(vcfinfo, ginfo, function(x) stri_extract_all(
-      #             x, regex="[0-9]+\\.*[0-9]*") %>% stri_join_list(","))
-      #       
-      #       vcfinfo <- vcfinfo %>% unlist %>% 
-      #             matrix(n, length(namesinfo), byrow=T)
-      #       
-      #       colnames(vcfinfo) <- namesinfo
-      #       
-      #       vcf <- cbind(vcf[,-c(1,6:8)], vcfinfo, stringsAsFactors=F)
-      #       
-      #       colnames(vcf)[1:4] <- c("POS", "ID", "REF", "ALT") 
-      #       #
-      #       
-      #       count <- stri_count(vcf$ALT, fixed=",")
-      #       
-      #       if (sum(count > 0)==0) {
-      #             vcfTemp <- vcf[count > 0,]
-      #             subcount <- count[count > 0]
-      #             
-      #             vcfAux1 <- subset(vcfTemp, select=1:3)
-      #             vcfAux2 <- subset(vcfTemp, select=-c(1:3))
-      #             
-      #             for (j in 1:nrow(vcfTemp)) {
-      #                   vcfAUX2 <- 
-      #                         vcfAux2[j,] %>% stri_split(fixed=",") %>% 
-      #                         as.data.frame(row.names=0:subcount[j]+1,
-      #                                       col.names=colnames(vcfAux2),
-      #                                       stringAsFactors=F)
-      #                   
-      #                   vcfAUX1 <- vcfAux1[rep(j,nrow(vcfAUX2)),]
-      #                   
-      #                   if (!exists("vcfNew")|j==1) vcfNew <- data.frame()
-      #                   vcfNew <- 
-      #                         rbind(vcfNew, cbind(vcfAUX1,vcfAUX2))
-      #             }
-      #       } else {
-      #             vcfNew <- data.frame()
-      #       }
-      #       if (!exists("vcfNEW") | i==1) vcfNEW <- data.frame()
-      #       vcfNEW <- rbind(vcfNEW, vcf[count == 0,], vcfNew)
-      # }
-      
       # Parallel computing!!
-      NumbersOfCluster <- detectCores()/2
+      NumbersOfCluster <- detectCores()/2 - 4
       cl <- makeCluster(NumbersOfCluster)
       registerDoSNOW(cl)
       #
-      #
       
-      updateVCF <- function(vcf_file, serie, parallel=dopar) {
+      updateVCF <- function(vcf_file, serie) {
             suppressMessages(require(doSNOW))
             suppressMessages(require(stringi))
             suppressMessages(require(magrittr))
@@ -390,7 +313,7 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
       }
       
       # Parallel computing!!
-      NumbersOfCluster <- detectCores()/2
+      NumbersOfCluster <- detectCores()/2 - 4
       cl <- makeCluster(NumbersOfCluster)
       registerDoSNOW(cl)
       #
@@ -457,223 +380,340 @@ piRNAcalc <- function(vcf_file, gff_file) {
 # ------------------------ Descrição da saída -----------------------------
 # (1) "allnewCHRM": representa um subconjunto de "CHRM" segundo os parâme-
 # tros definidos pelos argumentos de entrada.
-posSelect <- function(CHRM, AC.min=NULL, AC.max=NULL, AF.min=NULL, 
-                      AF.max=NULL, NAME.pirna=NULL, LOC.pirna=NULL,
-                      POP.select=c("AFR","AMR","EAS","EUR","SAS"),
-                      POP.by=c("all","each"),
-                      ID.choice=c(NULL,"both","valid","invalid")){
-      allnewCHRM <- CHRM
-      rmVAR <- function() rm(c("allnewAUX","allnewAUX2"), envir=.GlobalEnv)
-      allnewVAR <- function(nameAUX, nameTAB, numTAB) {
-            if (!exists(nameAUX, envir=.GlobalEnv)) {
-                  dim1 <- NULL
-                  dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-                            "NonIndel.mut","Info.AC","Info.AF","AFR.AC",
-                            "AFR.AF","AMR.AC","AMR.AF","EAS.AC", "EAS.AF",
-                            "EUR.AC", "EUR.AF","SAS.AC", "SAS.AF")
-                  allnewAUX <<- 
-                        array(dim=c(dim(allnewCHRM)[1],dim(allnewCHRM)[2],
-                                    numTAB),
-                              dimnames=list(dim1,dim2,nameTAB))
-            }
+piRNAposSelect <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
+                           AC.max=NULL, AF.min=NULL, AF.max=NULL, 
+                           NAME.pirna=NULL, LOC.pirna=NULL,
+                           NMAX.map=NULL, NMIN.map=NULL,
+                           MUT.type=c("all","indel","nonindel"),
+                           POP.select=c("AFR","AMR","EAS","EUR","SAS"),
+                           POP.by=c("all","each"),
+                           ID.choice=c("all","yes","no"),
+                           QUAL.choice=c("all","yes","no")) {
+      
+      if (exists("allnewCHRM", envir=.GlobalEnv)) {
+            rm("allnewCHRM", envir=.GlobalEnv)
       }
       
       # Selecionando os IDs
-      
-      try(if (!ID.choice[1] %>% is.null & ID.choice!="both" & 
-              ID.choice!="valid" & ID.choice!="invalid") {
+      try(if (ID.choice[1]!="all" & ID.choice[1]!="yes" &
+              ID.choice[1]!="no") {
             stop("O argumento 'ID.choice' não apresenta entrada válida")
       })
-      try(if (!QUAL.choice[1] %>% is.null & QUAL.choice!="all" & 
-              QUAL.choice!="interval" & QUAL.choice!="out.interval") {
+      try(if (QUAL.choice[1]!="all" & QUAL.choice[1]!="yes" &
+              QUAL.choice[1]!="no") {
             stop("O argumento 'QUAL.choice' não apresenta entrada válida")
       })
-      if (!ID.choice[1] %>% is.null) {
-            if (ID.choice[1]=="both") {
-                  nameTab <- c("QUAL","!QUAL")
-                  allnewVAR("allnewAUX", nameTab, 2)
-                  for (i in 1:2) {
-                        allnewAUX[,-(1:2),i] <- allnewCHRM[,-(1:2),i] +
-                              allnewCHRM[,-(1:2),i+2]
-                  }
-            }
-            if (ID.choice[1]=="valid") {
-                  nameTab <- c("ID & QUAL","ID & !QUAL")
-                  allnewVAR("allnewAUX", nameTab, 2)
-                  allnewAUX[,,] <- allnewCHRM[,,1:2]
-            }
-            if (ID.choice[1]=="invalid") {
-                  nameTab <- c("!ID & QUAL","!ID & !QUAL") 
-                  allnewVAR("allnewAUX", nameTab, 2)
-                  allnewAUX[,,] <- allnewCHRM[,,3:4]
-            }
-            # Selecionando os QUALs
-            if (!QUAL.choice[1] %>% is.null) {
-                  if (QUAL.choice[1]=="all") { # PAREI AQUI
-                        nameTab <- 
-                              if (nameTab==c("QUAL","!QUAL")) NULL else {
-                                    stri_extract(regex="!*ID")[1]
+      
+      if (!file.exists(filename <- stri_join(
+            "allnewCHRM",chrm,"_ID", ID.choice[1],
+            "_QUAL", QUAL.choice[1],".Rdata"))) {
+            
+            # Verificar se o trecho abaixo está correto!!
+            
+            if (ID.choice[1]=="all" | QUAL.choice[1]=="all") {
+                  extr <- function(allnew) {
+                        lapply(allnew, function(x) {
+                              aux <- x %>% stri_extract_all(
+                                    regex="[0-9]+\\.*[0-9]*")
+                              if (! x %>% stri_extract_all(
+                                    regex="[0-9]+\\.*[0-9]*[)]$") %>% is.na) {
+                                    y <- x %>% stri_extract_all(
+                                          regex="[0-9]+\\.*[0-9]*")
+                                    aux <- y[[1]][-length(y[[1]])]
                               }
-                        allnewVAR("allnewAUX2", nameTab, 1)
-                        allnewAUX2[,-(1:2),1] <- allnewAUX[,-(1:2),1] +
-                              allnewAUX[,-(1:2),2]
+                              return(aux)
+                        })
                   }
-                  if (QUAL.choice[1]=="interval") {
-                        nameTab <- nameTab[1]
-                        allnewVAR("allnewAUX2",nameTab,1)
-                        allnewAUX2[,,] <- allnewAUX[,,1:2]
-                  }
-                  if (QUAL.choice[1]=="out.interval") {
-                        nameTab <- nameTab[2]
-                        allnewVAR("allnewAUX2",nameTab,1)
-                        allnewAUX2[,,] <- allnewAUX[,,3:4]
-                  }
+                  
+                  allnewCHRM1 <- extr(CHRM[,-c(1:2,6),1] %>% as.list)
+                  allnewCHRM2 <- extr(CHRM[,-c(1:2,6),2] %>% as.list)
+                  allnewCHRM3 <- extr(CHRM[,-c(1:2,6),3] %>% as.list)
+                  allnewCHRM4 <- extr(CHRM[,-c(1:2,6),4] %>% as.list)
             } else {
-                  allnewAUX2 <- allnewAUX
+                  allnewCHRM1 <- CHRM[,,1] 
+                  allnewCHRM2 <- CHRM[,,2]
+                  allnewCHRM3 <- CHRM[,,3]
+                  allnewCHRM4 <- CHRM[,,4]
             }
-            allnewCHRM <- allnewAUX2
-            rmVAR()
-      } else {
-            nameTab <- dimnames(allnewCHRM)[3]
-            allnewVAR("allnewAUX2",4,nameTab)
+            
+            # Selecionando os IDs
+            if (ID.choice[1]=="all") {
+                  allnewAUX1 <-
+                        mapply(function(x,y) as.numeric(x) + as.numeric(y),
+                               allnewCHRM1, allnewCHRM3)
+                  allnewAUX2 <-
+                        mapply(function(x,y) as.numeric(x) + as.numeric(y),
+                               allnewCHRM2, allnewCHRM4)
+            }
+            if (ID.choice[1]=="yes") {
+                  allnewAUX1 <- allnewCHRM1
+                  allnewAUX2 <- allnewCHRM2
+            }
+            if (ID.choice[1]=="no") {
+                  allnewAUX1 <- allnewCHRM3
+                  allnewAUX2 <- allnewCHRM4
+            }
             # Selecionando os QUALs
-            if (!QUAL.choice[1] %>% is.null) {
-                  nameTab <- c("ID","!ID")
-                  if (QUAL.choice[1]=="all") {
-                        allnewVAR("allnewAUX2", nameTab, 2)
-                        allnewAUX2[,-(1:2),1:2] <- allnewAUX[,-(1:2),c(1,3)] +
-                              allnewAUX[,-(1:2),c(2,4)]
-                  }
-                  if (QUAL.choice[1]=="interval") {
-                        nameTab <- stri_join(nameTab, rep(" & QUAL",2))
-                        allnewVAR("allnewAUX2",nameTab,2)
-                        allnewAUX2[,,] <- allnewAUX[,,c(1,3)]
-                  }
-                  if (QUAL.choice[1]=="out.interval") {
-                        nameTab <- stri_join(nameTab, rep(" & !QUAL",2))
-                        allnewVAR("allnewAUX2",nameTab,2)
-                        allnewAUX2[,,] <- allnewAUX[,,c(2,4)]
-                  }
-            } else {
-                  allnewAUX2 <- allnewAUX
+            if (QUAL.choice[1]=="all") {
+                  allnewAUX3 <- 
+                        mapply(function(x,y) as.numeric(x) + as.numeric(y),
+                               allnewAUX1, allnewAUX2) %>%
+                        lapply(function(z) stri_join(z,collapse=";"))
             }
-            allnewCHRM <- allnewAUX2
-            rmVAR()
+            if (QUAL.choice[1]=="yes") {
+                  allnewAUX3 <- allnewAUX1 %>% 
+                        lapply(function(z) stri_join(z,collapse=";"))
+            }
+            if (QUAL.choice[1]=="no") {
+                  allnewAUX3 <- allnewAUX2 %>% 
+                        lapply(function(z) stri_join(z,collapse=";"))
+            }
+            
+            allnewAUX3 <- matrix(allnewAUX3 %>% unlist,
+                                 nrow(CHRM[,-c(1:2,6),]),
+                                 ncol(CHRM[,-c(1:2,6),]))
+            allnewCHRM <- cbind(CHRM[,1:2,id], allnewAUX3[,1:3],
+                                CHRM[,6,id], allnewAUX3[,-(1:3)])
+            
+            dim1 <- NULL
+            dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
+                      "NonIndel.mut","ID.mut","Info.AC","Info.AF_nsamples",
+                      "AFR.AC","AFR.AF_nsamples","AMR.AC",
+                      "AMR.AF_nsamples","EAS.AC", "EAS.AF_nsamples",
+                      "EUR.AC", "EUR.AF_nsamples","SAS.AC",
+                      "SAS.AF_nsamples")
+            dimnames(allnewCHRM) <- list(dim1,dim2)
+            save(allnewCHRM, file=filename)
+      } else {
+            load(filename)
       }
+      
       # Selecionando apenas os pirnas integralmente contidos nos limites de
       # LOC.pirna
       if (!LOC.pirna %>% is.null) {
             local <- 
-                  allnewCHRM[,"Local",1] %>% 
-                  stri_extract(regex="^[0-9]+") %>%
-                  as.numeric >= min(LOC.pirna) &
-                  allnewCHRM[,"Local",1] %>% 
-                  stri_extract(regex="[0-9]+&") %>%
-                  as.numeric <= max(LOC.pirna)
+                  allnewCHRM[,"Local"] >= min(LOC.pirna) &
+                  allnewCHRM[,"Local"] <= max(LOC.pirna)
+            
             try(if (sum(local)==0) {
-                  stop(stri_join("Não há piRNAs completamente inseridos na",
-                                 " localização especificada"))
+                  stop(stri_join("Não há piRNAs completamente inseridos ",
+                                 "na localização especificada"))
             })
+            
             if (sum(local)==1) {
-                  allnewVAR("allnewAUX",dimnames(allnewCHRM)[3],
-                            dim(allnewCHRM)[3])
-                  for (i in 1:dim(allnewCHRM)[3]) {
-                        allnewAUX[,,i] <- rbind(allnewAUX[,,i],NA)
-                  }
-                  allnewCHRM <- allnewAUX[c(local,T),,]
-                  rmVAR()
+                  allnewCHRM <- rbind(allnewCHRM[local,],NA)
             } else {
-                  allnewCHRM <- allnewCHRM[local,,]
+                  allnewCHRM <- allnewCHRM[local,]
             }
       }
       
       # Selecionando apenas os pirnas com nomes "NAME.pirna".
       if (!NAME.pirna %>% is.null) {
             pirna <- stri_join(NAME.pirna,collapse="|")
-            matchName <- stri_detect_regex(allnewCHRM[,"piRNA",1],pirna)
+            matchName <- stri_detect_regex(allnewCHRM[,"piRNA"],pirna)
+            
             try(if (sum(matchName)==0) {
                   stop(stri_join("Não há piRNAs com as identificações ",
                                  "especificadas"))
             })
+            
             if (sum(matchName)==1) {
-                  allnewVAR("allnewAUX",dimnames(allnewCHRM)[3],
-                            dim(allnewCHRM)[3])
-                  for (i in 1:dim(allnewCHRM)[3]) {
-                        allnewAUX[,,i] <- rbind(allnewAUX[,,i],NA)
-                  }
-                  allnewCHRM <- allnewAUX[c(matchName,T),,]
-                  rmVAR()
+                  allnewCHRM <- rbind(allnewCHRM[matchName,],NA)
             } else {
-                  allnewCHRM <- allnewCHRM[matchName,,]
+                  allnewCHRM <- allnewCHRM[matchName,]
             }
       }
       
+      # Selecionando apenas os piRNAs com certo número de mutações
+      try(if (MUT.type[1]!="all" & MUT.type[1]!="indel" & 
+              MUT.type[1]!="nonindel") {
+            stop("Argumento de entrada 'MUT.type' inválido")
+      })
+      
+      minMUT <- ifelse(!MUT.min %>% is.null, MUT.min, 0)
+      maxMUT <- ifelse(!MUT.max %>% is.null, MUT.max, 50)
+      
+      if (MUT.type[1]=="all") {
+            allnewCHRM <- 
+                  allnewCHRM[allnewCHRM[,"Total.mut"] >= minMUT & 
+                                   allnewCHRM[,"Total.mut"] <= maxMUT,]
+      }
+      if (MUT.type[1]=="indel") {
+            allnewCHRM <- 
+                  allnewCHRM[allnewCHRM[,"Indel.mut"] >= minMUT & 
+                                   allnewCHRM[,"Indel.mut"] <= maxMUT,]
+      }
+      if (MUT.type[1]=="nonindel") {
+            allnewCHRM <- 
+                  allnewCHRM[allnewCHRM[,"NonIndel.mut"] >= minMUT &
+                                   allnewCHRM[,"NonIndel.mut"] <= maxMUT,]
+      }
       # Selecionando as populações para os critérios AC e AF
-      try(if (POP.by[1]=="all" | POP.by[1]=="each") {
-            if (POP.by[1]=="all") {
-                  etnoAF <- stri_join(POP.select, collapse="_AF=|")
-                  popAF <- stri_extract(dimnames(allnewCHRM)[2],regex=etno)
-                  etnoAC <- stri_join(POP.select, collapse="_AC=|")
-                  popAC <- stri_extract(dimnames(allnewCHRM)[2],regex=etno)
-                  minAF <- ifelse(!AF.min %>% is.null, AF.min,
-                                  allnewCHRM[,popAF,] %>% as.numeric %>% 
-                                        apply(3, rowSums) %>% min)
-                  maxAF <- ifelse(!AF.max %>% is.null, AF.max,
-                                  allnewCHRM[,popAF,] %>% as.numeric %>% 
-                                        apply(3, rowSums) %>% max)
-                  minAC <- ifelse(!AC.min %>% is.null, AC.min,
-                                  allnewCHRM[,popAC,] %>% as.numeric %>% 
-                                        apply(3, rowSums) %>% min)
-                  maxAC <- ifelse(!AC.max %>% is.null, AC.max,
-                                  allnewCHRM[,popAC,] %>% as.numeric %>% 
-                                        apply(3, rowSums) %>% max)
-                  #
-                  for (i in 1:dim(allnewCHRM)[3]) {
-                        allnewAUX <- 
-                              if(!exists("allnewAUX"))list() else allnewAUX
-                        cond.AF <- 
-                              allnewCHRM[,popAF,i] %>% rowSums >= minAF &
-                              allnewCHRM[,popAF,i] %>% rowSums <= maxAF
-                        cond.AC <- 
-                              allnewCHRM[,popAC,i] %>% rowSums >= minAC &
-                              allnewCHRM[,popAC,i] %>% rowSums <= maxAC
-                        cond <- cond.AF & cond.AC
-                        allnewAUX[[i]] <- allnewCHRM[cond,,i]
-                  }
-            }
-            if (POP.by[1]=="each") {
-                  etnoAF <- stri_join(POP.select, collapse="_AF=|")
-                  popAF <- stri_extract(dimnames(allnewCHRM)[2],regex=etno)
-                  etnoAC <- stri_join(POP.select, collapse="_AC=|")
-                  popAC <- stri_extract(dimnames(allnewCHRM)[2],regex=etno)
-                  # PAREI AQUI!!!
-                  minAF <- ifelse(!AF.min %>% is.null, AF.min,
-                                  min(allnewCHRM[,popAF,] %>% as.numeric))
-                  maxAF <- ifelse(!AF.max %>% is.null, AF.max,
-                                  max(allnewCHRM[,popAF,] %>% as.numeric))
-                  minAC <- ifelse(!AC.min %>% is.null, AC.min,
-                                  min(allnewCHRM[,popAC,] %>% as.numeric))
-                  maxAC <- ifelse(!AC.max %>% is.null, AC.max,
-                                  max(allnewCHRM[,popAC,] %>% as.numeric))
-                  for (i in 1:dim(allnewCHRM)[3]) {
-                        allnewAUX <- 
-                              if(!exists("allnewAUX"))list() else allnewAUX
-                        cond.AF <- 
-                              allnewCHRM[,popAF,i] >= minAF &
-                              allnewCHRM[,popAF,i] <= maxAF
-                        cond.AC <- 
-                              allnewCHRM[,popAC,i] >= minAC &
-                              allnewCHRM[,popAC,i] <= maxAC
-                        cond <- cond.AF & cond.AC %>% apply(1, prod) == 1
-                        allnewAUX[[i]] <- allnewCHRM[cond,,i]
-                  }
-            }
-            allnewCHRM <- allnewAUX
-            rmVAR()
-      } else {
+      try(if (POP.by[1]!="all" & POP.by[1]!="each") {
             stop("Argumento de entrada 'POP.by' inválido")
       })
-      allnewCHRM <<- allnewCHRM
+      
+      # Selecionando 
+      coef <- c(AFR.AF_nsamples=1322, AMR.AF_nsamples=694,
+                EAS.AF_nsamples=1008, EUR.AF_nsamples=1006,
+                SAS.AF_nsamples=978)/5008
+      
+      acaf <- function(allnew, pop, pop.by = POP.by) {
+            if (exists("value",envir=.GlobalEnv)) 
+                  rm("value", envir=.GlobalEnv)
+            if(pop.by[1]=="all") {
+                  temp <- allnew %>% subset(select=pop) %>% t %>% 
+                        stri_extract_all(regex="[0-9]+\\.*[0-9]*")
+                  if (!is.na(coef[pop])[1]) {
+                        for (i in 1:nrow(allnew)-1) {
+                              if(exists("j", envir=.GlobalEnv)) 
+                                    rm("j", envir=.GlobalEnv)
+                              if(!exists("value",envir=.GlobalEnv)) 
+                                    value <<- rep(0,nrow(allnew)) %>% 
+                                          as.list
+                              lapply(temp[1:length(pop)+length(pop)*i],
+                                     function(x) {
+                                           if (!exists("j",envir=.GlobalEnv)) 
+                                                 j <<- 1 else j <<- j + 1
+                                                 aux <- coef[pop[j]]
+                                                 names(aux) <- NULL
+                                                 value[[i+1]] <<- 
+                                                       value[[i+1]] %>% as.numeric +
+                                                       x %>% as.numeric * aux
+                                     }
+                              )
+                        }
+                  } else {
+                        for (i in 1:nrow(allnew)-1) {
+                              if(!exists("value",envir=.GlobalEnv)) 
+                                    value <<- rep(0,nrow(allnew)) %>% as.list
+                              lapply(temp[1:length(pop)+length(pop)*i],
+                                     function(x) {
+                                           value[[i+1]] <<-
+                                                 value[[i+1]] %>% as.numeric +
+                                                 x %>% as.numeric
+                                     })
+                        }
+                  }
+            }
+            if(pop.by[1]=="each") {
+                  temp <- allnew %>% subset(select=pop) %>%
+                        stri_extract_all(regex="[0-9]+\\.*[0-9]*")
+                  for (i in 1:length(pop)-1) {
+                        if(!exists("value", envir=.GlobalEnv)) 
+                              value <<- rep(0,length(pop)) %>% as.list
+                        value[[i+1]] <<- 
+                              temp[1:nrow(allnew) + nrow(allnew)*i]
+                  }
+            }
+      }
+      
+      popAF <- stri_join(POP.select, ".AF_nsamples")
+      popAC <- stri_join(POP.select, ".AC")
+      
+      minAF <- ifelse(!AF.min %>% is.null, AF.min, 0)
+      maxAF <- ifelse(!AF.max %>% is.null, AF.max, 1)
+      minAC <- ifelse(!AC.min %>% is.null, AC.min, 0)
+      maxAC <- ifelse(!AC.max %>% is.null, AC.max, 5008)
+      
+      if (POP.by[1]=="all") {
+            acaf(allnewCHRM, popAF)
+            cond.AF <-
+                  value %>% sapply(function(x) sum(x >= minAF) >= 1) &
+                  value %>% sapply(function(x) sum(x <= maxAF) >= 1)
+            
+            acaf(allnewCHRM, popAC)
+            cond.AC <-
+                  value %>% sapply(function(x) sum(x >= minAC) >= 1) &
+                  value %>% sapply(function(x) sum(x <= maxAC) >= 1)
+            
+            cond <- cond.AF & cond.AC
+      }
+      if (POP.by[1]=="each") {
+            cond.AF <- 
+                  value %>% sapply(function(x) {
+                        sapply(x, function(y) sum(y %>% as.numeric >= minAF) >= 1)
+                  }) &
+                  value %>% sapply(function(x) {
+                        sapply(x, function(y) sum(y %>% as.numeric <= maxAF) >= 1)
+                  })
+            
+            cond.AC <- 
+                  value %>% sapply(function(x) {
+                        sapply(x, function(y) sum(y %>% as.numeric >= minAC) >= 1)
+                  }) &
+                  value %>% sapply(function(x) {
+                        sapply(x, function(y) sum(y %>% as.numeric <= maxAC) >= 1)
+                  })
+            
+            cond <- cond.AF & cond.AC %>% apply(1, sum) >= 1
+      }
+      
+      try(if (sum(cond)==0) {
+            stop(stri_join("Não há piRNAs que possuam os parâmetros de ",
+                           "'AC' e 'AF' especificados"))
+      })
+      
+      if (sum(cond)==1) {
+            allnewCHRM <- rbind(allnewCHRM[cond,],NA)
+      } else {
+            allnewCHRM <- allnewCHRM[cond,]
+      }
+      
+      coef <- c(Info.AF_nsamples=1, coef) * 5008
+      
+      allnewCHRM[,names(coef)] <- 
+            matrix(stri_join(allnewCHRM[,names(coef)] %>% t,
+                             rep(stri_join("(",coef,")"),nrow(allnewCHRM))),
+                   ncol=ncol(allnewCHRM[,names(coef)]),
+                   nrow=nrow(allnewCHRM), byrow=TRUE)
+      
+      allnewCHRM[,c("Info.AC",popAC)] <-
+            matrix(allnewCHRM[,c("Info.AC",popAC)] %>% 
+                         stri_extract_all(regex="[0-9]+\\.*[0-9]*") %>% 
+                         sapply(function(x) stri_join(x,collapse=";")),
+                   ncol=ncol(allnewCHRM[,c("Info.AC",popAC)]),
+                   nrow=nrow(allnewCHRM))
+      
+      piRNAmatch <- function(allnew, min=NMIN.map, max=NMAX.map) {
+            pirnaNAME <- allnew[F,]
+            chrmFILES <- list.files()[stri_detect(list.files(),
+                                                  regex="^CHRM[0-9]+.Rda")]
+            for (i in 1:length(chrmFILES)) {
+                  pirnaNAME <- 
+                        c(pirnaNAME, readRDS(chrmFILES[i])[,"piRNA",1])
+            }
+            minMAP <- ifelse(!min %>% is.null, min, 1)
+            maxMAP <- ifelse(!max %>% is.null, max, length(pirnaNAME))
+            
+            expression <- function(pirna, min, max) {
+                  sapply(unique(pirna), 
+                         function(x) sum(pirna==x) >= min &
+                               sum(pirna==x) <= max)
+            }
+            
+            pirnaMATCH <- 
+                  unique(pirnaNAME)[expression(pirnaNAME,minMAP,maxMAP)]
+            
+            allnewAUX <<- allnew[F,]
+            sapply(pirnaMATCH, function(x) {
+                  temp <- subset(allnew %>% as.data.frame(
+                        stringsAsFactors=F), piRNA==x)
+                  allnewAUX <<- rbind(allnewAUX, temp)
+            }
+            )
+            aux <- allnewAUX; rm("allnewAUX",envir=.GlobalEnv) 
+            return(aux)
+      }
+      
+      allnewCHRM <- piRNAmatch(allnewCHRM)
+      
+      allnewCHRM <<- 
+            allnewCHRM[order(allnewCHRM[,"piRNA"], 
+                             -(allnewCHRM[,"Total.mut"] %>% as.numeric),
+                             allnewCHRM[,"Local"] %>% 
+                                   stri_extract(regex="^[0-9]+") %>% 
+                                   as.numeric),]
 }
 
 # Outra função: agora, o objetivo é salvar as tabelas obtidas em um arquivo 
