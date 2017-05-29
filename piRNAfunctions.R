@@ -90,7 +90,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       last <- serie[length(serie)]
       
       # Parallel computing!!
-      NumbersOfCluster <- detectCores()/2 - 4
+      NumbersOfCluster <- detectCores()/2
       cl <- makeCluster(NumbersOfCluster)
       registerDoSNOW(cl)
       #
@@ -103,7 +103,7 @@ piRNAprep <- function(vcf_file, gff_file) {
             
             if (serie==last) n <- lines - comms - serie else n <- 1e5
             vcf <- read.delim(vcf_file,stringsAsFactors=F,header=F,
-                              comment.char="#",skip=sequence,nrows=n)[,1:8]
+                              comment.char="#",skip=serie,nrows=n)[,1:8]
             vcfinfo <- vcf$V8 %>% stri_split_fixed(";")
             cinfo <- 
                   lapply(vcfinfo, function(x) stri_detect_regex(x,popALL))
@@ -313,7 +313,7 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
       }
       
       # Parallel computing!!
-      NumbersOfCluster <- detectCores()/2 - 4
+      NumbersOfCluster <- detectCores()/2
       cl <- makeCluster(NumbersOfCluster)
       registerDoSNOW(cl)
       #
