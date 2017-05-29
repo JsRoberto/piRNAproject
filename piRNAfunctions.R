@@ -90,9 +90,9 @@ piRNAprep <- function(vcf_file, gff_file) {
       last <- serie[length(serie)]
       
       # Parallel computing!!
-      NumbersOfCluster <- detectCores()/2
-      cl <- makeCluster(NumbersOfCluster)
-      registerDoSNOW(cl)
+      # NumbersOfCluster <- detectCores()/2
+      # cl <- makeCluster(NumbersOfCluster)
+      # registerDoSNOW(cl)
       #
       
       updateVCF <- function(vcf_file, serie) {
@@ -148,19 +148,25 @@ piRNAprep <- function(vcf_file, gff_file) {
                         return(vcfNew)
                   }
                   
+                  # vcfNew <- foreach (rows=1:nrow(vcfTemp),
+                  #                    .combine='rbind') %dopar%
+                  #       simplifyVCF(vcfAux1, vcfAux2, rows)
                   vcfNew <- foreach (rows=1:nrow(vcfTemp),
-                                     .combine='rbind') %dopar%
+                                     .combine='rbind') %do%
                         simplifyVCF(vcfAux1, vcfAux2, rows)
             }
             vcfNEW <- rbind(vcf[count == 0,], vcfNew)
             return(vcfNEW)
       }
       
-      vcfNEW <- foreach (sequence=serie, .combine='rbind') %dopar% 
+      # vcfNEW <- foreach (sequence=serie, .combine='rbind') %dopar% 
+      #       updateVCF(vcf_file, sequence)
+      
+      vcfNEW <- foreach (sequence=serie, .combine='rbind') %do% 
             updateVCF(vcf_file, sequence)
       
       #Finishing the parallel computing!
-      stopCluster(cl)
+      # stopCluster(cl)
       #
       
       NEWVCF <<- vcfNEW
@@ -313,16 +319,19 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
       }
       
       # Parallel computing!!
-      NumbersOfCluster <- detectCores()/2
-      cl <- makeCluster(NumbersOfCluster)
-      registerDoSNOW(cl)
+      # NumbersOfCluster <- detectCores()/2
+      # cl <- makeCluster(NumbersOfCluster)
+      # registerDoSNOW(cl)
       #
       
-      CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %dopar% 
+      # CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %dopar% 
+      #       calcCHRM(NEWVCF, UNIGFF, idx)
+      
+      CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %do% 
             calcCHRM(NEWVCF, UNIGFF, idx)
       
       # Finishing parallel computing!
-      stopCluster(cl)
+      # stopCluster(cl)
       
       CHRMaux <<- CHRMaux
 }
