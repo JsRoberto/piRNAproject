@@ -30,23 +30,25 @@ if(!suppressMessages(require(parallel))) {
       suppressMessages(require(parallel))
 }
 
-#
-piRNAparallel <- function(task) {
-      suppressMessages(require(doSNOW))
-      suppressMessages(require(stringi))
-      suppressMessages(require(magrittr))
-      suppressMessages(require(parallel))
-      
-      do <- stri_trans_tolower(task)
-      try(if (do != "open" & do != "close") 
-            stop("Parâmetro 'task' invalido!"))
-      if (do == "open") {
-            NumbersOfCluster <- detectCores()/2
-            cl <<- makeCluster(NumbersOfCluster)
-            registerDoSNOW(cl)
-      }
-      if (do == "close") stopCluster(cl)
-}
+# #
+# piRNAparallel <- function(task) {
+#       suppressMessages(require(doSNOW))
+#       suppressMessages(require(stringi))
+#       suppressMessages(require(magrittr))
+#       suppressMessages(require(parallel))
+#       
+#       do <- stri_trans_tolower(task)
+#       try(if (do != "open" & do != "close") 
+#             stop("Parâmetro 'task' invalido!"))
+#       if (do == "open") {
+#             NumbersOfCluster <- detectCores()/2
+#             cl <- makeCluster(NumbersOfCluster)
+#             registerDoSNOW(cl)
+#             #
+#             dopar <<- TRUE
+#       }
+#       if (do == "close") stopCluster(cl)
+# }
 
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
 # '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
@@ -163,11 +165,19 @@ piRNAprep <- function(vcf_file, gff_file) {
       #       vcfNEW <- rbind(vcfNEW, vcf[count == 0,], vcfNew)
       # }
       
-      updateVCF <- function(vcf_file, serie) {
+      # Parallel computing!!
+      NumbersOfCluster <- detectCores()/2
+      cl <- makeCluster(NumbersOfCluster)
+      registerDoSNOW(cl)
+      #
+      #
+      
+      updateVCF <- function(vcf_file, serie, parallel=dopar) {
             suppressMessages(require(doSNOW))
             suppressMessages(require(stringi))
             suppressMessages(require(magrittr))
             suppressMessages(require(parallel))
+            
             if (serie==last) n <- lines - comms - serie else n <- 1e5
             vcf <- read.delim(vcf_file,stringsAsFactors=F,header=F,
                               comment.char="#",skip=sequence,nrows=n)[,1:8]
@@ -226,6 +236,10 @@ piRNAprep <- function(vcf_file, gff_file) {
       vcfNEW <- foreach (sequence=serie, .combine='rbind') %dopar% 
             updateVCF(vcf_file, sequence)
       
+      #Finishing the parallel computing!
+      stopCluster(cl)
+      #
+      
       NEWVCF <<- vcfNEW
 }
 
@@ -250,7 +264,7 @@ piRNAprep <- function(vcf_file, gff_file) {
 # qual sua frequência alélica (AF='Allele Frequency') delas em relação ao
 # total de indivíduos analisados pelo projeto '1000 Genomes'.
 # -------------------------------------------------------------------------
-piRNAcount <- function(NEWVCF, UNIGFF, index) {
+piRNAcount <- function(NEWVCF, UNIGFF) {
       suppressMessages(require(doSNOW))
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
@@ -359,7 +373,7 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
             }
             return(CHRMaux)
       }
-      calcCHRM <- function() {
+      calcCHRM <- function(NEWVCF, UNIGFF, index) {
             dim1 <- NULL
             dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
                       "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
@@ -373,69 +387,37 @@ piRNAcount <- function(NEWVCF, UNIGFF, index) {
                         dimnames=list(dim1,dim2,dim3),dim=dimensions)
             
             return(CHRMaux)
-            #########
-            # if (exists("CHRMaux", envir=.GlobalEnv) & index == 1) {
-            #       rm("CHRMaux", envir=.GlobalEnv)
-            # }
-            # if (!exists("CHRMaux", envir=.GlobalEnv)) {
-            #       dim1 <- NULL
-            #       dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-            #                 "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
-            #                 "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
-            #                 "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
-            #       dim3 <- c("ID","!ID")
-            #       dimensions <- 
-            #             c(nrow(UNIGFF),length(dim2),length(dim3))
-            #       CHRMaux <- 
-            #             array(dimnames=list(dim1,dim2,dim3),dim=dimensions)
-            # }
-            # CHRMaux[index,,1] <- countCHRM(NEWVCF,UNIGFF,index,T)
-            # CHRMaux[index,,2] <- countCHRM(NEWVCF,UNIGFF,index,F)
-            # CHRMaux <<- CHRMaux
-            # if (index == nrow(UNIGFF)) {
-            #       CHRMfile <- stri_join("/data/projects/metagenomaCG/jose",
-            #                             "/piRNAproject/CHRM",chrm,".Rda")
-            #       if (!file.exists(CHRMfile)) {
-            #             saveRDS(CHRMaux, file=CHRMfile)
-            #       } else {
-            #             dim1 <- NULL
-            #             dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-            #                       "NonIndel.mut","ID.mut","AC","AF",
-            #                       "AFR.AC","AFR.AF","AMR.AC","AMR.AF",
-            #                       "EAS.AC","EAS.AF","EUR.AC","EUR.AF",
-            #                       "SAS.AC","SAS.AF")
-            #             dim3 <- c("ID","!ID")
-            #             dimension <- 
-            #                   c(nrow(readRDS(file=CHRMfile)) + nrow(CHRMaux),
-            #                     length(dim2), length(dim3))
-            #             CHRMtemp <- 
-            #                   array(dimnames=list(dim1,dim2,dim3), dim=dimension)
-            #             for (i in 1:2) {
-            #                   CHRMtemp[,,i] <- rbind(readRDS(CHRMfile)[,,i],
-            #                                          CHRMaux[,,i])
-            #             }
-            #             saveRDS(CHRMtemp, CHRMfile)
-            #       }
       }
-      calcCHRM()
+      
+      # Parallel computing!!
+      NumbersOfCluster <- detectCores()/2
+      cl <- makeCluster(NumbersOfCluster)
+      registerDoSNOW(cl)
+      #
+      
+      CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %dopar% 
+            calcCHRM(NEWVCF, UNIGFF, idx)
+      
+      # Finishing parallel computing!
+      stopCluster(cl)
+      
+      CHRMaux <<- CHRMaux
 }
 
-piRNAsave <- function(index) {
-      suppressMessages(require(doSNOW))
+piRNAsave <- function() {
       suppressMessages(require(stringi))
-      suppressMessages(require(magrittr))
-      suppressMessages(require(parallel))
-      if (index == nrow(UNIGFF)) {
+      
+      if (exists("CHRMaux", envir=.GlobalEnv)) {
             dim1 <- NULL
             dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
                       "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
                       "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
                       "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
             dim3 <- c("ID","!ID")
-            dimensions <- c(index,length(dim2),length(dim3))
+            dimensions <- c(nrow(UNIGFF),length(dim2),length(dim3))
             CHRM <- array(dimnames=list(dim1,dim2,dim3),
                           dim=dimensions)
-            for (idx in 1:index) CHRM[idx,,] <- CHRMaux[[idx]]
+            for (idx in 1:nrow(UNIGFF)) CHRM[idx,,] <- CHRMaux[[idx]]
             CHRMfile <- "/data/projects/metagenomaCG/jose/" %s+%
                   "piRNAproject/CHRM" %s+% chrm %s+% ".Rda"
             saveRDS(CHRM, file=CHRMfile)
@@ -443,12 +425,9 @@ piRNAsave <- function(index) {
 }
 
 piRNAcalc <- function(vcf_file, gff_file) {
-      piRNAparallel("open")
       piRNAprep(vcf_file, gff_file)
-      CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %dopar%
-            piRNAcount(NEWVCF, UNIGFF, idx)
-      piRNAparallel("close")
-      piRNAsave(nrow(UNIGFF))
+      piRNAcount(NEWVCF, UNIGFF)
+      piRNAsave()
 }
 
 # A função "posSelect()" tem o objetivo de transformar os informações do
