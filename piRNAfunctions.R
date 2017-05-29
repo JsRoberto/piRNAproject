@@ -86,7 +86,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       popALL <- "AC=|AF=|AFR_AF=|AMR_AF=|EAS_AF=|EUR_AF=|SAS_AF="
       
       # Laço de interação para obtenção e tratamento da subtabelas
-      serie <- seq(0, lines - comms, 1e5)
+      serie <- seq(0, lines - comms, 2e4)
       last <- serie[length(serie)]
       
       # Parallel computing!!
@@ -101,7 +101,7 @@ piRNAprep <- function(vcf_file, gff_file) {
             suppressMessages(require(magrittr))
             suppressMessages(require(parallel))
             
-            if (serie==last) n <- lines - comms - serie else n <- 1e5
+            if (serie==last) n <- lines - comms - serie else n <- 2e4
             vcf <- read.delim(vcf_file,stringsAsFactors=F,header=F,
                               comment.char="#",skip=serie,nrows=n)[,1:8]
             vcfinfo <- vcf$V8 %>% stri_split_fixed(";")
