@@ -11,6 +11,8 @@
 
 # A função "piRNAsDB()" ...
 piRNAsDB <- function() {
+      suppressMessages(require(stringi))
+      suppressMessages(require(magrittr))
       suppressMessages(require(filehash))
       
       piRNAlocal <<- "/data/projects/metagenomaCG/jose/piRNAproject/"
