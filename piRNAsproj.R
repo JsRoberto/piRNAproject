@@ -31,7 +31,7 @@ if(!suppressMessages(require(VariantAnnotation))) {
 }
 
 #
-piRNAprep <<- function(vcf_file, gff_file) {
+piRNAprep <- function(vcf_file, gff_file) {
       pirnalocal <<- "/data/projects/metagenomaCG/jose/piRNAproject/"
       
       chrmTemp <- vcf_file %>% stri_split(fixed="/")
@@ -45,33 +45,7 @@ piRNAprep <<- function(vcf_file, gff_file) {
       Range <<- seq(0,gffchrm$V5[nrow(gffchrm)],2e6)
 }
 
-# A função "piRNAcount()" produz um vetor com elementos nomeados que repre-
-# sentam informações sobre a quantidade de mutações em determinados piRNAs.
-# -------------------- Descrição dos argumentos ---------------------------
-# (1) "vcfNew": objeto da classe 'vcfR' que não apresenta registros mistos,
-# isto é, de mais de uma mutação por linha de arquivo;
-# (2) "gffUnique": objeto da classe 'data.frame' que apresenta informações
-# sobre um arquivo do tipo '.gff' sem redundância de registros; e
-# (3) "index": índice numérico inteiro que indica qual registro do arquivo
-# '.gff' terá suas mutações verificadas. 
-# ------------------------ Descrição da saída -----------------------------
-# (1) "piRNA": representa o identificador do piRNA de acordo com a base de
-# dados online 'http://regulatoryrna.org/database/piRNA/';
-# (2) "Local": representa a localização genômica do piRNA;
-# (3) "Total.mut", "Indel.mut" e "NonIndel.mut": representam, resp., o to-
-# tal de mutações encontradas, bem como as do tipo 'indel' e as demais 'não
-# indel'; e
-# (4) "Info.AC" e "Info.AF": representam, resp., as informações de quantos
-# alelos (AC='Allele Count') sofreram as mutações contidas em "Total.mut" e
-# qual sua frequência alélica (AF='Allele Frequency') delas em relação ao
-# total de indivíduos analisados pelo projeto '1000 Genomes'.
-# -------------------------------------------------------------------------
-piRNAcount <<- function(vcf_file, gff_file) {
-      suppressMessages(require(foreach))
-      suppressMessages(require(stringi))
-      suppressMessages(require(magrittr))
-      
-      piRNAvcf <<- function(vcf_file, eachRange) {
+piRNAvcf <- function(vcf_file, eachRange) {
             suppressMessages(require(foreach))
             suppressMessages(require(stringi))
             suppressMessages(require(magrittr))
@@ -121,6 +95,69 @@ piRNAcount <<- function(vcf_file, gff_file) {
                         SAS_AF=newVCF@info@listData$SAS_AF@unlistData)
             }
       }
+
+piRNAsave <- function(CHRMaux) {
+            suppressMessages(require(stringi))
+            
+            dim1 <- NULL
+            dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
+                      "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
+                      "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
+                      "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
+            dim3 <- c("ID","!ID")
+            dimensions <- c(nrow(UNIGFF),length(dim2),length(dim3))
+            CHRMlocal <- pirnalocal %s+% "CHRM" %s+% chrm %s+% ".Rda"
+            numRow <- ifelse(!file.exists(CHRMlocal), 0,
+                             nrow(file <- readRDS(file=CHRMlocal)))
+            idx <- numRow + 1:nrow(CHRMaux)
+            CHRM <- array(dimnames=list(dim1,dim2,dim3),
+                          dim=dimensions)
+            CHRM[1:numRow,,] <- file
+            for (i in idx) CHRM[i,,] <- CHRMaux[[i-numRow]]
+            
+            saveRDS(CHRM, file=CHRMfile)
+}
+
+calcCHRM <- function(NEWVCF, UNIGFF, index) {
+      dim1 <- NULL
+      dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
+                "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
+                "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
+                "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
+      dim3 <- c("ID","!ID")
+      dimensions <- c(1,length(dim2),length(dim3))
+      CHRMaux <- 
+            array(c(countCHRM(NEWVCF,UNIGFF,index,T),
+                    countCHRM(NEWVCF,UNIGFF,index,F)),
+                  dimnames=list(dim1,dim2,dim3),dim=dimensions)
+      
+      return(CHRMaux)
+}
+# A função "piRNAcount()" produz um vetor com elementos nomeados que repre-
+# sentam informações sobre a quantidade de mutações em determinados piRNAs.
+# -------------------- Descrição dos argumentos ---------------------------
+# (1) "vcfNew": objeto da classe 'vcfR' que não apresenta registros mistos,
+# isto é, de mais de uma mutação por linha de arquivo;
+# (2) "gffUnique": objeto da classe 'data.frame' que apresenta informações
+# sobre um arquivo do tipo '.gff' sem redundância de registros; e
+# (3) "index": índice numérico inteiro que indica qual registro do arquivo
+# '.gff' terá suas mutações verificadas. 
+# ------------------------ Descrição da saída -----------------------------
+# (1) "piRNA": representa o identificador do piRNA de acordo com a base de
+# dados online 'http://regulatoryrna.org/database/piRNA/';
+# (2) "Local": representa a localização genômica do piRNA;
+# (3) "Total.mut", "Indel.mut" e "NonIndel.mut": representam, resp., o to-
+# tal de mutações encontradas, bem como as do tipo 'indel' e as demais 'não
+# indel'; e
+# (4) "Info.AC" e "Info.AF": representam, resp., as informações de quantos
+# alelos (AC='Allele Count') sofreram as mutações contidas em "Total.mut" e
+# qual sua frequência alélica (AF='Allele Frequency') delas em relação ao
+# total de indivíduos analisados pelo projeto '1000 Genomes'.
+# -------------------------------------------------------------------------
+piRNAcount <- function(vcf_file, gff_file) {
+      suppressMessages(require(foreach))
+      suppressMessages(require(stringi))
+      suppressMessages(require(magrittr))
       
       countCHRM <- function(NEWVCF, UNIGFF, index, ID) {
             vcfAUX <- NEWVCF
@@ -242,35 +279,13 @@ piRNAcount <<- function(vcf_file, gff_file) {
             return(CHRMaux)
       }
       
-      piRNAsave <<- function(CHRMaux) {
-            suppressMessages(require(stringi))
-            
-            dim1 <- NULL
-            dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-                      "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
-                      "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
-                      "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
-            dim3 <- c("ID","!ID")
-            dimensions <- c(nrow(UNIGFF),length(dim2),length(dim3))
-            CHRMlocal <- pirnalocal %s+% "CHRM" %s+% chrm %s+% ".Rda"
-            numRow <- ifelse(!file.exists(CHRMlocal), 0,
-                             nrow(file <- readRDS(file=CHRMlocal)))
-            idx <- numRow + 1:nrow(CHRMaux)
-            CHRM <- array(dimnames=list(dim1,dim2,dim3),
-                          dim=dimensions)
-            CHRM[1:numRow,,] <- file
-            for (i in idx) CHRM[i,,] <- CHRMaux[[i-numRow]]
-            
-            saveRDS(CHRM, file=CHRMfile)
-      }
-      
       # Parallel computing!!
       # NumbersOfCluster <- detectCores()/2
       # cl <- makeCluster(NumbersOfCluster)
       # registerDoSNOW(cl)
       #
       
-      piRNApross <<- function(vcf_file, gff_file, eachRange) {
+      piRNApross <- function(vcf_file, gff_file, eachRange) {
             piRNAvcf(vcf_file, gff_file, eachRange)
             if (exe.cond) {
                   CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %do% 
