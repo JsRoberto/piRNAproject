@@ -38,7 +38,7 @@ piRNAsDB <- function() {
       
       piRNAlocal <<- "/data/projects/metagenomaCG/jose/piRNAproject/"
       filehashOption(defaultType="RDS")
-      dbCreate(piRNAlocal %s+% "piRNAdb") %>% supressMessages
+      dbCreate(piRNAlocal %s+% "piRNAdb") %>% suppressMessages
       pidb <<- dbInit(piRNAlocal %s+% "piRNAdb")
 }
 
