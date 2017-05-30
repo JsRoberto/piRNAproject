@@ -52,14 +52,14 @@ piRNAins <- function(vcf_file, gff_file) {
       suppressMessages(require(VariantAnnotation))
       
       chrm <- vcf_file %>% stri_split(fixed="/")
-      chrm <<- stri_extract_first(chrm[length(chrm[[1]])],
+      chrm <<- stri_extract_first(chrm[[length(chrm[[1]])]],
                                   regex="[0-9]+|[XY]+")
       
       gff <- read.delim(gff_file, stringsAsFactors=F, header=F)
       uniGFF <<- gff[gff$V1=="chr" %s+% chrm,] %>% 
             unique.data.frame
       
-      Range <<- seq(0,uniGFF$V5[length(uniGFF$V5)],2e6)
+      Range <<- seq(0,uniGFF$V5[nrow(uniGFF)],2e6)
       
       insertVCF <- function(vcf_file, eachRange) {
             ini <- UNIGFF$V4[1] + eachRange
