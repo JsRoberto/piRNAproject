@@ -315,7 +315,7 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
             piRNAsave(CHRMaux)
       }
       
-      foreach (eachRange=range) %do% piRNApross(eachRange)
+      foreach (eachRange=Range) %do% piRNApross(eachRange)
       
       # Finishing parallel computing!
       # stopCluster(cl)
