@@ -30,26 +30,9 @@ if(!suppressMessages(require(VariantAnnotation))) {
       suppressMessages(require(VariantAnnotation))
 }
 
-# A função "piRNAsDB()" ...
-piRNAsDB <- function() {
-      suppressMessages(require(stringi))
-      suppressMessages(require(magrittr))
-      suppressMessages(require(filehash))
-      
-      piRNAlocal <<- "/data/projects/metagenomaCG/jose/piRNAproject/"
-      filehashOption(defaultType="RDS")
-      dbCreate(piRNAlocal %s+% "piRNAdb") %>% suppressMessages
-      pidb <<- dbInit(piRNAlocal %s+% "piRNAdb")
-}
-
-# A função "piRNAfiles()" ...
-# 
-
-piRNAins <- function(vcf_file, gff_file) {
-      suppressMessages(require(foreach))
-      suppressMessages(require(stringi))
-      suppressMessages(require(magrittr))
-      suppressMessages(require(VariantAnnotation))
+#
+piRNAprep <<- function(vcf_file, gff_file) {
+      pirnalocal <<- "/data/projects/metagenomaCG/jose/piRNAproject/"
       
       chrmTemp <- vcf_file %>% stri_split(fixed="/")
       chrm <<- stri_extract_first(chrmTemp[[1]][length(chrmTemp[[1]])],
@@ -60,28 +43,6 @@ piRNAins <- function(vcf_file, gff_file) {
             gff[gff$V1=="chr" %s+% chrm,] %>% unique.data.frame
       
       Range <<- seq(0,gffchrm$V5[nrow(gffchrm)],2e6)
-      
-      insertVCF <- function(vcf_file, eachRange) {
-            ini <- uniGFF$V4[1] + eachRange
-            fim <- uniGFF$V5[1] + eachRange + 2e6
-            cond <- uniGFF$V4 >= ini & uniGFF$V5 < fim
-            
-            if (exe.cond <<- sum(cond) != 0) {
-                  filename <- piRNAlocal %s+% "piRNAdb/newvcf" %s+% 
-                        chrm %s+% "_" %s+% (eachRange/2e6 + 1)
-                  if (!file.exists(filename)) {
-                        range <- GRanges(seqnames=chrm,
-                                         ranges=IRanges(start=ini,end=fim))
-                        myparam <- ScanVcfParam(which=range)
-                        idx <- indexTabix(vcf_file, "vcf")
-                        tab <- TabixFile(vcf_file, idx)
-                        dbInsert(pidb,filename,readVcf(tab,param=myparam))
-                  }
-            }
-      }
-      
-      foreach (eachRange=Range) %do% insertVCF(vcf_file, eachRange)
-      
 }
 
 # A função "piRNAcount()" produz um vetor com elementos nomeados que repre-
@@ -105,16 +66,67 @@ piRNAins <- function(vcf_file, gff_file) {
 # qual sua frequência alélica (AF='Allele Frequency') delas em relação ao
 # total de indivíduos analisados pelo projeto '1000 Genomes'.
 # -------------------------------------------------------------------------
-piRNAcount <- function(NEWVCF, UNIGFF) {
+piRNAcount <<- function(vcf_file, gff_file) {
       suppressMessages(require(foreach))
-      suppressMessages(library(stringi))
-      suppressMessages(library(magrittr))
+      suppressMessages(require(stringi))
+      suppressMessages(require(magrittr))
+      
+      piRNAvcf <<- function(vcf_file, eachRange) {
+            suppressMessages(require(foreach))
+            suppressMessages(require(stringi))
+            suppressMessages(require(magrittr))
+            suppressMessages(require(VariantAnnotation))
+            
+            ini <- uniGFF$V4[1] + eachRange
+            fim <- uniGFF$V5[1] + eachRange + 2e6
+            cond <- uniGFF$V4 >= ini & uniGFF$V5 < fim
+            
+            if (exe.cond <<- sum(cond) != 0) {
+                  UNIGFF <<- uniGFF[cond,]
+                  
+                  range <- GRanges(seqnames=chrm,
+                                   ranges=IRanges(start=ini,end=fim))
+                  tab <- TabixFile(vcf_file)
+                  newVCF <- readVcf(tab, "hg19", param=range)
+                  
+                  rep <- newVCF@fixed@listData$ALT %>% as.list %>% listLen
+                  
+                  ANorg <- newVCF@info@listData$AN
+                  IDorg <- ifelse(newVCF@rowRanges@ranges@NAMES %>%
+                                        stri_detect_regex("^[" %s+% chrm %s+%
+                                                                ":]", negate=T),
+                                  newVCF@rowRanges@ranges@NAMES, NA)
+                  REForg <- newVCF@fixed@listData$REF %>% as.vector
+                  POSorg <- newVCF@rowRanges@ranges@start
+                  #QUALorg <- newVCF@fixed@listData$QUAL
+                  
+                  ACnew <- newVCF@info@listData$AC@unlistData
+                  AFnew <- newVCF@info@listData$AF@unlistData
+                  ANnew <- mapply(function(x,y) rep(x,y),ANorg,rep) %>% unlist
+                  IDnew <- mapply(function(x,y) rep(x,y),IDorg,rep) %>% unlist
+                  REFnew <- mapply(function(x,y) rep(x,y),REForg,rep)%>% unlist
+                  POSnew <- mapply(function(x,y) rep(x,y),POSorg,rep)%>% unlist
+                  #QUALnew <- mapply(function(x,y)rep(x,y),QUALorg,rep)%>% unlist
+                  
+                  NEWVCF <<- data.frame(
+                        stringsAsFactors=F, ID=IDnew, POS=POSnew,
+                        #QUAL=QUALnew, REF=REFnew,
+                        REF=REFnew,
+                        ALT=newVCF@fixed@listData$ALT@unlistData, 
+                        AC=ACnew, AF=AFnew, AN=ANnew,
+                        AFR_AF=newVCF@info@listData$AFR_AF@unlistData,
+                        AMR_AF=newVCF@info@listData$AMR_AF@unlistData,
+                        EAS_AF=newVCF@info@listData$EAS_AF@unlistData,
+                        EUR_AF=newVCF@info@listData$EUR_AF@unlistData,
+                        SAS_AF=newVCF@info@listData$SAS_AF@unlistData)
+            }
+      }
       
       countCHRM <- function(NEWVCF, UNIGFF, index, ID) {
             vcfAUX <- NEWVCF
             
             condaux <- ! vcfAUX$ID %>% is.na
-            cond <- if (ID[1]) condaux else !condaux
+            cond <- if (ID) condaux else !condaux
             
             vcfAUX <- vcfAUX[cond,]
             
@@ -153,7 +165,7 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
                   
                   vcfAUX <- vcfAUX[pos.all,]
                   
-                  if (ID[1]) {
+                  if (ID) {
                         piRNAid <- stri_join(vcfAUX$ID, collapse=";")
                   }
                   
@@ -230,86 +242,36 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
             return(CHRMaux)
       }
       
+      piRNAsave <<- function(CHRMaux) {
+            suppressMessages(require(stringi))
+            
+            dim1 <- NULL
+            dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
+                      "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
+                      "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
+                      "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
+            dim3 <- c("ID","!ID")
+            dimensions <- c(nrow(UNIGFF),length(dim2),length(dim3))
+            CHRMlocal <- pirnalocal %s+% "CHRM" %s+% chrm %s+% ".Rda"
+            numRow <- ifelse(!file.exists(CHRMlocal), 0,
+                             nrow(file <- readRDS(file=CHRMlocal)))
+            idx <- numRow + 1:nrow(CHRMaux)
+            CHRM <- array(dimnames=list(dim1,dim2,dim3),
+                          dim=dimensions)
+            CHRM[1:numRow,,] <- file
+            for (i in idx) CHRM[i,,] <- CHRMaux[[i-numRow]]
+            
+            saveRDS(CHRM, file=CHRMfile)
+      }
+      
       # Parallel computing!!
       # NumbersOfCluster <- detectCores()/2
       # cl <- makeCluster(NumbersOfCluster)
       # registerDoSNOW(cl)
       #
-      piRNAextr <<- function(eachRange) {
-            suppressMessages(library(stringi))
-            suppressMessages(library(magrittr))
-            suppressMessages(library(filehash))
-            suppressMessages(library(VariantAnnotation))
-            
-            ini <- uniGFF$V4[1] + eachRange
-            fim <- uniGFF$V5[1] + eachRange + 2e6
-            cond <- uniGFF$V4 >= ini & uniGFF$V5 < fim
-            
-            if (exe.cond <<- sum(cond) != 0) {
-                  filename <- piRNAlocal %s+% "piRNAdb/newvcf" %s+%
-                        chrm %s+% "_" %s+% (eachRange/2e6 + 1)
-                  
-                  UNIGFF <<- uniGFF[cond,]
-                  newVCF <- dbFetch(pidb, filename)
-                  
-                  rep <- newVCF@fixed@listData$ALT %>% as.list %>%
-                        listLen
-                  
-                  ANorg <- newVCF@info@listData$AN
-                  IDorg <- ifelse(newVCF@rowRanges@ranges@NAMES %>%
-                                        stri_detect_regex(
-                        "^[" %s+% chrm %s+% ":]", negate=T),
-                        newVCF@rowRanges@ranges@NAMES, NA)
-                  REForg <- newVCF@fixed@listData$REF %>% as.vector
-                  POSorg <- newVCF@rowRanges@ranges@start
-                  QUALorg <- newVCF@fixed@listData$QUAL
-                  
-                  ACnew <- newVCF@info@listData$AC@unlistData
-                  AFnew <- newVCF@info@listData$AF@unlistData
-                  ANnew <- mapply(function(x,y) rep(x,y),ANorg,rep) %>% unlist
-                  IDnew <- mapply(function(x,y) rep(x,y),IDorg,rep) %>% unlist
-                  REFnew <- mapply(function(x,y) rep(x,y),REForg,rep)%>% unlist
-                  POSnew <- mapply(function(x,y) rep(x,y),POSorg,rep)%>% unlist
-                  #QUALnew <- mapply(function(x,y)rep(x,y),QUALorg,rep)%>% unlist
-                  
-                  NEWVCF <<- data.frame(
-                        stringsAsFactors=F, ID=IDnew, POS=POSnew,
-                        #QUAL=QUALnew, REF=REFnew,
-                        REF=REFnew,
-                        ALT=newVCF@fixed@listData$ALT@unlistData, 
-                        AC=ACnew, AF=AFnew, AN=ANnew,
-                        AFR_AF=newVCF@info@listData$AFR_AF@unlistData,
-                        AMR_AF=newVCF@info@listData$AMR_AF@unlistData,
-                        EAS_AF=newVCF@info@listData$EAS_AF@unlistData,
-                        EUR_AF=newVCF@info@listData$EUR_AF@unlistData,
-                        SAS_AF=newVCF@info@listData$SAS_AF@unlistData)
-            }
-      }
       
-      piRNAsave <<- function(CHRMaux) {
-                  suppressMessages(require(stringi))
-                  
-                  dim1 <- NULL
-                  dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-                            "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
-                            "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
-                            "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
-                  dim3 <- c("ID","!ID")
-                  dimensions <- c(nrow(UNIGFF),length(dim2),length(dim3))
-                  CHRMlocal <- piRNAlocal %s+% "CHRM" %s+% chrm %s+% ".Rda"
-                  numRow <- ifelse(!file.exists(CHRMlocal), 0,
-                                   nrow(file <- readRDS(file=CHRMlocal)))
-                  idx <- numRow + 1:nrow(CHRMaux)
-                  CHRM <- array(dimnames=list(dim1,dim2,dim3),
-                                dim=dimensions)
-                  CHRM[1:numRow,,] <- file
-                  for (i in idx) CHRM[i,,] <- CHRMaux[[i-numRow]]
-                  
-                  saveRDS(CHRM, file=CHRMfile)
-            }
-      
-      piRNApross <<- function(eachRange) {
-            piRNAextr(eachRange)
+      piRNApross <<- function(vcf_file, gff_file, eachRange) {
+            piRNAvcf(vcf_file, gff_file, eachRange)
             if (exe.cond) {
                   CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %do% 
                         calcCHRM(NEWVCF, UNIGFF, idx)
@@ -317,7 +279,8 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
             }
       }
       
-      foreach (eachRange=Range) %do% piRNApross(eachRange)
+      foreach (eachRange=Range) %do% 
+            piRNApross(vcf_file, gff_file, eachRange)
       
       # Finishing parallel computing!
       # stopCluster(cl)
@@ -325,9 +288,8 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
 
 # A função "piRNAcalc()" ...
 piRNAcalc <- function(vcf_file, gff_file) {
-      piRNAsDB()
-      piRNAins(vcf_file, gff_file)
-      piRNAcount(NEWVCF, UNIGFF)
+      piRNAprep(vcf_file, gff_file)
+      piRNAcount(vcf_file, gff_file)
 }      
 
 # A função "posSelect()" tem o objetivo de transformar os informações do
