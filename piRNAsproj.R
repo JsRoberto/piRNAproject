@@ -124,6 +124,110 @@ piRNAsave <- function(CHRMaux) {
             saveRDS(CHRM, file=CHRMfile)
 }
 
+countCHRM <- function(NEWVCF, UNIGFF, index, ID) {
+      vcfAUX <- NEWVCF
+      
+      condaux <- ! vcfAUX$ID %>% is.na
+      cond <- if (ID) condaux else !condaux
+      
+      vcfAUX <- vcfAUX[cond,]
+      
+      #Extraindo indel e nonindels:
+      indels <- 
+            vcfAUX$REF %>% stri_count(regex="^[ACGT]+$") != 
+            vcfAUX$ALT %>% stri_count(regex="^[ACGT]+$")
+      
+      vcfINDEL <- vcfAUX[indels,]
+      vcfnonINDEL <- vcfAUX[!indels,]
+      #---------------------
+      
+      piRNAname <- 
+            stri_extract_all_regex(
+                  UNIGFF$V9[index],"piR-hsa-[0-9]+")[[1]] %>%
+            unique %>% stri_join(collapse="+")
+      piRNAlocal <- 
+            stri_join(UNIGFF$V4[index],
+                      UNIGFF$V5[index],
+                      sep="-")
+      piRNAid <- NA
+      
+      pos.all <- vcfAUX$POS>=UNIGFF$V4[index] &
+            vcfAUX$POS<=UNIGFF$V5[index]
+      pos.indel <- vcfINDEL$POS>=UNIGFF$V4[index] &
+            vcfINDEL$POS<=UNIGFF$V5[index]
+      pos.nonindel <- vcfnonINDEL$POS>=UNIGFF$V4[index] &
+            vcfnonINDEL$POS<=UNIGFF$V5[index]
+      
+      quant.mut <- sum(pos.all)
+      
+      coef <- c(1322, 694, 1008, 1006, 978)
+      if (quant.mut >= 1) {
+            indel.mut <- sum(pos.indel)
+            noind.mut <- sum(pos.nonindel)
+            
+            vcfAUX <- vcfAUX[pos.all,]
+            
+            if (ID) {
+                  piRNAid <- stri_join(vcfAUX$ID, collapse=";")
+            }
+            
+            CHRMaux <- 
+                  cbind(piRNA=piRNAname, Local=piRNAlocal,
+                        Total.mut=quant.mut, Indel.mut=indel.mut,
+                        NonIndel.mut=noind.mut, ID.mut=piRNAid,
+                        AC=stri_join(vcfAUX$AC, collapse=";"),
+                        AF=stri_join(vcfAUX$AF, collapse=";") %>% 
+                              stri_join("(", coef %>% sum,")"),
+                        AFR.AC=stri_join(
+                              (coef[1]*as.numeric(vcfAUX$AFR_AF)) %>%
+                                    round, collapse=";"),
+                        AFR.AF=stri_join(
+                              vcfAUX$AFR_AF, collapse=";") %>% 
+                              stri_join("(",coef[1],")"),
+                        AMR.AC=stri_join(
+                              (coef[2]*as.numeric(vcfAUX$AMR_AF)) %>%
+                                    round, collapse=";"),
+                        AMR.AF=stri_join(
+                              vcfAUX$AMR_AF, collapse=";") %>%
+                              stri_join("(",coef[2],")"), 
+                        EAS.AC=stri_join(
+                              (coef[3]*as.numeric(vcfAUX$EAS_AF)) %>%
+                                    round, collapse=";"),
+                        EAS.AF=stri_join(
+                              vcfAUX$EAS_AF, collapse=";") %>% 
+                              stri_join("(",coef[3],")"),
+                        EUR.AC=stri_join(
+                              (coef[4]*as.numeric(vcfAUX$EUR_AF)) %>%
+                                    round, collapse=";"),
+                        EUR.AF=stri_join(
+                              vcfAUX$EUR_AF, collapse=";") %>%
+                              stri_join("(",coef[4],")"),
+                        SAS.AC=stri_join(
+                              (coef[5]*as.numeric(vcfAUX$SAS_AF)) %>%
+                                    round, collapse=";"),
+                        SAS.AF=stri_join(
+                              vcfAUX$SAS_AF,collapse=";") %>%
+                              stri_join("(",coef[5],")"))
+      } else {
+            CHRMaux <- 
+                  cbind(piRNA=piRNAname, Local=piRNAlocal,
+                        Total.mut=0, Indel.mut=0,
+                        NonIndel.mut=0, ID.mut=piRNAid, Info.AC=0, 
+                        Info.AF=stri_join(0.00,"(",coef%>%sum,")"),
+                        AFR.AC=0, AFR.AF=stri_join(
+                              0.00,"(",coef[1],")"),
+                        AMR.AC=0, AMR.AF=stri_join(
+                              0.00,"(",coef[2],")"),
+                        EAS.AC=0, EAS.AF=stri_join(
+                              0.00,"(",coef[3],")"),
+                        EUR.AC=0, EUR.AF=stri_join(
+                              0.00,"(",coef[4],")"),
+                        SAS.AC=0, SAS.AF=stri_join(
+                              0.00,"(",coef[5],")"))
+      }
+      return(CHRMaux)
+}
+
 calcCHRM <- function(NEWVCF, UNIGFF, index) {
       dim1 <- NULL
       dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
