@@ -57,7 +57,7 @@ piRNAins <- function(vcf_file, gff_file) {
       UNIGFF <<- gff[gff$V1=="chr" %s+% chrm,] %>% 
             unique.data.frame
       
-      range <<- seq(0,UNIGFF$V5[nrow(UNIGFF)],2e6)
+      Range <<- seq(0,UNIGFF$V5[nrow(UNIGFF)],2e6)
       
       insertVCF <- function(vcf_file, eachRange) {
             ini <- UNIGFF$V4[1] + eachRange
@@ -78,7 +78,7 @@ piRNAins <- function(vcf_file, gff_file) {
             }
       }
       
-      foreach (rng=range) %do% insertVCF(vcf_file, rng)
+      foreach (eachRange=Range) %do% insertVCF(vcf_file, eachRange)
       
 }
 
