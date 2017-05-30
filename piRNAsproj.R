@@ -56,14 +56,15 @@ piRNAins <- function(vcf_file, gff_file) {
                                   regex="[0-9]+|[XY]+")
       
       gff <- read.delim(gff_file, stringsAsFactors=F, header=F)
-      uniGFF <<- gff[gff$V1=="chr" %s+% chrm,] %>% unique.data.frame
+      uniGFF <<- gffchrm <- 
+            gff[gff$V1=="chr" %s+% chrm,] %>% unique.data.frame
       
-      Range <<- seq(0,uniGFF$V5[nrow(uniGFF)],2e6)
+      Range <<- seq(0,gffchrm$V5[nrow(gffchrm)],2e6)
       
       insertVCF <- function(vcf_file, eachRange) {
-            ini <- UNIGFF$V4[1] + eachRange
-            fim <- UNIGFF$V5[1] + eachRange + 2e6
-            cond <- UNIGFF$V4 >= ini & UNIGFF$V5 <= fim
+            ini <- uniGFF$V4[1] + eachRange
+            fim <- uniGFF$V5[1] + eachRange + 2e6
+            cond <- uniGFF$V4 >= ini & uniGFF$V5 < fim
             
             if (exe.cond <<- sum(cond) != 0) {
                   filename <- piRNAlocal %s+% "piRNAdb/newvcf" %s+% 
@@ -240,15 +241,15 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
             suppressMessages(library(filehash))
             suppressMessages(library(VariantAnnotation))
             
-            ini <- UNIGFF$V4[1]+eachRange
-            fim <- UNIGFF$V5[1]+eachRange+2e6
-            cond <- UNIGFF$V4 >= ini & UNIGFF$V5 <= fim
+            ini <- uniGFF$V4[1] + eachRange
+            fim <- uniGFF$V5[1] + eachRange + 2e6
+            cond <- uniGFF$V4 >= ini & uniGFF$V5 < fim
             
             if (exe.cond <<- sum(cond) != 0) {
                   filename <- piRNAlocal %s+% "piRNAdb/newvcf" %s+%
                         chrm %s+% "_" %s+% (eachRange/2e6 + 1)
                   
-                  uniGFF <<- UNIGFF[cond,]
+                  UNIGFF <<- uniGFF[cond,]
                   newVCF <- dbFetch(pidb, filename)
                   
                   rep <- newVCF@fixed@listData$ALT %>% as.list %>%
@@ -271,7 +272,7 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
                   POSnew <- mapply(function(x,y) rep(x,y),POSorg,rep)%>% unlist
                   #QUALnew <- mapply(function(x,y)rep(x,y),QUALorg,rep)%>% unlist
                   
-                  newVCF <<- data.frame(
+                  NEWVCF <<- data.frame(
                         stringsAsFactors=F, ID=IDnew, POS=POSnew,
                         #QUAL=QUALnew, REF=REFnew,
                         REF=REFnew,
@@ -309,9 +310,11 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
       
       piRNApross <<- function(eachRange) {
             piRNAextr(eachRange)
-            CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %do% 
-                  calcCHRM(NEWVCF, UNIGFF, idx)
-            piRNAsave(CHRMaux)
+            if (exe.cond) {
+                  CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %do% 
+                        calcCHRM(NEWVCF, UNIGFF, idx)
+                  piRNAsave(CHRMaux)
+            }
       }
       
       foreach (eachRange=Range) %do% piRNApross(eachRange)
@@ -324,7 +327,7 @@ piRNAcount <- function(NEWVCF, UNIGFF) {
 piRNAcalc <- function(vcf_file, gff_file) {
       piRNAsDB()
       piRNAins(vcf_file, gff_file)
-      piRNAcount(newVCF, uniGFF)
+      piRNAcount(NEWVCF, UNIGFF)
 }      
 
 # A função "posSelect()" tem o objetivo de transformar os informações do
