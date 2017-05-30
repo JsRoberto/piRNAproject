@@ -8,6 +8,27 @@
 # Definindo a biblioteca
 #.libPaths(
 #      "C:/Users/JoséRoberto/AppData/Roaming/SPB_16.6/R/win-library/3.2")
+if(!suppressMessages(require(foreach))) {
+      install.packages("foreach")
+      suppressMessages(require(foreach))
+}
+if(!suppressMessages(require(stringi))) {
+      install.packages("stringi")
+      suppressMessages(require(stringi))
+}
+if(!suppressMessages(require(filehash))) {
+      install.packages("filehash")
+      suppressMessages(require(filehash))
+}
+if(!suppressMessages(require(magrittr))) {
+      install.packages("magrittr")
+      suppressMessages(require(magrittr))
+}
+if(!suppressMessages(require(VariantAnnotation))) {
+      source("https://bioconductor.org/biocLite.R")
+      biocLite("VariantAnnotation")
+      suppressMessages(require(VariantAnnotation))
+}
 
 # A função "piRNAsDB()" ...
 piRNAsDB <- function() {
