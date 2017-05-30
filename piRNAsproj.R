@@ -55,14 +55,20 @@ piRNAvcf <- function(vcf_file, eachRange) {
             fim <- uniGFF$V5[1] + eachRange + 2e6
             cond <- uniGFF$V4 >= ini & uniGFF$V5 < fim
             
-            if (exe.cond <<- sum(cond) != 0) {
+            if (exe.cond <- sum(cond) != 0) {
                   UNIGFF <<- uniGFF[cond,]
                   
+                  compressVCF <- bgzip(vcf_file, tempfile())
                   range <- GRanges(seqnames=chrm,
                                    ranges=IRanges(start=ini,end=fim))
-                  tab <- TabixFile(vcf_file)
-                  newVCF <- readVcf(tab, "hg19", param=range)
+                  param <- ScanVcfParam(which=range)
+                  idx <- indexTabix(compressVCF, "vcf")
+                  tab <- TabixFile(compressVCF,  idx)
+                  newVCF <- readVcf(tab, "b37", param)
                   
+            }
+            
+            if (exe <<- exe.cond & nrow(newVCF) > 0) {
                   rep <- newVCF@fixed@listData$ALT %>% as.list %>% listLen
                   
                   ANorg <- newVCF@info@listData$AN
@@ -286,8 +292,8 @@ piRNAcount <- function(vcf_file, gff_file) {
       #
       
       piRNApross <- function(vcf_file, gff_file, eachRange) {
-            piRNAvcf(vcf_file, gff_file, eachRange)
-            if (exe.cond) {
+            piRNAvcf(vcf_file, eachRange)
+            if (exe) {
                   CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %do% 
                         calcCHRM(NEWVCF, UNIGFF, idx)
                   piRNAsave(CHRMaux)
