@@ -54,10 +54,10 @@ piRNAins <- function(vcf_file, gff_file) {
       chrm <<- vcf_file %>% stri_extract_first(regex="[0-9]+")
       
       gff <- read.delim(gff_file, stringsAsFactors=F, header=F)
-      UNIGFF <<- gff[gff$V1=="chr" %s+% chrm,] %>% 
+      uniGFF <<- gff[gff$V1=="chr" %s+% chrm,] %>% 
             unique.data.frame
       
-      Range <<- seq(0,UNIGFF$V5[nrow(UNIGFF)],2e6)
+      Range <<- seq(0,uniGFF$V5[nrow(uniGFF)],2e6)
       
       insertVCF <- function(vcf_file, eachRange) {
             ini <- UNIGFF$V4[1] + eachRange
