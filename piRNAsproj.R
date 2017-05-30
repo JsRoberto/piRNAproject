@@ -56,8 +56,7 @@ piRNAins <- function(vcf_file, gff_file) {
                                   regex="[0-9]+|[XY]+")
       
       gff <- read.delim(gff_file, stringsAsFactors=F, header=F)
-      uniGFF <<- gff[gff$V1=="chr" %s+% chrm,] %>% 
-            unique.data.frame
+      uniGFF <<- gff[gff$V1=="chr" %s+% chrm,] %>% unique.data.frame
       
       Range <<- seq(0,uniGFF$V5[nrow(uniGFF)],2e6)
       
