@@ -51,8 +51,8 @@ piRNAins <- function(vcf_file, gff_file) {
       suppressMessages(require(magrittr))
       suppressMessages(require(VariantAnnotation))
       
-      chrm <- vcf_file %>% stri_split(fixed="/")
-      chrm <<- stri_extract_first(chrm[[1]][length(chrm[[1]])],
+      chrmTemp <- vcf_file %>% stri_split(fixed="/")
+      chrm <<- stri_extract_first(chrmTemp[[1]][length(chrmTemp[[1]])],
                                   regex="[0-9]+|[XY]+")
       
       gff <- read.delim(gff_file, stringsAsFactors=F, header=F)
