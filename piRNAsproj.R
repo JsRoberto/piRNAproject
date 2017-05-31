@@ -69,7 +69,7 @@ piRNAvcf <- function(vcf_file, eachRange) {
             }
             
             if (exe <<- exe.cond & nrow(newVCF) > 0) {
-                  rep <- newVCF@fixed@listData$ALT %>% as.list %>% listLen
+                  repp <- newVCF@fixed@listData$ALT %>% as.list %>% listLen
                   
                   ANorg <- newVCF@info@listData$AN
                   IDorg <- ifelse(newVCF@rowRanges@ranges@NAMES %>%
@@ -82,11 +82,11 @@ piRNAvcf <- function(vcf_file, eachRange) {
                   
                   ACnew <- newVCF@info@listData$AC@unlistData
                   AFnew <- newVCF@info@listData$AF@unlistData
-                  ANnew <- mapply(function(x,y) rep(x,y),ANorg,rep) %>% unlist
-                  IDnew <- mapply(function(x,y) rep(x,y),IDorg,rep) %>% unlist
-                  REFnew <- mapply(function(x,y) rep(x,y),REForg,rep)%>% unlist
-                  POSnew <- mapply(function(x,y) rep(x,y),POSorg,rep)%>% unlist
-                  #QUALnew <- mapply(function(x,y)rep(x,y),QUALorg,rep)%>% unlist
+                  ANnew <- mapply(function(x,y) rep(x,y),ANorg,repp) %>% unlist
+                  IDnew <- mapply(function(x,y) rep(x,y),IDorg,repp) %>% unlist
+                  REFnew <- mapply(function(x,y) rep(x,y),REForg,repp)%>% unlist
+                  POSnew <- mapply(function(x,y) rep(x,y),POSorg,repp)%>% unlist
+                  #QUALnew <- mapply(function(x,y)rep(x,y),QUALorg,repp)%>% unlist
                   
                   NEWVCF <<- data.frame(
                         stringsAsFactors=F, ID=IDnew, POS=POSnew,
