@@ -111,7 +111,7 @@ piRNAsave <- function(CHRMaux) {
                       "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
                       "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
             dim3 <- c("ID","!ID")
-            dimensions <- c(nrow(UNIGFF),length(dim2),length(dim3))
+            dimensions <- c(nrow(uniGFF),length(dim2),length(dim3))
             CHRMlocal <- pirnalocal %s+% "CHRM" %s+% chrm %s+% ".Rda"
             CHRM <- array(dimnames=list(dim1,dim2,dim3),
                                 dim=dimensions)
