@@ -102,29 +102,23 @@ piRNAvcf <- function(vcf_file, eachRange) {
             }
       }
 
-piRNAsave <- function(CHRMaux) {
+piRNAsave <- function(CHRMaux, eachRange) {
             suppressMessages(require(stringi))
-            
+            #
             dim1 <- NULL
             dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
                       "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
                       "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
                       "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
-            dim3 <- c("ID","!ID")
-            dimensions <- c(nrow(uniGFF),length(dim2),length(dim3))
-            CHRMlocal <- pirnalocal %s+% "CHRM" %s+% chrm %s+% ".Rda"
+            dim3 <- c("RS","!RS")
+            dimensions <- c(nrow(UNIGFF),length(dim2),length(dim3))
             CHRM <- array(dimnames=list(dim1,dim2,dim3),
-                                dim=dimensions)
-            if (!file.exists(CHRMlocal)) numRow <- 0 else {
-                  numRow <- nrow(file <- readRDS(file=CHRMlocal))
-                  CHRM[1:numRow,,] <- file
-                  
-            }
-            idx <- numRow + 1:length(CHRMaux)
-            
-            for (i in idx) CHRM[i,,] <- CHRMaux[[i-numRow]]
-            
-            saveRDS(CHRM, file=CHRMlocal)
+                          dim=dimensions)
+            for (i in 1:length(CHRMaux)) CHRM[i,,] <- CHRMaux[[i]]
+            CHRMlocal <- pirnalocal %s+% "CHRM" %s+% chrm %s+% ".txt"
+            cond <- if (eachRange==Range[1]) F else file.exists(CHRMlocal)
+            write.table(CHRMaux, CHRMlocal, sep="\t", append=cond, 
+                        col.names=!cond, row.names=F)
 }
 
 countCHRM <- function(NEWVCF, UNIGFF, index, ID) {
@@ -237,7 +231,7 @@ calcCHRM <- function(NEWVCF, UNIGFF, index) {
                 "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
                 "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
                 "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
-      dim3 <- c("ID","!ID")
+      dim3 <- c("RS","!RS")
       dimensions <- c(1,length(dim2),length(dim3))
       CHRMaux <- 
             array(c(countCHRM(NEWVCF,UNIGFF,index,T),
@@ -247,18 +241,21 @@ calcCHRM <- function(NEWVCF, UNIGFF, index) {
       return(CHRMaux)
 }
 
-# Parallel computing!!
-# NumbersOfCluster <- detectCores()/2
-# cl <- makeCluster(NumbersOfCluster)
-# registerDoSNOW(cl)
-#
-
 piRNApross <- function(vcf_file, gff_file, eachRange) {
       piRNAvcf(vcf_file, eachRange)
       if (exe) {
+            # Parallel computing!!
+            NumbersOfCluster <- detectCores()/2
+            cl <- makeCluster(NumbersOfCluster)
+            registerDoSNOW(cl)
+            #
             CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %do% 
                   calcCHRM(NEWVCF, UNIGFF, idx)
-            piRNAsave(CHRMaux)
+            
+            # Finishing parallel computing!
+            stopCluster(cl)
+            
+            piRNAsave(CHRMaux, eachRange)
       }
 }
 
@@ -289,12 +286,9 @@ piRNAcount <- function(vcf_file, gff_file) {
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
       
-      
       foreach (eachRange=Range) %do% 
             piRNApross(vcf_file, gff_file, eachRange)
-      
-      # Finishing parallel computing!
-      # stopCluster(cl)
+
 }
 
 # A função "piRNAcalc()" ...
