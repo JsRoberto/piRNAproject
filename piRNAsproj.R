@@ -113,15 +113,18 @@ piRNAsave <- function(CHRMaux) {
             dim3 <- c("ID","!ID")
             dimensions <- c(nrow(UNIGFF),length(dim2),length(dim3))
             CHRMlocal <- pirnalocal %s+% "CHRM" %s+% chrm %s+% ".Rda"
-            numRow <- ifelse(!file.exists(CHRMlocal), 0,
-                             nrow(file <- readRDS(file=CHRMlocal)))
-            idx <- numRow + 1:nrow(CHRMaux)
             CHRM <- array(dimnames=list(dim1,dim2,dim3),
-                          dim=dimensions)
-            CHRM[1:numRow,,] <- file
+                                dim=dimensions)
+            if (!file.exists(CHRMlocal)) numRow <- 0 else {
+                  numRow <- nrow(file <- readRDS(file=CHRMlocal))
+                  CHRM[1:numRow,,] <- file
+                  
+            }
+            idx <- numRow + 1:length(CHRMaux)
+            
             for (i in idx) CHRM[i,,] <- CHRMaux[[i-numRow]]
             
-            saveRDS(CHRM, file=CHRMfile)
+            saveRDS(CHRM, file=CHRMlocal)
 }
 
 countCHRM <- function(NEWVCF, UNIGFF, index, ID) {
