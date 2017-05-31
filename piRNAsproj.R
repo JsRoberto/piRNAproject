@@ -65,8 +65,7 @@ piRNAvcf <- function(vcf_file, eachRange) {
                   idx <- indexTabix(compressVCF, "vcf")
                   tab <- TabixFile(compressVCF,  idx)
                   newVCF <- readVcf(tab, "b37", param)
-                  
-            }
+            } else newVCF <- data.frame()
             
             if (exe <<- exe.cond & nrow(newVCF) > 0) {
                   repp <- newVCF@fixed@listData$ALT %>% as.list %>% listLen
