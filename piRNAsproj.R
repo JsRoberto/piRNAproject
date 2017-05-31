@@ -245,16 +245,15 @@ piRNApross <- function(vcf_file, gff_file, eachRange) {
       piRNAvcf(vcf_file, eachRange)
       if (exe) {
             # Parallel computing!!
-            NumbersOfCluster <- detectCores()/2
-            cl <- makeCluster(NumbersOfCluster)
-            registerDoSNOW(cl)
+            #NumbersOfCluster <- detectCores()/2
+            #cl <- makeCluster(NumbersOfCluster)
+            #registerDoSNOW(cl)
             #
-            CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %dopar% 
+            CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %do% 
                   calcCHRM(NEWVCF, UNIGFF, idx)
             
             # Finishing parallel computing!
-            stopCluster(cl)
-            
+            #stopCluster(cl)
             piRNAsave(CHRMaux, eachRange)
       }
 }
