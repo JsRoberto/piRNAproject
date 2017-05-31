@@ -249,7 +249,7 @@ piRNApross <- function(vcf_file, gff_file, eachRange) {
             cl <- makeCluster(NumbersOfCluster)
             registerDoSNOW(cl)
             #
-            CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %do% 
+            CHRMaux <- foreach (idx=1:nrow(UNIGFF)) %dopar% 
                   calcCHRM(NEWVCF, UNIGFF, idx)
             
             # Finishing parallel computing!
