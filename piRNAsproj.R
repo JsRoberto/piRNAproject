@@ -58,10 +58,10 @@ piRNAvcf <- function(vcf_file, eachRange) {
             if (exe.cond <- sum(cond) != 0) {
                   UNIGFF <<- uniGFF[cond,]
                   
-                  compressVCF <- bgzip(vcf_file, tempfile())
-                  range <- GRanges(seqnames=chrm,
-                                   ranges=IRanges(start=ini,end=fim))
-                  param <- ScanVcfParam(which=range)
+                  compressVCF <- bgzip(vcf_file, tempfile(vcf_file))
+                  rng <- GRanges(seqnames=chrm,
+                                 ranges=IRanges(start=ini,end=fim))
+                  param <- ScanVcfParam(which=rng)
                   idx <- indexTabix(compressVCF, "vcf")
                   tab <- TabixFile(compressVCF,  idx)
                   newVCF <- readVcf(tab, "b37", param)
@@ -322,15 +322,14 @@ piRNAcalc <- function(vcf_file, gff_file) {
 # ------------------------ Descrição da saída -----------------------------
 # (1) "allnewCHRM": representa um subconjunto de "CHRM" segundo os parâme-
 # tros definidos pelos argumentos de entrada.
-piRNAposSelect <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
-                           AC.max=NULL, AF.min=NULL, AF.max=NULL, 
-                           NAME.pirna=NULL, LOC.pirna=NULL,
-                           NMAX.map=NULL, NMIN.map=NULL,
-                           MUT.type=c("all","indel","nonindel"),
-                           POP.select=c("AFR","AMR","EAS","EUR","SAS"),
-                           POP.by=c("all","each"),
-                           ID.choice=c("all","yes","no"),
-                           QUAL.choice=c("all","yes","no")) {
+piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
+                      AC.max=NULL, AF.min=NULL, AF.max=NULL, 
+                      NAME.pirna=NULL, LOC.pirna=NULL,
+                      NMAX.map=NULL, NMIN.map=NULL,
+                      MUT.type=c("all","indel","nonindel"),
+                      POP.select=c("AFR","AMR","EAS","EUR","SAS"),
+                      POP.by=c("all","each"),
+                      ID.choice=c("all","yes","no")) {
       
       if (exists("allnewCHRM", envir=.GlobalEnv)) {
             rm("allnewCHRM", envir=.GlobalEnv)
@@ -341,14 +340,11 @@ piRNAposSelect <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
               ID.choice[1]!="no") {
             stop("O argumento 'ID.choice' não apresenta entrada válida")
       })
-      try(if (QUAL.choice[1]!="all" & QUAL.choice[1]!="yes" &
-              QUAL.choice[1]!="no") {
-            stop("O argumento 'QUAL.choice' não apresenta entrada válida")
-      })
       
-      if (!file.exists(filename <- stri_join(
-            "allnewCHRM",chrm,"_ID", ID.choice[1],
-            "_QUAL", QUAL.choice[1],".Rdata"))) {
+      filename <- "allnewCHRM" %s+% chrm %s+% "_ID" %s+% ID.choice[1] %s+%
+            ".Rdata"
+      
+      if (!file.exists()) {
             
             # Verificar se o trecho abaixo está correto!!
             
