@@ -58,7 +58,7 @@ piRNAvcf <- function(vcf_file, eachRange) {
                   UNIGFF <<- uniGFF[cond,]
                   
                   compressVCF <- 
-                        bgzip(vcf_file, tempfile(vcfTemp %s+% eachRange))
+                        bgzip(vcf_file, tempfile(vcfTemp %s+% eachRange),T)
                   rng <- GRanges(seqnames=chrm,
                                  ranges=IRanges(start=ini,end=fim))
                   param <- ScanVcfParam(which=rng)
@@ -327,6 +327,7 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                       NMAX.map=NULL, NMIN.map=NULL,
                       MUT.type=c("all","indel","nonindel"),
                       ID.choice=c("all","yes","no")) {
+      pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       
       if (exists("allnewCHRM", envir=.GlobalEnv)) {
             rm("allnewCHRM", envir=.GlobalEnv)
@@ -470,18 +471,18 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             allnewCHRM[cond,]
       
       piRNAmatch <- function(allnew, min=NMIN.map, max=NMAX.map) {
-            pirnaNAME <- allnew[F,]
-            chrmFILES <- list.files()[stri_detect(list.files(),
-                                                  regex="^CHRM[0-9]+.Rda")]
+            pirnaNAME <- allnew[F,1]
+            chrmFILES <- list.files(pirnalocal)[stri_detect(
+                  list.files(pirnalocal), regex="^CHRM[0-9]+.Rda")]
             for (i in 1:length(chrmFILES)) {
                   pirnaNAME <- 
-                        c(pirnaNAME, readRDS(chrmFILES[i])[,"piRNA",1])
+                        c(pirnaNAME, read.delim(chrmFILES[i])[,1])
             }
             minMAP <- ifelse(!min %>% is.null, min, 1)
             maxMAP <- ifelse(!max %>% is.null, max, length(pirnaNAME))
             
             expression <- function(pirna, min, max) {
-                  sapply(unique(pirna), 
+                  sapply(unique(pirna),
                          function(x) sum(pirna==x) >= min &
                                sum(pirna==x) <= max)
             }
