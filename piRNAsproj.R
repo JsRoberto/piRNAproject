@@ -57,7 +57,8 @@ piRNAvcf <- function(vcf_file, eachRange) {
             if (exe.cond <- sum(cond) != 0) {
                   UNIGFF <<- uniGFF[cond,]
                   
-                  compressVCF <- bgzip(vcf_file, tempfile(vcfTemp))
+                  compressVCF <- 
+                        bgzip(vcf_file, tempfile(vcfTemp %s+% eahRange))
                   rng <- GRanges(seqnames=chrm,
                                  ranges=IRanges(start=ini,end=fim))
                   param <- ScanVcfParam(which=rng)
