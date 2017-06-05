@@ -68,7 +68,9 @@ piRNAprep <- function(vcf_file, gff_file) {
       
       numLines <- read.delim(localNumLines, stringsAsFactors=F)
       
-      chrm <<- vcf_file %>% stri_extract_first(regex="[0-9]+")
+      vcftemp <- vcf_file %>% stri_split(fixed="/") %>% unlist
+      vcftemp <- vcftemp[length(vcftemp)]
+      chrm <<- stri_extract_first(vcftemp, regex="[0-9]+|[XY]+")
       lines <- numLines$lines[numLines$chrm==chrm]
       comms <- numLines$comments[numLines$chrm==chrm]
       
@@ -98,7 +100,6 @@ piRNAprep <- function(vcf_file, gff_file) {
       # NumbersOfCluster <- detectCores()/2
       # cl <- makeCluster(NumbersOfCluster)
       # registerDoSNOW(cl)
-      #
       
       updateVCF <- function(vcf_file, serie) {
             #suppressMessages(require(doSNOW))
