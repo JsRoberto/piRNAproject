@@ -8,7 +8,7 @@
 # Definindo a biblioteca
 #.libPaths(
 #      "C:/Users/JoséRoberto/AppData/Roaming/SPB_16.6/R/win-library/3.2")
-.libPaths("C:/Rdir/library_R-3.4.0")
+#.libPaths("C:/Rdir/library_R-3.4.0")
 #.libPaths("/data/projects/metagenomaCG/jose/library-R")
 
 # Definindo pacotes não padrões a serem utilizados, baixando-os caso ainda
