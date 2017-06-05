@@ -13,10 +13,10 @@
 
 # Definindo pacotes não padrões a serem utilizados, baixando-os caso ainda
 # não tenham sido
-if(!suppressMessages(require(doSNOW))) {
-      install.packages("doSNOW")
-      suppressMessages(require(doSNOW))
-}
+# if(!suppressMessages(require(doSNOW))) {
+#       install.packages("doSNOW")
+#       suppressMessages(require(doSNOW))
+# }
 if(!suppressMessages(require(stringi))) {
       install.packages("stringi")
       suppressMessages(require(stringi))
@@ -25,10 +25,14 @@ if(!suppressMessages(require(magrittr))) {
       install.packages("magrittr")
       suppressMessages(require(magrittr))
 }
-if(!suppressMessages(require(parallel))) {
-      install.packages("parallel")
-      suppressMessages(require(parallel))
+if(!suppressMessages(require(foreach))) {
+      install.packages("foreach")
+      suppressMessages(require(foreach))
 }
+# if(!suppressMessages(require(parallel))) {
+#       install.packages("parallel")
+#       suppressMessages(require(parallel))
+# }
 
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
 # '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
@@ -46,10 +50,11 @@ if(!suppressMessages(require(parallel))) {
 # porém sem redundência de registros.
 # -------------------------------------------------------------------------
 piRNAprep <- function(vcf_file, gff_file) {
-      suppressMessages(require(doSNOW))
+      #suppressMessages(require(doSNOW))
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
-      suppressMessages(require(parallel))
+      suppressMessages(require(foreach))
+      #suppressMessages(require(parallel))
       
       pirnalocal <<- "/data/projects/metagenomaCG/jose/piRNAproject/"
       # Obtendo o arquivo "numLines.txt" 
@@ -189,10 +194,11 @@ piRNAprep <- function(vcf_file, gff_file) {
 # total de indivíduos analisados pelo projeto '1000 Genomes'.
 # -------------------------------------------------------------------------
 piRNAcount <- function(serie) {
-      suppressMessages(require(doSNOW))
+      #suppressMessages(require(doSNOW))
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
-      suppressMessages(require(parallel))
+      suppressMessages(require(foreach))
+      #suppressMessages(require(parallel))
       
       newVCF <- readRDS(pirnalocal %s+% "piRNAsDB/VCFs/newVCF_" %s+%
                               chrm %s+% "." %s+% serie/2e4 %s+% ".Rda")
