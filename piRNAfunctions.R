@@ -86,7 +86,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       popALL <- "AC=|AF=|AFR_AF=|AMR_AF=|EAS_AF=|EUR_AF=|SAS_AF="
       
       # Laço de interação para obtenção e tratamento da subtabelas
-      sequence <<- seq(0, lines - comms, 2e4)
+      seqNum <<- seq(0, lines - comms, 2e4)
       last <<- serie[length(serie)]
       
       # Parallel computing!!
@@ -157,7 +157,7 @@ piRNAprep <- function(vcf_file, gff_file) {
                           chrm %s+% "." %s+% serie/2e4 %s+% ".Rda")
       }
       
-      foreach (serie=sequence) %do% updateVCF(vcf_file, serie)
+      foreach (serie=seqNum) %do% updateVCF(vcf_file, serie)
       
       # vcfNEW <- foreach (sequ=serie, .combine='rbind') %do% 
       #       updateVCF(vcf_file, sequ)
@@ -360,7 +360,7 @@ piRNAunity <- function() {
 
 piRNAcalc <- function(vcf_file, gff_file) {
       piRNAprep(vcf_file, gff_file)
-      foreach(serie=sequence) %do% {piRNAcount(serie); piRNAsave(serie)}
+      foreach(serie=seqNum) %do% {piRNAcount(serie); piRNAsave(serie)}
 }
 
 # A função "posSelect()" tem o objetivo de transformar os informações do
