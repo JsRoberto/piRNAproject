@@ -92,7 +92,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       
       # Laço de interação para obtenção e tratamento da subtabelas
       seqNum <<- seq(0, lines - comms, 2e4)
-      last <<- serie[length(serie)]
+      last <<- seqNum[length(seqNum)]
       
       # Parallel computing!!
       # NumbersOfCluster <- detectCores()/2
