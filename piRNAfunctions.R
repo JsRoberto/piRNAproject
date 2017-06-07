@@ -117,7 +117,7 @@ piRNAprep <- function(vcf_file, gff_file) {
             vcfinfo <- mapply(function(x,y) x[y] %>% sort, vcfinfo, cinfo) 
             
             namesinfo <- stri_split(popALL, fixed="=|")[[1]] %>%
-                  sort; namesinfo[2] <- "AF"
+                  sort; namesinfo[2] <- "AF"; namesinfo[7] <- "SAS_AF"
             ginfo <- gl(n, length(namesinfo))
             vcfinfo <- tapply(vcfinfo, ginfo, function(x) stri_extract_all(
                   x, regex="[0-9]+\\.*[0-9]*") %>% stri_join_list(","))
@@ -158,10 +158,11 @@ piRNAprep <- function(vcf_file, gff_file) {
                                      .combine='rbind') %do%
                         simplifyVCF(vcfAux1, vcfAux2, rows)
             }
-            vcfNEW <- rbind(vcf[count == 0,], vcfNew)
+            vcfNEW <- rbind(vcf[count == 0,], 
+                            vcfNew %>% as.data.frame(stringsAsFactors=F))
             saveRDS(
                   vcfNEW, file=pirnalocal %s+% "piRNAsDB/VCFs/vcfNEW_" %s+%
-                        chrm %s+% "." %s+% (serie/2e4) %s+% ".Rda")
+                        chrm %s+% "." %s+% (1+serie/2e4) %s+% ".Rda")
       }
       
       foreach (serie=seqNum) %do% updateVCF(vcf_file, serie)
@@ -203,7 +204,7 @@ piRNAcount <- function(serie) {
       #suppressMessages(require(parallel))
       
       newVCF <- readRDS(pirnalocal %s+% "piRNAsDB/VCFs/newVCF_" %s+%
-                              chrm %s+% "." %s+% serie/2e4 %s+% ".Rda")
+                              chrm %s+% "." %s+% (1+serie/2e4) %s+% ".Rda")
       uniGFF <- UNIGFF[c(T,UNIGFF$V5 < vcfAUX$POS[length(vcfAUX$POS)]),]
       
       countCHRM <- function(newVCF, uniGFF, index, ID) {
@@ -340,7 +341,7 @@ piRNAcount <- function(serie) {
       # stopCluster(cl)
       
       saveRDS(CHRMaux, file=pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+%
-                    chrm %s+% "." %s+% (serie/2e4) %s+% ".Rda")
+                    chrm %s+% "." %s+% (1+serie/2e4) %s+% ".Rda")
 }
 
 piRNAsave <- function(serie) {
@@ -356,7 +357,7 @@ piRNAsave <- function(serie) {
       CHRM <- array(dimnames=list(dim1,dim2,dim3),
                     dim=dimensions)
       CHRMfile <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+%
-            chrm %s+% "." %s+% (serie/2e4) %s+% ".Rda"
+            chrm %s+% "." %s+% (1+serie/2e4) %s+% ".Rda"
       CHRMaux <- readRDS(CHRMfile)
       for (idx in 1:nrow(UNIGFF)) CHRM[idx,,] <- CHRMaux[[idx]]
       saveRDS(CHRM, CHRMfile)
