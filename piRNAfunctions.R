@@ -159,8 +159,9 @@ piRNAprep <- function(vcf_file, gff_file) {
                         simplifyVCF(vcfAux1, vcfAux2, rows)
             }
             vcfNEW <- rbind(vcf[count == 0,], vcfNew)
-            saveRDS(vcfNEW, pirnalocal %s+% "piRNAsDB/VCFs/vcfNEW_" %s+%
-                          chrm %s+% "." %s+% (serie/2e4) %s+% ".Rda")
+            saveRDS(
+                  vcfNEW, file=pirnalocal %s+% "piRNAsDB/VCFs/vcfNEW_" %s+%
+                        chrm %s+% "." %s+% (serie/2e4) %s+% ".Rda")
       }
       
       foreach (serie=seqNum) %do% updateVCF(vcf_file, serie)
@@ -338,7 +339,7 @@ piRNAcount <- function(serie) {
       # Finishing parallel computing!
       # stopCluster(cl)
       
-      saveRDS(CHRMaux, pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+%
+      saveRDS(CHRMaux, file=pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+%
                     chrm %s+% "." %s+% (serie/2e4) %s+% ".Rda")
 }
 
