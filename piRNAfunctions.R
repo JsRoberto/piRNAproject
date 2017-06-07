@@ -13,10 +13,10 @@
 
 # Definindo pacotes não padrões a serem utilizados, baixando-os caso ainda
 # não tenham sido
-# if(!suppressMessages(require(doSNOW))) {
-#       install.packages("doSNOW")
-#       suppressMessages(require(doSNOW))
-# }
+if(!suppressMessages(require(abind))) {
+      install.packages("abind")
+      suppressMessages(require(abind))
+}
 if(!suppressMessages(require(stringi))) {
       install.packages("stringi")
       suppressMessages(require(stringi))
@@ -25,14 +25,10 @@ if(!suppressMessages(require(magrittr))) {
       install.packages("magrittr")
       suppressMessages(require(magrittr))
 }
-if(!suppressMessages(require(foreach))) {
-      install.packages("foreach")
-      suppressMessages(require(foreach))
+if(!suppressMessages(require(doParallel))) {
+      install.packages("doParallel")
+      suppressMessages(require(doParallel))
 }
-# if(!suppressMessages(require(parallel))) {
-#       install.packages("parallel")
-#       suppressMessages(require(parallel))
-# }
 
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
 # '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
@@ -50,13 +46,11 @@ if(!suppressMessages(require(foreach))) {
 # porém sem redundência de registros.
 # -------------------------------------------------------------------------
 piRNAprep <- function(vcf_file, gff_file) {
-      #suppressMessages(require(doSNOW))
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
-      suppressMessages(require(foreach))
-      #suppressMessages(require(parallel))
+      suppressMessages(require(doParallel))
       
-      pirnalocal <<- "/data/projects/metagenomaCG/jose/piRNAproject/"
+      pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       # Obtendo o arquivo "numLines.txt" 
       localNumLines <- pirnalocal %s+% "numLines.txt"
       urlNumLines <- 
@@ -93,21 +87,16 @@ piRNAprep <- function(vcf_file, gff_file) {
       popALL <- "AC=|AF=|AFR_AF=|AMR_AF=|EAS_AF=|EUR_AF=|SAS_AF="
       
       # Laço de interação para obtenção e tratamento da subtabelas
-      seqNum <<- seq(0, lines - comms, 2e4)
+      seqNum <<- seq(0, lines - comms, 1e5)
+      seqDif <<- diff(seqNum) %>% unique
       last <<- seqNum[length(seqNum)]
       
-      # Parallel computing!!
-      # NumbersOfCluster <- detectCores()/2
-      # cl <- makeCluster(NumbersOfCluster)
-      # registerDoSNOW(cl)
-      
       updateVCF <- function(vcf_file, serie) {
-            #suppressMessages(require(doSNOW))
             suppressMessages(require(stringi))
             suppressMessages(require(magrittr))
-            #suppressMessages(require(parallel))
+            uppressMessages(require(doParallel))
             
-            if (serie==last) n <- lines - comms - serie else n <- 2e4
+            if (serie==last) n <- lines - comms - serie else n <- seqDif
             vcf <- read.delim(vcf_file,stringsAsFactors=F,header=F,
                               comment.char="#",skip=serie,nrows=n)[,1:8]
             vcfinfo <- vcf$V8 %>% stri_split_fixed(";")
@@ -158,20 +147,21 @@ piRNAprep <- function(vcf_file, gff_file) {
                                      .combine='rbind') %do%
                         simplifyVCF(vcfAux1, vcfAux2, rows)
             }
-            vcfNEW <- rbind(vcf[count == 0,], 
+            vcfNEW <- rbind(vcf[count == 0,],
                             vcfNew %>% as.data.frame(stringsAsFactors=F))
-            saveRDS(
-                  vcfNEW, file=pirnalocal %s+% "piRNAsDB/VCFs/vcfNEW_" %s+%
-                        chrm %s+% "." %s+% (1+serie/2e4) %s+% ".Rda")
+            saveRDS(vcfNEW, pirnalocal %s+% "piRNAsDB/VCFs/vcfNEW_" %s+%
+                          chrm %s+% "." %s+% (1+serie/seqDif) %s+% ".Rda")
       }
+      
+      # Parallel computing!!
+      NumbersOfCluster <- detectCores()/2
+      cl <- makeCluster(NumbersOfCluster)
+      registerDoParallel(cl)
       
       foreach (serie=seqNum) %do% updateVCF(vcf_file, serie)
       
-      # vcfNEW <- foreach (sequ=serie, .combine='rbind') %do% 
-      #       updateVCF(vcf_file, sequ)
-      
       #Finishing the parallel computing!
-      #stopCluster(cl)
+      stopCluster(cl)
       #
 }
 
@@ -203,8 +193,11 @@ piRNAcount <- function(serie) {
       suppressMessages(require(foreach))
       #suppressMessages(require(parallel))
       
-      newVCF <- readRDS(pirnalocal %s+% "piRNAsDB/VCFs/newVCF_" %s+%
-                              chrm %s+% "." %s+% (1+serie/2e4) %s+% ".Rda")
+      pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
+      
+      newVCF <- 
+            readRDS(pirnalocal %s+% "piRNAsDB/VCFs/newVCF_" %s+%
+                          chrm %s+% "." %s+% (1+serie/seqDif) %s+% ".Rda")
       uniGFF <- UNIGFF[c(T,UNIGFF$V5 < vcfAUX$POS[length(vcfAUX$POS)]),]
       
       countCHRM <- function(newVCF, uniGFF, index, ID) {
@@ -333,43 +326,35 @@ piRNAcount <- function(serie) {
       
       # CHRMaux <- foreach (idx=1:nrow(uniGFF)) %dopar% 
       #       calcCHRM(NEWVCF, uniGFF, idx)
-      
-      CHRMaux <- foreach (idx=1:nrow(uniGFF)) %do% 
+      acomb <- function(...) abind(..., along=1)
+      CHRMaux <- foreach (idx=1:nrow(uniGFF), .combine='acomb') %do% 
             calcCHRM(newVCF, uniGFF, idx)
       
       # Finishing parallel computing!
       # stopCluster(cl)
       
-      saveRDS(CHRMaux, file=pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+%
-                    chrm %s+% "." %s+% (1+serie/2e4) %s+% ".Rda")
+      saveRDS(CHRMaux, pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+%
+                    chrm %s+% "." %s+% (1+serie/seqDif) %s+% ".Rda")
 }
 
-piRNAsave <- function(serie) {
-      suppressMessages(require(stringi))
+piRNAunity <- function(serie) {
+      suppressMessages(require(abind))
       
-      dim1 <- NULL
-      dim2 <- c("piRNA","Local","Total.mut","Indel.mut",
-                "NonIndel.mut","ID.mut","AC","AF","AFR.AC",
-                "AFR.AF","AMR.AC","AMR.AF","EAS.AC","EAS.AF",
-                "EUR.AC","EUR.AF","SAS.AC","SAS.AF")
-      dim3 <- c("ID","!ID")
-      dimensions <- c(nrow(UNIGFF),length(dim2),length(dim3))
-      CHRM <- array(dimnames=list(dim1,dim2,dim3),
-                    dim=dimensions)
-      CHRMfile <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+%
-            chrm %s+% "." %s+% (1+serie/2e4) %s+% ".Rda"
-      CHRMaux <- readRDS(CHRMfile)
-      for (idx in 1:nrow(UNIGFF)) CHRM[idx,,] <- CHRMaux[[idx]]
-      saveRDS(CHRM, CHRMfile)
-}
-
-piRNAunity <- function() {
+      acomb <- function(...) abind(..., along=1)
       
+      pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
+      CHRMfile <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+% chrm
+      CHRMfileAUX <- CHRMfile %s+% "." %s+% (1+serie/seqDif) %s+% ".Rda"
+      
+      CHRMaux <- readRDS(CHRMfileAUX)
+      
+      saveRDS(if (exists(CHRMfile, envir=.GlobalEnv)) 
+            acomb(readRDS(CHRMfile),CHRMaux) else CHRMaux, CHRMfile)
 }
 
 piRNAcalc <- function(vcf_file, gff_file) {
       piRNAprep(vcf_file, gff_file)
-      foreach(serie=seqNum) %do% {piRNAcount(serie); piRNAsave(serie)}
+      foreach(serie=seqNum) %do% {piRNAcount(serie); piRNAunity(serie)}
 }
 
 # A função "posSelect()" tem o objetivo de transformar os informações do
