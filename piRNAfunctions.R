@@ -25,9 +25,9 @@ if(!suppressMessages(require(magrittr))) {
       install.packages("magrittr")
       suppressMessages(require(magrittr))
 }
-if(!suppressMessages(require(doParallel))) {
-      install.packages("doParallel")
-      suppressMessages(require(doParallel))
+if(!suppressMessages(require(foreach))) {
+      install.packages("foreach")
+      suppressMessages(require(foreach))
 }
 
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
@@ -48,7 +48,7 @@ if(!suppressMessages(require(doParallel))) {
 piRNAprep <- function(vcf_file, gff_file) {
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
-      suppressMessages(require(doParallel))
+      suppressMessages(require(foreach))
       
       pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       # Obtendo o arquivo "numLines.txt" 
@@ -154,14 +154,14 @@ piRNAprep <- function(vcf_file, gff_file) {
       }
       
       # Parallel computing!!
-      NumbersOfCluster <- detectCores()/2
-      cl <- makeCluster(NumbersOfCluster)
-      registerDoParallel(cl)
+      #NumbersOfCluster <- detectCores()/2
+      #cl <- makeCluster(NumbersOfCluster)
+      #registerDoParallel(cl)
       
       foreach (serie=seqNum) %do% updateVCF(vcf_file, serie)
       
       #Finishing the parallel computing!
-      stopCluster(cl)
+      #stopCluster(cl)
       #
 }
 
@@ -187,11 +187,9 @@ piRNAprep <- function(vcf_file, gff_file) {
 # total de indivíduos analisados pelo projeto '1000 Genomes'.
 # -------------------------------------------------------------------------
 piRNAcount <- function(serie) {
-      #suppressMessages(require(doSNOW))
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
       suppressMessages(require(foreach))
-      #suppressMessages(require(parallel))
       
       pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       
@@ -348,8 +346,10 @@ piRNAunity <- function(serie) {
       
       CHRMaux <- readRDS(CHRMfileAUX)
       
-      saveRDS(if (exists(CHRMfile, envir=.GlobalEnv)) 
-            acomb(readRDS(CHRMfile),CHRMaux) else CHRMaux, CHRMfile)
+      saveRDS(
+            if (exists(CHRMfile, envir=.GlobalEnv)) 
+                  acomb(readRDS(CHRMfile),CHRMaux) else CHRMaux,
+            CHRMfile)
 }
 
 piRNAcalc <- function(vcf_file, gff_file) {
