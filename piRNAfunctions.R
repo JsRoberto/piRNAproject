@@ -196,7 +196,7 @@ piRNAcount <- function(serie) {
       newVCF <- 
             readRDS(pirnalocal %s+% "piRNAsDB/VCFs/vcfNEW_" %s+%
                           chrm %s+% "." %s+% (1+serie/seqDif) %s+% ".Rda")
-      uniGFF <- UNIGFF[c(T,UNIGFF$V5 < vcfAUX$POS[length(vcfAUX$POS)]),]
+      uniGFF <- UNIGFF[c(T,UNIGFF$V5 < newVCF$POS[length(newVCF$POS)]),]
       
       countCHRM <- function(newVCF, uniGFF, index, ID) {
             vcfAUX <- newVCF
