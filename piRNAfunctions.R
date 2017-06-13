@@ -94,7 +94,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       updateVCF <- function(vcf_file, serie) {
             suppressMessages(require(stringi))
             suppressMessages(require(magrittr))
-            uppressMessages(require(doParallel))
+            suppressMessages(require(foreach))
             
             if (serie==last) n <- lines - comms - serie else n <- seqDif
             vcf <- read.delim(vcf_file,stringsAsFactors=F,header=F,
