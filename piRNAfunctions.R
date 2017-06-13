@@ -194,7 +194,7 @@ piRNAcount <- function(serie) {
       pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       
       newVCF <- 
-            readRDS(pirnalocal %s+% "piRNAsDB/VCFs/newVCF_" %s+%
+            readRDS(pirnalocal %s+% "piRNAsDB/VCFs/vcfNEW_" %s+%
                           chrm %s+% "." %s+% (1+serie/seqDif) %s+% ".Rda")
       uniGFF <- UNIGFF[c(T,UNIGFF$V5 < vcfAUX$POS[length(vcfAUX$POS)]),]
       
