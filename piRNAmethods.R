@@ -277,7 +277,7 @@ piRNAcount <- function() {
 
 piRNAcalc <- function(vcf_file, gff_file) {
       piRNAprep(vcf_file, gff_file)
-      piRNAcount()}
+      piRNAcount()
 }
 
 # A função "posSelect()" tem o objetivo de transformar os informações do
