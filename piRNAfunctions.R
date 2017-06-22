@@ -469,16 +469,16 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       maxAC <- ifelse(!AC.max %>% is.null, AC.max, 5008)
       
       cond.AF <-
-            allnewCHRM[,"AF"] %>% stri_split_fixed(";") %>% 
-            sapply(function(x) sum(as.numeric(x) >= minAF) >= 1) &
-            allnewCHRM[,"AF"] %>% stri_split_fixed(";") %>% 
-            sapply(function(x) sum(as.numeric(x) <= maxAF) >= 1)
+            allnewCHRM[,"AF"] %>% stri_extract_all_regex("[0-9]+\\.*[0-9]*") %>% 
+            sapply(function(x) {y <- x[-length(x)]; sum(as.numeric(y) >= minAF) >= 1}) &
+            allnewCHRM[,"AF"] %>% stri_extract_all_regex("[0-9]+\\.*[0-9]*") %>% 
+            sapply(function(x) {y <- x[-length(x)]; sum(as.numeric(y) <= maxAF) >= 1})
       
       cond.AC <-
-            allnewCHRM[,"AC"] %>% stri_split_fixed(";") %>% 
-            sapply(function(x) sum(as.numeric(x) >= minAC) >= 1) &
-            allnewCHRM[,"AC"] %>% stri_split_fixed(";") %>% 
-            sapply(function(x) sum(as.numeric(x) <= maxAC) >= 1)
+            allnewCHRM[,"AC"] %>% stri_extract_all_regex("[0-9]+\\.*[0-9]*") %>% 
+            sapply(function(x) {y <- x[-length(x)]; sum(as.numeric(y) >= minAC) >= 1}) &
+            allnewCHRM[,"AC"] %>% stri_extract_all_regex("[0-9]+\\.*[0-9]*") %>% 
+            sapply(function(x) {y <- x[-length(x)]; sum(as.numeric(y) <= maxAC) >= 1})
       
       cond <- cond.AF & cond.AC
       
