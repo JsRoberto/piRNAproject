@@ -494,10 +494,10 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             pirnaNAME <- allnew[F,1]
             localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs/"
             chrmFILES <- list.files(localCHRMnew)[stri_detect(
-                  list.files(localCHRMnew), regex="^CHRM_[0-9]+")]
-            for (i in 1:length(chrmFILES)) {
+                  list.files(localCHRMnew), regex="^CHRM_[0-9]+$")]
+            for (file in localCHRMnew %s+% chrmFILES) {
                   pirnaNAME <- 
-                        c(pirnaNAME, read.delim(chrmFILES[i])[,1,1])
+                        c(pirnaNAME, readRDS(file)[,1,1])
             }
             minMAP <- ifelse(!min %>% is.null, min, 1)
             maxMAP <- ifelse(!max %>% is.null, max, length(pirnaNAME))
@@ -528,8 +528,8 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                                    as.numeric),]
       
       CHRMnew <- allnewCHRM
-      CHRMfile <- "/data/projects/metagenomaCG/jose/piRNAproject/" %s+%
-            "piRNAsDB/CHRMs/allnewCHRM_" %s+% CHRM %s+% ".Rdata"
+      CHRMfile <- pirnalocal %s+% "piRNAsDB/CHRMs/allnewCHRM_" %s+%
+            CHRM %s+% ".Rdata"
       save(CHRMnew, file=CHRMfile)
 }
 
