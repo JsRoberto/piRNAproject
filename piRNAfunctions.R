@@ -353,36 +353,6 @@ piRNAunity <- function(serie) {
             CHRMfile %s+% ".Rda")
 }
 
-piRNAunique <- function() {
-      suppressMessages(require(abind))
-      
-      acomb <- function(...) abind(..., along=1)
-      
-      pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
-      CHRMfile <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+% chrm
-      
-      CHRM <- readRDS(CHRMfile)
-      cond <- duplicated.array(CHRM[,c("piRNA","Local"),], fromLast=T) |
-            duplicated.array(CHRM[,c("piRNA","Local"),])
-      CHRMaux <- CHRM[cond,,]
-      pirna <- unique(CHRMaux[,"piRNA",1])
-      
-      dup2uni <- function(pirna) {
-            pirnaCOND <- CHRMaux[,"piRNA",1] == pirna
-            chrmNEW <- CHRMaux[pirnaCOND,,]
-            
-            acum <- function(x) {
-                  chrmAUX <<- if (exists("chrmAUX", envir=.GlobalEnv)) 
-                        chrmAUX + x[-length(x)] else x[-length(x)]
-            }
-            
-            sapply(chrmNEW, function(x) acum(x))
-            
-      }
-      
-      foreach (eachPirna=pirna, .combine='acomb') dup2uni(eachPirna)
-}
-
 piRNAcalc <- function(vcf_file, gff_file) {
       piRNAprep(vcf_file, gff_file)
       foreach(serie=seqNum) %do% {piRNAcount(serie); piRNAunity(serie)}
