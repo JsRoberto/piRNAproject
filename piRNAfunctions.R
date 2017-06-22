@@ -405,8 +405,8 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       # LOC.pirna
       if (!LOC.pirna %>% is.null) {
             local <- 
-                  allnewCHRM[,"Local"] >= min(LOC.pirna) &
-                  allnewCHRM[,"Local"] <= max(LOC.pirna)
+                  as.numeric(allnewCHRM[,"Local"]) >= min(LOC.pirna) &
+                  as.numeric(allnewCHRM[,"Local"]) <= max(LOC.pirna)
             
             try(if (sum(local)==0) {
                   stop("Não há piRNAs completamente inseridos na " %s+%
@@ -492,8 +492,9 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       
       piRNAmatch <- function(allnew, min=NMIN.map, max=NMAX.map) {
             pirnaNAME <- allnew[F,1]
-            chrmFILES <- list.files(pirnalocal)[stri_detect(
-                  list.files(pirnalocal), regex="^CHRM_[0-9]+")]
+            localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs/"
+            chrmFILES <- list.files(localCHRMnew)[stri_detect(
+                  list.files(localCHRMnew), regex="^CHRM_[0-9]+")]
             for (i in 1:length(chrmFILES)) {
                   pirnaNAME <- 
                         c(pirnaNAME, read.delim(chrmFILES[i])[,1,1])
