@@ -442,18 +442,18 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       maxMUT <- ifelse(!MUT.max %>% is.null, MUT.max, 100)
       
       if (MUT.type[1]=="all") {
-            cond <- allnewCHRM[,"Total.mut"] >= minMUT & 
-                  allnewCHRM[,"Total.mut"] <= maxMUT
+            cond <- as.numeric(allnewCHRM[,"Total.mut"]) >= minMUT & 
+                  as.numeric(allnewCHRM[,"Total.mut"]) <= maxMUT
             allnewCHRM <- allnewCHRM[cond,]
       }
       if (MUT.type[1]=="indel") {
-            cond <- allnewCHRM[,"Indel.mut"] >= minMUT & 
-                  allnewCHRM[,"Indel.mut"] <= maxMUT
+            cond <- as.numeric(allnewCHRM[,"Indel.mut"]) >= minMUT & 
+                  as.numeric(allnewCHRM[,"Indel.mut"]) <= maxMUT
             allnewCHRM <- allnewCHRM[cond,]
       }
       if (MUT.type[1]=="nonindel") {
-            cond <- allnewCHRM[,"NonIndel.mut"] >= minMUT &
-                  allnewCHRM[,"NonIndel.mut"] <= maxMUT
+            cond <- as.numeric(allnewCHRM[,"NonIndel.mut"]) >= minMUT &
+                  as.numeric(allnewCHRM[,"NonIndel.mut"]) <= maxMUT
             allnewCHRM <- allnewCHRM[cond,]
       }
       # Selecionando 
@@ -476,9 +476,9 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       
       cond.AC <-
             allnewCHRM[,"AC"] %>% stri_extract_all_regex("[0-9]+\\.*[0-9]*") %>% 
-            sapply(function(x) {y <- x[-length(x)]; sum(as.numeric(y) >= minAC) >= 1}) &
+            sapply(function(y) sum(as.numeric(y) >= minAC) >= 1) &
             allnewCHRM[,"AC"] %>% stri_extract_all_regex("[0-9]+\\.*[0-9]*") %>% 
-            sapply(function(x) {y <- x[-length(x)]; sum(as.numeric(y) <= maxAC) >= 1})
+            sapply(function(y) sum(as.numeric(y) <= maxAC) >= 1)
       
       cond <- cond.AF & cond.AC
       
