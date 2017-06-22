@@ -456,11 +456,6 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   allnewCHRM[,"NonIndel.mut"] <= maxMUT
             allnewCHRM <- allnewCHRM[cond,]
       }
-      # Selecionando as populações para os critérios AC e AF
-      try(if (POP.by[1]!="all" & POP.by[1]!="each") {
-            stop("Argumento de entrada 'POP.by' inválido")
-      })
-      
       # Selecionando 
       
       POP.select=c("AFR","AMR","EAS","EUR","SAS")
