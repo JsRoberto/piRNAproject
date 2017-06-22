@@ -21,13 +21,13 @@ if(!suppressMessages(require(stringi))) {
       install.packages("stringi")
       suppressMessages(require(stringi))
 }
-if(!suppressMessages(require(magrittr))) {
-      install.packages("magrittr")
-      suppressMessages(require(magrittr))
-}
 if(!suppressMessages(require(foreach))) {
       install.packages("foreach")
       suppressMessages(require(foreach))
+}
+if(!suppressMessages(require(magrittr))) {
+      install.packages("magrittr")
+      suppressMessages(require(magrittr))
 }
 
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
@@ -73,7 +73,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       UNIGFF <<- gffchrm <- gff[gff$V1 == "chr" %s+% chrm,] %>%
             unique.data.frame
       
-      # Pre´-Processamento do arquivo .vcf
+      # Pré-Processamento do arquivo .vcf
       
       # Será feito um laço for para subdividir os arquivo txtual com extenção
       # .vcf. O pré-processamento desses arquivos menores será feito, 
@@ -202,7 +202,7 @@ piRNAcount <- function(serie) {
             vcfAUX <- newVCF
             gffAUX <- uniGFF
             
-            condaux <- ! vcfAUX$ID %>% is.na
+            condaux <- ! vcfAUX$ID %>% 
             cond <- if (ID[1]) condaux else !condaux
             
             vcfAUX <- vcfAUX[cond,]
@@ -325,6 +325,7 @@ piRNAcount <- function(serie) {
       # CHRMaux <- foreach (idx=1:nrow(uniGFF)) %dopar% 
       #       calcCHRM(NEWVCF, uniGFF, idx)
       acomb <- function(...) abind(..., along=1)
+      
       CHRMaux <- foreach (idx=1:nrow(uniGFF), .combine='acomb') %do% 
             calcCHRM(newVCF, uniGFF, idx)
       
@@ -349,7 +350,37 @@ piRNAunity <- function(serie) {
       saveRDS(
             if (exists(CHRMfile, envir=.GlobalEnv)) 
                   acomb(readRDS(CHRMfile),CHRMaux) else CHRMaux,
-            CHRMfile)
+            CHRMfile %s+% ".Rda")
+}
+
+piRNAunique <- function() {
+      suppressMessages(require(abind))
+      
+      acomb <- function(...) abind(..., along=1)
+      
+      pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
+      CHRMfile <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+% chrm
+      
+      CHRM <- readRDS(CHRMfile)
+      cond <- duplicated.array(CHRM[,c("piRNA","Local"),], fromLast=T) |
+            duplicated.array(CHRM[,c("piRNA","Local"),])
+      CHRMaux <- CHRM[cond,,]
+      pirna <- unique(CHRMaux[,"piRNA",1])
+      
+      dup2uni <- function(pirna) {
+            pirnaCOND <- CHRMaux[,"piRNA",1] == pirna
+            chrmNEW <- CHRMaux[pirnaCOND,,]
+            
+            acum <- function(x) {
+                  chrmAUX <<- if (exists("chrmAUX", envir=.GlobalEnv)) 
+                        chrmAUX + x[-length(x)] else x[-length(x)]
+            }
+            
+            sapply(chrmNEW, function(x) acum(x))
+            
+      }
+      
+      foreach (eachPirna=pirna, .combine='acomb') dup2uni(eachPirna)
 }
 
 piRNAcalc <- function(vcf_file, gff_file) {
@@ -391,53 +422,14 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                       MUT.type=c("all","indel","nonindel"),
                       ID.choice=c("all","yes","no")) {
       pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
-      
-      if (exists("allnewCHRM", envir=.GlobalEnv)) {
-            rm("allnewCHRM", envir=.GlobalEnv)
-      }
+      CHRMfile <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRM_" %s+% CHRM
+      allnewCHRM <- readRDS(file=CHRMfile)[,,1]
       
       # Selecionando os IDs
       try(if (ID.choice[1]!="all" & ID.choice[1]!="yes" &
               ID.choice[1]!="no") {
             stop("O argumento 'ID.choice' não apresenta entrada válida")
       })
-      
-      filename <- "allnewCHRM" %s+% chrm %s+% "_ID" %s+% ID.choice[1] %s+%
-            ".Rdata"
-      if (!file.exists(filename)) {
-            allnewCHRM_RS <- subset(CHRM, select=1:18)
-            allnewCHRM_notRS <- subset(CHRM, select=19:36)
-            
-            if (ID.choice[1]=="all") {
-                  aggregateTable <- function(RS,notRS) {
-                        #Somando as quantidades de mutações
-                        Variant <- RS[,3:5] + notRS[,3:5]
-                        
-                        allnotRS <- notRS[,7:18]
-                        allRS <- RS[,7:18] %>% stri_replace(
-                              regex="\\([0-9]+\\)","|")
-                        Alleles <- 
-                              matrix(allRS %s+% allnotRS,nrow(RS),ncol(RS),
-                                     dimnames=list(NULL,colnames(RS)))
-                        
-                        allnew <- cbind(RS[,1:2], Variant, RS[,6], Alleles)
-                        
-                        colnames(allnew) <- colnames(allnew) %>%
-                              stri_replace(fixed=".RS","")
-                        
-                        return(allnew)
-                  }
-                  
-                  allnewCHRM <- 
-                        aggregateTable(allnewCHRM_RS, allnewCHRM_notRS)
-            }
-            
-            if (ID.choice[1]=="yes") allnewCHRM <- allnewCHRM_RS
-            
-            if (ID.choice[1]=="no") allnewCHRM <- allnewCHRM_notRS
-            
-            save(allnewCHRM, file=filename)
-      } else load(filename)
       
       # Selecionando apenas os pirnas integralmente contidos nos limites de
       # LOC.pirna
@@ -536,10 +528,10 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       piRNAmatch <- function(allnew, min=NMIN.map, max=NMAX.map) {
             pirnaNAME <- allnew[F,1]
             chrmFILES <- list.files(pirnalocal)[stri_detect(
-                  list.files(pirnalocal), regex="^CHRM[0-9]+.Rda")]
+                  list.files(pirnalocal), regex="^CHRM_[0-9]+")]
             for (i in 1:length(chrmFILES)) {
                   pirnaNAME <- 
-                        c(pirnaNAME, read.delim(chrmFILES[i])[,1])
+                        c(pirnaNAME, read.delim(chrmFILES[i])[,1,1])
             }
             minMAP <- ifelse(!min %>% is.null, min, 1)
             maxMAP <- ifelse(!max %>% is.null, max, length(pirnaNAME))
@@ -552,26 +544,27 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             
             pirnaMATCH <- 
                   unique(pirnaNAME)[expression(pirnaNAME,minMAP,maxMAP)]
+            regexMATCH <- stri_join(pirnaMATCH, collapse="|")
             
-            allnewAUX <<- allnew[F,]
-            sapply(pirnaMATCH, function(x) {
-                  temp <- subset(allnew %>% as.data.frame(
-                        stringsAsFactors=F), piRNA==x)
-                  allnewAUX <<- rbind(allnewAUX, temp)
-            }
-            )
-            aux <- allnewAUX; rm("allnewAUX",envir=.GlobalEnv) 
-            return(aux)
+            allnewAUX <- 
+                  allnew[stri_detect(allnew[,"piRNA"],regex=regexMATCH),]
+            
+            return(allnewAUX)
       }
       
       allnewCHRM <- piRNAmatch(allnewCHRM)
       
-      allnewCHRM <<- 
+      allnewCHRM <- 
             allnewCHRM[order(allnewCHRM[,"piRNA"], 
                              -(allnewCHRM[,"Total.mut"] %>% as.numeric),
                              allnewCHRM[,"Local"] %>% 
                                    stri_extract(regex="^[0-9]+") %>% 
                                    as.numeric),]
+      
+      CHRMnew <- allnewCHRM
+      CHRMfile <- "/data/projects/metagenomaCG/jose/piRNAproject/" %s+%
+            "piRNAsDB/CHRMs/allnewCHRM_" %s+% CHRM %s+% ".Rdata"
+      save(CHRMnew, file=CHRMfile)
 }
 
 # Outra função: agora, o objetivo é salvar as tabelas obtidas em um arquivo 
