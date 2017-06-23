@@ -202,7 +202,7 @@ piRNAcount <- function() {
                   vcfAUX$ALT %>% stri_count(regex="^[ACGT]+$")
             
             vcfINDEL <- vcfAUX[indels,]
-            vcfnonINDEL <- vcfAUX[!indels,]
+            vcfSUBST <- vcfAUX[!indels,]
             #---------------------
             
             piRNAname <- stri_extract_all_regex(gffAUX$V9[index],
@@ -216,24 +216,27 @@ piRNAcount <- function() {
                   vcfAUX$POS<=gffAUX$V5[index]
             pos.indel <- vcfINDEL$POS>=gffAUX$V4[index] &
                   vcfINDEL$POS<=gffAUX$V5[index]
-            pos.nonindel <- vcfnonINDEL$POS>=gffAUX$V4[index] &
-                  vcfnonINDEL$POS<=gffAUX$V5[index]
+            pos.subst <- vcfSUBST$POS>=gffAUX$V4[index] &
+                  vcfSUBST$POS<=gffAUX$V5[index]
             
             quant.mut <- sum(pos.all)
             
             coef <- c(1322, 694, 1008, 1006, 978)
             if (quant.mut >= 1) {
                   indel.mut <- sum(pos.indel)
-                  noind.mut <- sum(pos.nonindel)
+                  subst.mut <- sum(pos.subst)
                   
                   vcfAUX <- vcfAUX[pos.all,]
+                  
+                  type.mut <- ifelse(indels[pos.all],"indel","subst")
                   
                   CHRMaux <- 
                         cbind(piRNA=piRNAname, Local.ini=piRNAlocalINI,
                               Local.fim=piRNAlocalFIM,
                               Total.mut=quant.mut, Indel.mut=indel.mut,
-                              NonIndel.mut=noind.mut, ID.mut=piRNAid,
-                              AC=vcfAUX$AC, AF=vcfAUX$AF,
+                              Subst.mut=noind.mut, ID.mut=piRNAid,
+                              TYPE.mut=type.mut, AC=vcfAUX$AC, 
+                              AF=vcfAUX$AF,
                               AFR.AC=(coef[1]*vcfAUX$AFR_AF) %>% round,
                               AFR.AF=vcfAUX$AFR_AF,
                               AMR.AC=(coef[2]*vcfAUX$AMR_AF) %>% round,
@@ -247,12 +250,11 @@ piRNAcount <- function() {
             } else {
                   CHRMaux <- 
                         cbind(piRNA=piRNAname, Local.ini=piRNAlocalINI,
-                              Local.fim=piRNAlocalFIM,
-                              Total.mut=0, Indel.mut=0,
-                              NonIndel.mut=0, ID.mut=piRNAid, AC=0, AF=0,
-                              AFR.AC=0, AFR.AF=0, AMR.AC=0, AMR.AF=0,
-                              EAS.AC=0, EAS.AF=0, EUR.AC=0, EUR.AF=0,
-                              SAS.AC=0, SAS.AF=0)
+                              Local.fim=piRNAlocalFIM, Total.mut=0,
+                              Indel.mut=0, Subst.mut=0, ID.mut=piRNAid,
+                              TYPE.mut=NA, AC=0, AF=0, AFR.AC=0, AFR.AF=0,
+                              AMR.AC=0, AMR.AF=0,EAS.AC=0, EAS.AF=0,
+                              EUR.AC=0, EUR.AF=0, SAS.AC=0, SAS.AF=0)
             }
             return(CHRMaux)
       }
@@ -303,7 +305,7 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                       AC.max=NULL, AF.min=NULL, AF.max=NULL, 
                       NAME.pirna=NULL, LOC.pirna=NULL,
                       NMAX.map=NULL, NMIN.map=NULL,
-                      MUT.type=c("all","indel","nonindel"),
+                      MUT.type=c("all","indel","subst"),
                       ID.choice=c("all","yes","no")) {
       
       pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
@@ -318,10 +320,10 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       })
       
       if (ID.choice[1]=="yes") 
-            allnewCHRM <- allnewCHRM[complete.cases(allnewCHRM),]
+            allnewCHRM <- allnewCHRM[!is.na(allnewCHRM$ID.mut),]
       
       if (ID.choice[1]=="no")
-            allnewCHRM <- allnewCHRM[!complete.cases(allnewCHRM),]
+            allnewCHRM <- allnewCHRM[is.na(allnewCHRM$ID.mut),]
       
       # Selecionando apenas os pirnas integralmente contidos nos limites de
       # LOC.pirna
@@ -356,26 +358,27 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       
       # Selecionando apenas os piRNAs com certo número de mutações
       try(if (MUT.type[1]!="all" & MUT.type[1]!="indel" & 
-              MUT.type[1]!="nonindel") {
+              MUT.type[1]!="subst") {
             stop("Argumento de entrada 'MUT.type' inválido")
       })
       
       minMUT <- ifelse(!MUT.min %>% is.null, MUT.min, 0)
-      maxMUT <- ifelse(!MUT.max %>% is.null, MUT.max, 100)
+      maxMUT <- ifelse(!MUT.max %>% is.null, MUT.max, 
+                       max(allnewCHRM$Local.fim-allnewCHRM$Local.ini))
       
       if (MUT.type[1]=="all") {
-            cond <- allnewCHRM[,"Total.mut"] >= minMUT & 
-                  allnewCHRM[,"Total.mut"] <= maxMUT
+            cond <- allnewCHRM$Total.mut >= minMUT & 
+                  allnewCHRM$Total.mut <= maxMUT
             allnewCHRM <- allnewCHRM[cond,]
       }
       if (MUT.type[1]=="indel") {
-            cond <- allnewCHRM[,"Indel.mut"] >= minMUT & 
-                  allnewCHRM[,"Indel.mut"] <= maxMUT
+            cond <- allnewCHRM$Indel.mut >= minMUT & 
+                  allnewCHRM$Indel.mut <= maxMUT
             allnewCHRM <- allnewCHRM[cond,]
       }
-      if (MUT.type[1]=="nonindel") {
-            cond <- allnewCHRM[,"NonIndel.mut"] >= minMUT &
-                  allnewCHRM[,"NonIndel.mut"] <= maxMUT
+      if (MUT.type[1]=="subst") {
+            cond <- allnewCHRM$Subst.mut >= minMUT &
+                  allnewCHRM$Subst.mut <= maxMUT
             allnewCHRM <- allnewCHRM[cond,]
       }
       # Selecionando 
@@ -388,9 +391,9 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       minAC <- ifelse(!AC.min %>% is.null, AC.min, 0)
       maxAC <- ifelse(!AC.max %>% is.null, AC.max, 5008)
       
-      cond.AF <- allnewCHRM[,"AF"] >= minAF & allnewCHRM[,"AF"] <= maxAF
+      cond.AF <- allnewCHRM$AF >= minAF & allnewCHRM$AF <= maxAF
       
-      cond.AC <- allnewCHRM[,"AC"] >= minAC & allnewCHRM[,"AC"] <= maxAC
+      cond.AC <- allnewCHRM$AC >= minAC & allnewCHRM$AC <= maxAC
       
       cond <- cond.AF & cond.AC
       
@@ -410,7 +413,7 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             for (i in 1:length(chrmFILES)) {
                   pirnaNAME <- 
                         c(pirnaNAME, (read.delim(chrmFILES[i])[,1:3] %>% 
-                                unique.data.frame)[1])
+                                unique.data.frame)[,1])
             }
             minMAP <- ifelse(!min %>% is.null, min, 1)
             maxMAP <- ifelse(!max %>% is.null, max, length(pirnaNAME))
@@ -426,7 +429,7 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             regexMATCH <- stri_join(pirnaMATCH, collapse="|")
             
             allnewAUX <- 
-                  allnew[stri_detect(allnew[,"piRNA"],regex=regexMATCH),]
+                  allnew[stri_detect(allnew$piRNA,regex=regexMATCH),]
             
             return(allnewAUX)
       }
@@ -435,7 +438,7 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             pirnaNAME <- allnew[F,1]
             localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs"
             chrmFILES <- list.files(localCHRMnew)[stri_detect(
-                  list.files(localCHRMnew), regex="^CHRM_[0-9]+.Rda")]
+                  list.files(localCHRMnew), regex="^CHRM_[0-9]+$")]
             for (i in 1:length(chrmFILES)) {
                   pirnaNAME <- 
                         c(pirnaNAME, readRDS(chrmFILES[i])[,"piRNA",1])
@@ -454,7 +457,7 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             regexMATCH <- stri_join(pirnaMATCH, collapse="|")
             
             allnewAUX <- 
-                  allnew[stri_detect(allnew[,"piRNA"],regex=regexMATCH),]
+                  allnew[stri_detect(allnew$piRNA,regex=regexMATCH),]
             
             return(allnewAUX)
       }
@@ -465,9 +468,9 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             allnewCHRM2[!duplicated.data.frame(allnewCHRM2[,1:3]),1:6]
       
       allnewCHRM2 <- 
-            allnewCHRM2[order(allnewCHRM2[,"piRNA"],
-                              -allnewCHRM2[,"Total.mut"],
-                              allnewCHRM2[,"Local.ini"]),]
+            allnewCHRM2[order(allnewCHRM2$piRNA,
+                              -allnewCHRM2$Total.mut,
+                              allnewCHRM2$Local.ini),]
       
       allnewCHRM3 <- list(piRNAvariants=allnewCHRM2)
       
@@ -477,11 +480,33 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                                Local.ini==allnewCHRM2$Local.ini[i] &
                                Local.fim==allnewCHRM2$Local.fim[i],
                          select=ID.mut:SAS.AF)
+            if (ID.choice[1]=="yes") {
+                  total <- sum(!is.na(allnewCHRM3[[i+1]]$ID.mut),na.rm=T)
+                  indel <- sum(!is.na(allnewCHRM3[[i+1]]$ID.mut) & 
+                                     allnewCHRM3[[i+1]]$TYPE.mut=="indel",
+                               na.rm=TRUE)
+                  subst <- sum(!is.na(allnewCHRM3[[i+1]]$ID.mut) & 
+                                     allnewCHRM3[[i+1]]$TYPE.mut=="subst",
+                               na.rm=TRUE)
+                  allnewCHRM3[[1]][i,c("Total.mut","Indel.mut","Subst.mut")] <-
+                        c(total,indel,subst)
+            }
+            if (ID.choice[1]=="no") {
+                  total <- sum(is.na(allnewCHRM3[[i+1]]$ID.mut),na.rm=T)
+                  indel <- sum(is.na(allnewCHRM3[[i+1]]$ID.mut) & 
+                                     allnewCHRM3[[i+1]]$TYPE.mut=="indel",
+                               na.rm=TRUE)
+                  subst <- sum(is.na(allnewCHRM3[[i+1]]$ID.mut) & 
+                                     allnewCHRM3[[i+1]]$TYPE.mut=="subst",
+                               na.rm=TRUE)
+                  allnewCHRM3[[1]][i,c("Total.mut","Indel.mut","Subst.mut")] <-
+                        c(total,indel,subst)
+            }
       }
       
       CHRMnew <- allnewCHRM3
-      CHRMfile <- "/data/projects/metagenomaCG/jose/piRNAproject/" %s+%
-            "piRNAsDB/CHRMs/allnewCHRM_" %s+% CHRM %s+% ".Rdata"
+      CHRMfile <- pirnalocal %s+% "piRNAsDB/CHRMs/allnewCHRM_" %s+%
+            CHRM %s+% ".Rdata"
       save(CHRMnew, file=CHRMfile)
 }
 
