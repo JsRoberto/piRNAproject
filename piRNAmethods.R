@@ -148,7 +148,7 @@ piRNAprep <- function(vcf_file, gff_file) {
             
             localVCFnew <- pirnalocal %s+% "piRNAsDB/VCFs/VCFnew_" %s+%
                   chrm %s+% ".txt"
-            cond <- file.exists(localVCFnew)
+            cond <- if (serie==0) F else file.exists(localVCFnew)
             
             write.table(VCFnew, localVCFnew, sep="\t", row.names=F,
                         append=cond, col.names=!cond)
@@ -261,6 +261,8 @@ piRNAcount <- function() {
       
       CHRMnew <- foreach (idx=1:nrow(uniGFF), .combine='rbind') %do% 
             countCHRM(newVCF, uniGFF, idx)
+      
+      CHRMnew <- cbind(CHRM=chrm, CHRMnew)
       
       localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRMnew_" %s+%
             chrm %s+% ".txt"
@@ -465,7 +467,7 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       allnewCHRM2 <- piRNAmatch2(allnewCHRM2)
       
       allnewCHRM2 <- 
-            allnewCHRM2[!duplicated.data.frame(allnewCHRM2[,1:3]),1:6]
+            allnewCHRM2[!duplicated.data.frame(allnewCHRM2[,1:4]),1:7]
       
       allnewCHRM2 <- 
             allnewCHRM2[order(allnewCHRM2$piRNA,
@@ -488,8 +490,9 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   subst <- sum(!is.na(allnewCHRM3[[i+1]]$ID.mut) & 
                                      allnewCHRM3[[i+1]]$TYPE.mut=="subst",
                                na.rm=TRUE)
-                  allnewCHRM3[[1]][i,c("Total.mut","Indel.mut","Subst.mut")] <-
-                        c(total,indel,subst)
+                  allnewCHRM3[[1]][
+                        i,c("Total.mut","Indel.mut","Subst.mut")] <-
+                              c(total,indel,subst)
             }
             if (ID.choice[1]=="no") {
                   total <- sum(is.na(allnewCHRM3[[i+1]]$ID.mut),na.rm=T)
@@ -499,8 +502,9 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   subst <- sum(is.na(allnewCHRM3[[i+1]]$ID.mut) & 
                                      allnewCHRM3[[i+1]]$TYPE.mut=="subst",
                                na.rm=TRUE)
-                  allnewCHRM3[[1]][i,c("Total.mut","Indel.mut","Subst.mut")] <-
-                        c(total,indel,subst)
+                  allnewCHRM3[[1]][
+                        i,c("Total.mut","Indel.mut","Subst.mut")] <-
+                              c(total,indel,subst)
             }
       }
       
