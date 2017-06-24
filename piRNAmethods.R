@@ -210,7 +210,7 @@ piRNAcount <- function() {
                   unique %>% stri_join(collapse="+")
             piRNAlocalINI <- gffAUX$V4[index]
             piRNAlocalFIM <- gffAUX$V5[index]
-            piRNAid <- stri_replace(vcfAUX$ID, NA, regex="^\\.$")
+            piRNAid <- vcfAUX$ID
             
             pos.all <- vcfAUX$POS>=gffAUX$V4[index] &
                   vcfAUX$POS<=gffAUX$V5[index]
@@ -251,7 +251,7 @@ piRNAcount <- function() {
                   CHRMaux <- 
                         cbind(piRNA=piRNAname, Local.ini=piRNAlocalINI,
                               Local.fim=piRNAlocalFIM, Total.mut=0,
-                              Indel.mut=0, Subst.mut=0, ID.mut=piRNAid,
+                              Indel.mut=0, Subst.mut=0, ID.mut=NA,
                               TYPE.mut=NA, AC=0, AF=0, AFR.AC=0, AFR.AF=0,
                               AMR.AC=0, AMR.AF=0,EAS.AC=0, EAS.AF=0,
                               EUR.AC=0, EUR.AF=0, SAS.AC=0, SAS.AF=0)
@@ -306,7 +306,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
 piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                       AC.max=NULL, AF.min=NULL, AF.max=NULL, 
                       NAME.pirna=NULL, LOC.pirna=NULL,
-                      NMAX.map=NULL, NMIN.map=NULL,
+                      NMIN.map=NULL, NMAX.map=NULL,
                       MUT.type=c("all","indel","subst"),
                       ID.choice=c("all","yes","no")) {
       
@@ -321,11 +321,23 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             stop("O argumento 'ID.choice' não apresenta entrada válida")
       })
       
-      if (ID.choice[1]=="yes") 
+      if (ID.choice[1]=="all") {
             allnewCHRM <- allnewCHRM[!is.na(allnewCHRM$ID.mut),]
+      }
       
-      if (ID.choice[1]=="no")
-            allnewCHRM <- allnewCHRM[is.na(allnewCHRM$ID.mut),]
+      if (ID.choice[1]=="yes") {
+            allnewCHRM <- 
+                  allnewCHRM[!is.na(allnewCHRM$ID.mut) &
+                                   !stri_detect_regex(
+                                         allnewCHRM$ID.mut,"^\\.$"),]
+      }
+      
+      if (ID.choice[1]=="no") {
+            allnewCHRM <- 
+                  allnewCHRM[is.na(allnewCHRM$ID.mut) &
+                                   !stri_detect_regex(
+                                         allnewCHRM$ID.mut,"^\\.$"),]
+      }
       
       # Selecionando apenas os pirnas integralmente contidos nos limites de
       # LOC.pirna
@@ -364,7 +376,7 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             stop("Argumento de entrada 'MUT.type' inválido")
       })
       
-      minMUT <- ifelse(!MUT.min %>% is.null, MUT.min, 0)
+      minMUT <- ifelse(!MUT.min %>% is.null, MUT.min, 1)
       maxMUT <- ifelse(!MUT.max %>% is.null, MUT.max, 
                        max(allnewCHRM$Local.fim-allnewCHRM$Local.ini))
       
@@ -437,10 +449,19 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       }
       
       piRNAmatch2 <- function(allnew, min=NMIN.map, max=NMAX.map) {
-            pirnaNAME <- allnew[F,1]
             localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs"
             chrmFILES <- list.files(localCHRMnew)[stri_detect(
                   list.files(localCHRMnew), regex="^CHRM_[0-9]+$")]
+            chrmNUM <- chrmFILES %>% stri_extract_all_regex("[0-9]+") %>%
+                  unlist %>% sort
+            mapNUM <- c(min,max)
+            localMATCH <- pirnalocal %s+% "piRNAsDB/" ###############PAREI!
+            if (file.exists(localMATCH)) {            ###############AQUI!!
+                  
+            }
+            
+            pirnaNAME <- allnew[F,1]
+            
             for (i in 1:length(chrmFILES)) {
                   pirnaNAME <- 
                         c(pirnaNAME, readRDS(chrmFILES[i])[,"piRNA",1])
@@ -508,7 +529,11 @@ piRNAposp <- function(CHRM, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             }
       }
       
-      CHRMnew <- allnewCHRM3
+      return(allnewCHRM3)
+}
+
+piRNAsave <- function(CHRMnew) {
+      pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       CHRMfile <- pirnalocal %s+% "piRNAsDB/CHRMs/allnewCHRM_" %s+%
             CHRM %s+% ".Rdata"
       save(CHRMnew, file=CHRMfile)
