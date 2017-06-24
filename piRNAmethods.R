@@ -234,7 +234,7 @@ piRNAcount <- function() {
                         cbind(piRNA=piRNAname, Local.ini=piRNAlocalINI,
                               Local.fim=piRNAlocalFIM,
                               Total.mut=quant.mut, Indel.mut=indel.mut,
-                              Subst.mut=noind.mut, ID.mut=piRNAid,
+                              Subst.mut=subst.mut, ID.mut=piRNAid,
                               TYPE.mut=type.mut, AC=vcfAUX$AC, 
                               AF=vcfAUX$AF,
                               AFR.AC=(coef[1]*vcfAUX$AFR_AF) %>% round,
