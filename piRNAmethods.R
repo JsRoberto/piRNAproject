@@ -150,6 +150,9 @@ piRNAprep <- function(vcf_file, gff_file) {
                   chrm %s+% ".txt"
             cond <- if (serie==0) F else file.exists(localVCFnew)
             
+            print(seq(0,100,length.out=seqNum+1)[c(F,seqNum==serie)] %s+%
+                        "%")
+            
             write.table(VCFnew, localVCFnew, sep="\t", row.names=F,
                         append=cond, col.names=!cond)
             
@@ -256,6 +259,10 @@ piRNAcount <- function() {
                               AMR.AC=0, AMR.AF=0,EAS.AC=0, EAS.AF=0,
                               EUR.AC=0, EUR.AF=0, SAS.AC=0, SAS.AF=0)
             }
+            if (is.integer(index/100))
+                  print(seq(0,100,length.out=nrow(uniGFF)+1)[index+1] %s+%
+                              "%")
+            
             return(CHRMaux)
       }
       
