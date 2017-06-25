@@ -262,13 +262,12 @@ piRNAcount <- function() {
             }
             
             # Verificando progresso
-            prog <- index/100
-            if (as.integer(prog)==prog)
+            prog <- sort(seq(nrow(uniGFF),0,-100))
+            if (sum(index==prog)==1) {
                   print("CHRM updating: " %s+% 
-                              seq(0,100,length.out=nrow(uniGFF)+1)[
-                                    index+1] %s+% "%")
+                              prog*100/nrow(uniGFF)[index==prog] %s+% "%")
+            }
             #
-            
             return(CHRMaux)
       }
       
