@@ -540,7 +540,7 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             return(allnewAUX)
       }
       
-      allnewCHRM2 <- piRNAmatch2(allnewCHRM2)
+      allnewCHRM2 <- piRNAmatch(allnewCHRM2)
       
       allnewCHRM2 <- 
             allnewCHRM2[!duplicated.data.frame(allnewCHRM2[,1:4]),1:7]
