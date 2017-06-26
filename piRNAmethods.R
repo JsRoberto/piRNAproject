@@ -437,7 +437,7 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             minMAP <- ifelse(is.null(min), 1, min)
             maxMAP <- ifelse(is.null(max), 1e6, max)
             pirnaNAME <- allnew[F,1]
-            localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs"
+            localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs/"
             chrmFILES <- list.files(localCHRMnew)[stri_detect(
                   list.files(localCHRMnew), regex="^CHRMnew_[0-9]+.txt")]
             chrmNUMaux <- chrmFILES %>% stri_extract(regex="[0-9]+") %>%
