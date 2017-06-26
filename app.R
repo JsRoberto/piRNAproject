@@ -32,8 +32,7 @@ sidebar <- dashboardSidebar(
       sidebarMenu(
             menuItem("Introdução", tabName="intro",
                      icon=icon("list-alt")),
-            menuItem("Tabelas - piRNAs", icon=icon("th"), badgeLabel="new",
-                     badgeColor="green",
+            menuItem("Tabelas - piRNAs", icon=icon("th"),
                      menuSubItem("Chrm Original", tabName="apply1"),
                      menuSubItem("Chrm Filtrado", tabName="apply2")),
             menuItem("Código-Fonte", tabName="code", icon=icon("table"),
