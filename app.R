@@ -106,7 +106,7 @@ body <- dashboardBody(
                     
                     fluidRow(
                           tabBox(title="Tabela Filtrada", width=12,
-                                 status="primary", selected="tab2",
+                                 id="tabela", selected="tab2",
                                  tabPanel("tab2", dataTableOutput(
                                        outputId="piRNAtable2")),
                                  tabPanel("tab3", dataTableOutput(
