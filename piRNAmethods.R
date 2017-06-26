@@ -463,7 +463,9 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   for (i in 1:length(chrmFILES)) {
                         pirnaNAME <- 
                               c(pirnaNAME, unique.data.frame(
-                                    read.delim(chrmFILES[i])[,1:3])[,2])
+                                    read.delim(localCHRMnew %s+%
+                                                     chrmFILES[i])[
+                                                           ,1:3])[,2])
                   }
                   
                   expression <- function(pirna, min, max) {
