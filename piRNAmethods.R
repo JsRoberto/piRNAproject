@@ -434,16 +434,15 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             allnewCHRM[cond,]
       
       piRNAmatch <- function(allnew, min=NMIN.map, max=NMAX.map) {
-            nmin <- ifelse(is.null(min), 1, min)
-            nmin <- ifelse(is.null(max), 1e6, max)
-            
+            minMAP <- ifelse(is.null(min), 1, min)
+            maxMAP <- ifelse(is.null(max), 1e6, max)
             pirnaNAME <- allnew[F,1]
             localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs"
             chrmFILES <- list.files(localCHRMnew)[stri_detect(
                   list.files(localCHRMnew), regex="^CHRMnew_[0-9]+.txt")]
             chrmNUMaux <- chrmFILES %>% stri_extract(regex="[0-9]+") %>%
                   unlist %>% sort
-            mapNUMaux <- c(nmin,nmax)
+            mapNUMaux <- c(minMAP,maxMAP)
             localMATCH <- pirnalocal %s+% "piRNAsDB/MATCHpiRNA.Rdata"
             
             if (!file.exists(localMATCH)) {
@@ -466,9 +465,6 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                               c(pirnaNAME, unique.data.frame(
                                     read.delim(chrmFILES[i])[,1:3])[,2])
                   }
-                  minMAP <- ifelse(!min %>% is.null, min, 1)
-                  maxMAP <- ifelse(!max %>% is.null, max, 
-                                   length(pirnaNAME))
                   
                   expression <- function(pirna, min, max) {
                         sapply(unique(pirna),
@@ -477,7 +473,7 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   }
                   
                   pirnaMATCH <- pirnaNAME <- unique(pirnaNAME)[
-                        expression(pirnaNAME, minMAP,maxMAP)]
+                        expression(pirnaNAME, nmin, nmax)]
                   
                   chrmNUM <- chrmNUMaux
                   mapNUM <- mapNUMaux
