@@ -321,6 +321,8 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                       NMIN.map=NULL, NMAX.map=NULL,
                       MUT.type=c("all","indel","subst"),
                       ID.choice=c("all","yes","no")) {
+      suppressMessages(require(stringi))
+      suppressMessages(require(magrittr))
       
       pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRMnew_" %s+%
@@ -432,13 +434,16 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             allnewCHRM[cond,]
       
       piRNAmatch <- function(allnew, min=NMIN.map, max=NMAX.map) {
+            nmin <- ifelse(is.na(min), 1, min)
+            nmin <- ifelse(is.na(max), 1e6, max)
+            
             pirnaNAME <- allnew[F,1]
             localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs"
             chrmFILES <- list.files(localCHRMnew)[stri_detect(
                   list.files(localCHRMnew), regex="^CHRMnew_[0-9]+.txt")]
             chrmNUMaux <- chrmFILES %>% stri_extract_regex("[0-9]+") %>%
                   unlist %>% sort
-            mapNUMaux <- c(min,max)
+            mapNUMaux <- c(nmin,nmax)
             localMATCH <- pirnalocal %s+% "piRNAsDB/MATCHpiRNA.Rdata"
             
             if (!file.exists(localMATCH)) {
