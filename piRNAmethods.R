@@ -602,6 +602,7 @@ piRNAload <- function(CHRM=chrm) {
       CHRMfile <- pirnalocal %s+% "piRNAsDB/CHRMs/allnewCHRM_" %s+%
             CHRM %s+% ".Rdata"
       load(CHRMfile)
+      return(CHRMnew)
 }
 
 # Outra função: agora, o objetivo é salvar as tabelas obtidas em um arquivo 
