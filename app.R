@@ -134,7 +134,7 @@ server <- function(input, output) {
                       input$id)
       })
       
-      output$piRNAtable1 = DT::rendeDataTable({
+      output$piRNAtable1 = DT::renderDataTable({
             localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRMnew_" %s+%
                   input$chrm %s+% ".txt"
             allnewCHRM <- read.delim(localCHRMnew, stringsAsFactors=F)
