@@ -434,8 +434,8 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             allnewCHRM[cond,]
       
       piRNAmatch <- function(allnew, min=NMIN.map, max=NMAX.map) {
-            nmin <- ifelse(is.na(min), 1, min)
-            nmin <- ifelse(is.na(max), 1e6, max)
+            nmin <- ifelse(is.null(min), 1, min)
+            nmin <- ifelse(is.null(max), 1e6, max)
             
             pirnaNAME <- allnew[F,1]
             localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs"
