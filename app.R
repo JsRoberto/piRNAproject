@@ -35,9 +35,7 @@ sidebar <- dashboardSidebar(
             menuItem("Tabelas - piRNAs", icon=icon("th"),
                      menuSubItem("Chrm Original", tabName="apply1"),
                      menuSubItem("Chrm Filtrado", tabName="apply2")),
-            menuItem("Código-Fonte", tabName="code", icon=icon("table"),
-                     href="https://raw.githubusercontent.com/" %s+%
-                           "JsRoberto/piRNAproject/master/piRNAmethods.R")
+            menuItem("Código-Fonte", tabName="code", icon=icon("table"))
       )
 )
 
