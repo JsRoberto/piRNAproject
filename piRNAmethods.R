@@ -475,7 +475,7 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   }
                   
                   pirnaMATCH <- pirnaNAME <- unique(pirnaNAME)[
-                        expression(pirnaNAME, nmin, nmax)]
+                        expression(pirnaNAME, minMAP, maxMAP)]
                   
                   chrmNUM <- chrmNUMaux
                   mapNUM <- mapNUMaux
