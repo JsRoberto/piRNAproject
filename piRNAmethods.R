@@ -441,7 +441,7 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs"
             chrmFILES <- list.files(localCHRMnew)[stri_detect(
                   list.files(localCHRMnew), regex="^CHRMnew_[0-9]+.txt")]
-            chrmNUMaux <- chrmFILES %>% stri_extract_regex("[0-9]+") %>%
+            chrmNUMaux <- chrmFILES %>% stri_extract(regex="[0-9]+") %>%
                   unlist %>% sort
             mapNUMaux <- c(nmin,nmax)
             localMATCH <- pirnalocal %s+% "piRNAsDB/MATCHpiRNA.Rdata"
