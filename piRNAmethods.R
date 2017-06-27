@@ -150,8 +150,8 @@ piRNAprep <- function(vcf_file, gff_file) {
                   chrm %s+% ".txt"
             cond <- if (serie==0) F else file.exists(localVCFnew)
             
-            print("VCF updating: " %s+% seq(0,100,length.out=
-                                                  length(seqNum)+1)[
+            print("VCF" %s+% chrm %s+% " updating: " %s+% 
+                        seq(0,100,length.out=length(seqNum)+1)[
                   c(F,seqNum==serie)] %s+% "%")
             
             write.table(VCFnew, localVCFnew, sep="\t", row.names=F,
@@ -264,7 +264,7 @@ piRNAcount <- function() {
             # Verificando progresso
             prog <- sort(seq(nrow(uniGFF),0,-100))
             if (sum(index==prog)==1) {
-                  print("CHRM updating: " %s+% 
+                  print("CHRM" %s+% chrm %s+% "updating: " %s+% 
                               prog[index==prog]*100/nrow(uniGFF) %s+% "%")
             }
             #
