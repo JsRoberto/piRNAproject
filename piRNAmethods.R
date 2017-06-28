@@ -264,8 +264,8 @@ piRNAcount <- function() {
             # Verificando progresso
             prog <- sort(seq(nrow(uniGFF),0,-100))
             if (sum(index==prog)==1) {
-                  print("CHRM" %s+% chrm %s+% "updating: " %s+% 
-                              prog[index==prog]*100/nrow(uniGFF) %s+% "%")
+                  print("CHRM" %s+% chrm %s+% " updating: " %s+% 
+                              (prog[index==prog]*100/nrow(uniGFF)) %s+% "%")
             }
             #
             return(CHRMaux)
@@ -715,7 +715,7 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             chrmNUMaux <- chrmFILES %>% stri_extract(regex="[0-9]+") %>%
                   unlist %>% sort
             mapNUMaux <- c(minMAP,maxMAP)
-            localMATCH <- "MATCHpiRNA.Rdata"
+            localMATCH <- "matchpiRNA.Rdata"
             
             if (!file.exists(localMATCH)) {
                   pirnaNAME <- character()
@@ -730,19 +730,20 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                 is.logical(mapTESTE)) {
                   pirnaMATCH <- pirnaNAME
             } else {
-                  pirnaNAME <- allnew[F,1]
+                  pirnaNAME <- character()
                   
                   for (i in 1:length(chrmFILES)) {
                         pirnaNAME <- 
                               c(pirnaNAME, unique.data.frame(
-                                    read.delim(chrmFILES[i])[
-                                          ,1:3])[,2])
+                                    read.delim(chrmFILES[i],
+                                               stringsAsFactors=F)[
+                                          ,1:4])$piRNA)
                   }
                   
                   expression <- function(pirna, min, max) {
                         sapply(unique(pirna),
-                               function(x) sum(pirna==x) >= min &
-                                     sum(pirna==x) <= max)
+                               function(x) {sum(pirna==x) >= min &
+                                     sum(pirna==x) <= max})
                   }
                   
                   pirnaMATCH <- pirnaNAME <- unique(pirnaNAME)[
@@ -753,10 +754,14 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   save(pirnaNAME, chrmNUM, mapNUM, file=localMATCH)
             }
             
-            regexMATCH <- stri_join(pirnaMATCH, collapse="|")
+            #regexMATCH <- stri_join(pirnaMATCH, collapse="|")
             
-            allnewAUX <- 
-                  allnew[stri_detect(allnew$piRNA,regex=regexMATCH),]
+            condMATCH <- F
+            for (i in 1:length(pirnaMATCH)) {
+                  condMATCH <- condMATCH | pirnaMATCH[i]==allnew$piRNA
+            }
+            
+            allnewAUX <- allnew[condMATCH,]
             
             return(allnewAUX)
       }
