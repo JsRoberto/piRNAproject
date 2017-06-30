@@ -66,8 +66,9 @@ piRNAprep <- function(vcf_file, gff_file) {
       
       # Obtendo o arquivo .gff
       gff <- read.delim(gff_file, stringsAsFactors=F, header=F)
-      UNIGFF <<- gffchrm <- gff[gff$V1 == "chr" %s+% chrm,] %>%
+      gffchrm <- gff[gff$V1 == "chr" %s+% chrm,] %>%
             unique.data.frame
+      UNIGFF <<- gffchrm <- gffchrm[complete.cases(gffchrm),]
       
       # Pré-Processamento do arquivo .vcf
       
@@ -605,7 +606,9 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       # Selecionando os IDs
       try(if (ID.choice[1]!="all" & ID.choice[1]!="yes" &
               ID.choice[1]!="no") {
-            stop("O argumento 'ID.choice' não apresenta entrada válida")
+            return(list(
+                  piRNAvariants=rbind(allnewCHRM[F,1:6], NA),
+                  rbind(allnewCHRM[F,7:20], NA)))
       })
       
       if (ID.choice[1]=="all") {
@@ -634,33 +637,34 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   allnewCHRM[,"Local.fim"] <= max(LOC.pirna)
             
             try(if (sum(local)==0) {
-                  stop("Não há piRNAs completamente inseridos na " %s+%
-                             "localização especificada")
+                  return(list(
+                        piRNAvariants=rbind(allnewCHRM[local,1:6], NA),
+                        rbind(allnewCHRM[local,7:20], NA)))
             })
             
-            allnewCHRM <- if (sum(local)==1) 
-                  rbind(allnewCHRM[local,],NA) else 
-                        allnewCHRM[local,]
+            allnewCHRM <- allnewCHRM[local,]
       }
       
       # Selecionando apenas os pirnas com nomes "NAME.pirna".
       if (!NAME.pirna %>% is.null) {
             pirna <- stri_join(NAME.pirna, collapse="|")
-            matchName <- stri_detect_regex(allnewCHRM[,"piRNA"], pirna)
+            matchName <- stri_detect_regex(allnewCHRM$piRNA, pirna)
             
             try(if (sum(matchName)==0) {
-                  stop("Não há piRNAs com as identificações especificadas")
+                  return(list(
+                        piRNAvariants=rbind(allnewCHRM[matchName,1:6], NA),
+                        rbind(allnewCHRM[matchName,7:20], NA)))
             })
             
-            allnewCHRM <- if (sum(matchName)==1) 
-                  rbind(allnewCHRM[matchName,],NA) else 
-                        allnewCHRM[matchName,]
+            allnewCHRM <- allnewCHRM[matchName,]
       }
       
       # Selecionando apenas os piRNAs com certo número de mutações
       try(if (MUT.type[1]!="all" & MUT.type[1]!="indel" & 
               MUT.type[1]!="subst") {
-            stop("Argumento de entrada 'MUT.type' inválido")
+            return(list(
+                  piRNAvariants=rbind(allnewCHRM[F,1:6], NA),
+                  rbind(allnewCHRM[F,7:20], NA)))
       })
       
       minMUT <- ifelse(!MUT.min %>% is.null, MUT.min, 1)
@@ -670,16 +674,31 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       if (MUT.type[1]=="all") {
             cond <- allnewCHRM$Total.mut >= minMUT & 
                   allnewCHRM$Total.mut <= maxMUT
+            
+            try(if (sum(cond)==0) return(list(
+                  piRNAvariants=rbind(allnewCHRM[cond,1:6], NA),
+                  rbind(allnewCHRM[cond,7:20], NA))))
+            
             allnewCHRM <- allnewCHRM[cond,]
       }
       if (MUT.type[1]=="indel") {
             cond <- allnewCHRM$Indel.mut >= minMUT & 
                   allnewCHRM$Indel.mut <= maxMUT
+            
+            try(if (sum(cond)==0) return(list(
+                  piRNAvariants=rbind(allnewCHRM[cond,1:6], NA),
+                  rbind(allnewCHRM[cond,7:20], NA))))
+            
             allnewCHRM <- allnewCHRM[cond,]
       }
       if (MUT.type[1]=="subst") {
             cond <- allnewCHRM$Subst.mut >= minMUT &
                   allnewCHRM$Subst.mut <= maxMUT
+            
+            try(if (sum(cond)==0) return(list(
+                  piRNAvariants=rbind(allnewCHRM[cond,1:6], NA),
+                  rbind(allnewCHRM[cond,7:20], NA))))
+            
             allnewCHRM <- allnewCHRM[cond,]
       }
       # Selecionando 
@@ -699,12 +718,12 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       cond <- cond.AF & cond.AC
       
       try(if (sum(cond)==0) {
-            stop("Não há piRNAs que possuam os parâmetros de 'AC' e " %s+%
-                       "'AF' especificados")
+            try(if (sum(cond)==0) return(list(
+                  piRNAvariants=rbind(allnewCHRM[cond,1:6], NA),
+                  rbind(allnewCHRM[cond,7:20], NA))))
       })
       
-      allnewCHRM2 <- if (sum(cond)==1) rbind(allnewCHRM[cond,],NA) else 
-            allnewCHRM[cond,]
+      allnewCHRM2 <- allnewCHRM[cond,]
       
       piRNAmatch <- function(allnew, min=NMIN.map, max=NMAX.map) {
             minMAP <- ifelse(is.null(min), 1, min)

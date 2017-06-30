@@ -1,3 +1,5 @@
+.libPaths("C:/Rdir/library_R-3.4.0")
+
 if(!suppressMessages(require(DT))) {
       install.packages("DT")
       suppressMessages(require(DT))
@@ -23,44 +25,103 @@ if(!suppressMessages(require(shinydashboard))) {
       suppressMessages(require(shinydashboard))
 }
 
-pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
-source(pirnalocal %s+% "piRNAmethods.R")
+#source("piRNAproject.R", encoding="UTF-8")
 
 sidebar <- dashboardSidebar(
-      sidebarSearchForm(label="Enter a number", 
-                        "searchText", "searchButton"),
       sidebarMenu(
             menuItem("Introdução", tabName="intro",
                      icon=icon("list-alt")),
             menuItem("Tabelas - piRNAs", icon=icon("th"),
-                     menuSubItem("Chrm Original", tabName="apply1"),
-                     menuSubItem("Chrm Filtrado", tabName="apply2")),
+                     menuSubItem("Chrm Parâmetros", tabName="apply1"),
+                     menuSubItem("Chrm Resultados", tabName="apply2")),
             menuItem("Código-Fonte", tabName="code", icon=icon("table"))
       )
 )
 
 body <- dashboardBody(
       tabItems(
-            tabItem(tabName="intro", h2("Introduction tab content"))
-      ),
-      tabItems(
-            tabItem(tabName="code", h2("Source code of Shiny app"))
+            tabItem(tabName="intro", h2(
+                  "Introdução aos conteúdos apresentados"))
       ),
       tabItems(
             tabItem(tabName="apply1",
                     fluidRow(
-                          box(title="Opções sobre Cromossomos", width=12,
-                              height=250, solidHeader=TRUE,
-                              background="green",
-                              numericInput(inputId="chrm",
-                                           label="Cromossomo: ",
-                                           value=22,min=1,max=22,step=1)
+                          box(title="Opções sobre Cromossomos", width=8,
+                              height=140, solidHeader=TRUE,
+                              background="olive",
+                              radioButtons(inputId="chrm", 
+                                           label="Cromossomo:", 
+                                           choices=c(17,18,19,20,21,22),
+                                           selected=17, inline=TRUE)
+                          ),
+                          box(title="Modificar Parâmetros: ", width=4,
+                              height=140, solidHeader=TRUE,
+                              background="purple",
+                              actionButton(inputId="restore",
+                                           label="Restaurar configurações originais"),
+                              tags$p(" "),
+                              actionButton(inputId="update",
+                                           label="Atualizar parâmetros")
                           )
                     ),
                     fluidRow(
-                          box(title="Tabela de Mutações", width=12,
-                              solidHeader=TRUE, status="primary",
-                              dataTableOutput(outputId="piRNAtable1")
+                          box(title="Opções sobre piRNAs", width=4,
+                              height=225, solidHeader=TRUE,
+                              background="olive",
+                              numericInput(inputId="expgenmax", 
+                                           label="Máximo valor de " %s+%
+                                                 "expressão genômica:",
+                                           value=10),
+                              conditionalPanel(
+                                    "input.expgenmax <= 20",
+                                    sliderInput(
+                                          inputId="expgen", 
+                                          value=c(1,3), min=0, step=1,
+                                          max=20, 
+                                          label="Expressão Genômica:")
+                              ),
+                              conditionalPanel(
+                                    "input.expgenmax > 20 & 
+                                    input.expgenmax <= 50",
+                                    sliderInput(inputId="expgen", 
+                                                value=c(0,20),
+                                                label="Expressão Genômica:"
+                                                , min=0, max=50, step=5)
+                              ),
+                              conditionalPanel(
+                                    "input.expgenmax > 50 & 
+                                    input.expgenmax <= 500",
+                                    sliderInput(inputId="expgen", 
+                                                value=c(0,100),
+                                                label="Expressão Genômica:"
+                                                , min=0, max=500, step=10)
+                              ),
+                              conditionalPanel(
+                                    "input.expgenmax > 500 & 
+                                    input.expgenmax <= 1000",
+                                    sliderInput(inputId="expgen", 
+                                                value=c(0,100),
+                                                label="Expressão Genômica:"
+                                                , min=0, max=1000, step=10)
+                              )
+                          ),
+                          box(title="Opções sobre Mutações", width=4,
+                              height=225, solidHeader=TRUE,
+                              background="olive",
+                              selectInput(inputId="type",
+                                          label="Tipo de Mutações: ",
+                                          choices=c("all","indel","subst"))
+                              ,
+                              selectInput(inputId="id",
+                                          label="Mutações por ID: ",
+                                          choices=c("all","yes","no"))
+                          ),
+                          box(title="Opções sobre Alelos", width=4,
+                              height=225, solidHeader=TRUE,
+                              background="olive",
+                              sliderInput(inputId="AF", value=c(0.5,50),
+                                          label="Frequências alélicas (%):",
+                                          min=0, max=100, step=0.5)
                           )
                     )
             )
@@ -68,90 +129,201 @@ body <- dashboardBody(
       tabItems(
             tabItem(tabName="apply2",
                     fluidRow(
-                          box(title="Opções sobre piRNAs", width=4,
-                              height=250,solidHeader=TRUE,background="red",
-                              textInput(inputId="name", value=NULL,
-                                        label="Nome do piRNA: "),
-                              sliderInput(inputId="local", value=c(0,1e9),
-                                          label="Local do piRNA: ",
-                                          min=0, max=1e9),
-                              sliderInput(inputId="expgen", value=c(1,3),
-                                          label="Expressão Genômica de"%s+% 
-                                                " piRNAs:", min=1, max=500)
-                          ),
-                          box(title="Opções sobre Mutações", width=4,
-                              height=250,solidHeader=TRUE,background="red",
-                              selectInput(inputId="type", 
-                                          label="Tipo de mutação: ",
-                                          choices=c("all","indel","subst"))
-                              ,
-                              selectInput(inputId="id", 
-                                          label="Mutações com ID: ",
-                                          choices=c("all","yes","no"))
-                              ,
-                              sliderInput(inputId="mut", value=c(0,100),
-                                          label="Número de mutações: ",
-                                          min=0, max=100)
-                          ),
-                          box(title="Opções sobre Alelos", width=4,
-                              height=250,solidHeader=TRUE,background="red",
-                              sliderInput(inputId="AC", value=c(0,5008),
-                                          label="Contagem alélica: ",
-                                          min=0, max=5008),
-                              sliderInput(inputId="AF", value=c(0,100),
-                                          label="Frequência alélica: ",
-                                          min=0, max=100)
-                          )
-                    ),
-                    
-                    fluidRow(
                           tabBox(title="Tabela Filtrada", width=12,
                                  id="tabela", selected="tab2",
-                                 tabPanel("tab2", dataTableOutput(
-                                       outputId="piRNAtable2")),
-                                 tabPanel("tab3", dataTableOutput(
+                                 tabPanel(title="tab2", 
+                                          DT::dataTableOutput(
+                                                outputId="piRNAtable2"),
+                                          selectInput(
+                                                inputId="filetype",
+                                                label="Escolha o form" %s+%
+                                                      "ato do arquivo: ", 
+                                                choices=c(
+                                                      "HTML", "Text File",
+                                                      "R Workspace")),
+                                          downloadButton(
+                                                outputId='downloadData',
+                                                label='Download')
+                                          ),
+                                 tabPanel("tab3", DT::dataTableOutput(
                                        outputId="piRNAtable3"))
                           )
                     )
             )
+      ),
+      tabItems(
+            tabItem(tabName="code", h2("Source code of Shiny app"))
       )
 )
 
 ui <- dashboardPage(
-      dashboardHeader(title="Basic dashboard"),
+      dashboardHeader(title="Layout básico"),
       sidebar,
       body
 )
 
+
+
 server <- function(input, output) {
-      source("piRNAmethods.R")
       
-      data <- reactive({ 
-            piRNAposp(input$chrm, min(input$mut), max(input$mut), 
-                      min(input$AC), max(input$AC), min(input$AF), 
-                      max(input$AF), input$name, input$local,
-                      min(input$expgen), max(input$expgen), input$type,
-                      input$id)
+      # output$maxui <- renderUI({
+      #       if (is.null(input$iexpgenmax))
+      #             return()
+      #       
+      #       input$iexpgenmax
+      # })
+      #       
+      
+      rv <- reactiveValues(chrm = 17, expmin = 1, expmax = 3, type = "all",
+                           id = "all", afmin = 0.5, afmax = 50)
+      
+      observeEvent(input$restore, {
+            rv$chrm <- 17; rv$expmin <- 1; rv$expmax <- 3; rv$type <- "all"
+            rv$id <- "all"; rv$afmin <- 0.5; rv$afmax <- 50
+      })
+      observeEvent(input$update, {
+            rv$chrm <- input$chrm
+            rv$expmin <- min(input$expgen)
+            rv$expmax <- max(input$expgen)
+            rv$type <- input$type
+            rv$id <- input$id
+            rv$afmin <- min(input$AF)
+            rv$afmax <- max(input$AF)
       })
       
-      output$piRNAtable1 = DT::renderDataTable({
-            localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRMnew_" %s+%
-                  input$chrm %s+% ".txt"
-            allnewCHRM <- read.delim(localCHRMnew, stringsAsFactors=F)
-            allnewCHRM <- `row.names<-`(allnewCHRM,1:nrow(allnewCHRM))
-            return(allnewCHRM)
-      }, selection='none')
+      source("piRNAmethods.R", encoding="UTF-8")
       
-      output$piRNAtable2 = DT::renderDataTable({
-            table <- `row.names<-`(data()[[1]],1:nrow(data()[[1]]))
-            return(table)
-      }, options=list(pageLength=15, autoWidth = TRUE),
-      selection='single', filter='top')
+      allnewCHRM <- reactive({
+            piRNAposp2(CHRM=rv$chrm, AF.min=rv$afmin/100,
+                       AF.max=rv$afmax/100, NMAX.map=rv$expmax,
+                       NMIN.map=rv$expmin, MUT.type=rv$type,
+                       ID.choice=rv$id)
+      })
       
-      output$piRNAtable3 = DT::renderDataTable({
-            data()[[input$piRNAtable2_rows_selected + 1]]
-      }, options=list(pageLength=15, autoWidth = TRUE),
-      selection='none', filter='top')
+      # createPIRNALink <- function(val) {
+      #       valaux <- stri_split_fixed(val,"+")
+      #       valoutput <- sapply(valaux, function(x) {
+      #             valout <- sprintf(
+      #                   '<a href="https://www.bioinfo.mochsl.org.br/~rpiuco' %s+%
+      #                         '/pirna/information/pirna/hsa-piR-%s>' %s+%
+      #                         x %s+% '</a>',stri_extract(x,regex="[0-9]+"))
+      #             valout <- stri_join(valout, collapse=" + ") %>% sprintf
+      #             return(valout)
+      #       })
+      #       return(valoutput)
+      # }
+      
+      sketch_table2 <- htmltools::withTags(table(
+            class = 'display',
+            thead(
+                  tr(
+                        th(colspan = 2, 'piRNA'),
+                        th(colspan = 2, 'Local'),
+                        th(colspan = 3, 'Mutações')
+                  ),
+                  tr(
+                        lapply(c("Chrm","Nome","Início","Final","Total",
+                                 "Indel","Subst"), th)
+                  )
+            )
+      ))
+      
+      output$piRNAtable2 <- DT::renderDataTable({
+            pirnatable <- allnewCHRM()[[1]]
+            #pirnatable$piRNA <- createPIRNALink(pirnatable$piRNA)
+            return(pirnatable)}, 
+            options=list(pageLength=15, autoWidth=T, scrollX=T, dom="tip"),
+            colnames = c("piRNA.Chrm", "piRNA.Nome", "Local.Início",
+                         "Local.Final", "Mutações.Total",
+                         "Mutações.Indel", "Mutações.Subst"),
+            caption='Table 1: Algum texto descrevendo conteúdo da tabela.',
+            container=sketch_table2,
+            rownames=FALSE, #escape=FALSE, #1:nrow(allnewCHRM()[[1]]),
+            selection='single', filter='top', class='cell-border stripe')
+      
+      output$downloadData <- downloadHandler(
+            filename=function() {
+                  "allnewCHRM" %s+% rv$chrm %s+% "." %s+%
+                        switch(input$filetype,
+                               "HTML" = "html",
+                               "Text File" = ".txt",
+                               "R Workspace" = "Rdata")
+            },
+            content=function(file) {
+                  switch(input$filetype,
+                         "R Workspace" = save(allnewCHRM(), file=file),
+                         "Text File" = {
+                               sink(file); allnewCHRM(); sink()
+                         },
+                         "HTML" = {
+                               # src <- normalizePath('file.Rmd')
+                               # on.exit(setwd())
+                               # file.copy(src, 'file.Rmd', overwrite=T)
+                               # 
+                               # if(!suppressMessages(require(rmardown))) {
+                               #       install.packages("rmarkdown")
+                               #       suppressMessages(require(rmarkdown))
+                               # }
+                               # 
+                               # out <- render('file.Rmd', html_document())
+                               # file.rename(out, file)
+                         })
+            }
+      )
+      
+      idx <- reactive({
+            input$piRNAtable2_rows_selected + 1
+      })
+      
+      sketch_table3 <- htmltools::withTags(table(
+            class = 'display',
+            thead(
+                  tr(
+                        th(colspan = 2, 'Mutações'),
+                        th(colspan = 2, 'Total'),
+                        th(colspan = 2, 'Africano'),
+                        th(colspan = 2, 'Americano'),
+                        th(colspan = 2, 'Leste_Asiático'),
+                        th(colspan = 2, 'Europeu'),
+                        th(colspan = 2, 'Sul_Asiático')
+                  ),
+                  tr(
+                        lapply(c("ID","Tipo", rep(c("AC","AF"),6)), th)
+                  )
+            )
+      ))
+      
+      createIDLink <- function(val) {
+            ifelse(stri_detect_regex(val,"^\\.$"), val,
+                   sprintf('<a href="https://www.ncbi.nlm.nih.gov/' %s+%
+                                 'gquery/?term=%s">' %s+% val %s+% '</a>',
+                           val))
+            
+      }
+      
+      output$piRNAtable3 <- DT::renderDataTable({
+            pirnatable <- allnewCHRM()[[idx()]]
+            pirnatable$ID.mut <- createIDLink(pirnatable$ID.mut)
+            return(pirnatable)},
+            options=list(pageLength=10, autoWidth=T, scrollX=T),
+            colnames = c("Mutações.ID", "Mutações.Tipo", "Total.AC", 
+                         "Total.AF", "Africano.AC", "Africano.AF",
+                         "Americano.AC", "Americano.AF", 
+                         "Leste_Asiático.AC","Leste_Asiático.AF",
+                         "Europeu.AC","Europeu.AF","Sul_Asiático.AC",
+                         "Sul_Asiático.AF"),
+            caption=htmltools::tags$caption(
+                  style='caption-side: bottom; text-align: center;',
+                  'Table 2: ', htmltools::em(
+                        'Tabela do' %s+% stri_extract_first_regex(
+                              allnewCHRM()[[1]][idx(),"piRNA"],
+                              " piR-hsa-[0-9]+") %s+% ' de posição ' %s+%
+                              allnewCHRM()[[1]][idx(),"Local.ini"] %s+% 
+                              "-" %s+% allnewCHRM()[[1]][idx(),"Local.fim"])
+            ),
+            selection='none', filter='top', escape=FALSE,
+            container=sketch_table3, rownames=FALSE,
+            autoHideNavigation=T, class='cell-border stripe')
       
 }
 
