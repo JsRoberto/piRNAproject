@@ -20,12 +20,42 @@ if(!suppressMessages(require(magrittr))) {
       install.packages("magrittr")
       suppressMessages(require(magrittr))
 }
+if(!suppressMessages(require(openxlsx))) {
+      install.packages("openxlsx")
+      suppressMessages(require(openxlsx))
+}
 if(!suppressMessages(require(shinydashboard))) {
       install.packages("shinydashboard")
       suppressMessages(require(shinydashboard))
 }
 
-#source("piRNAproject.R", encoding="UTF-8")
+# Baixar os arquivos "piRNAproject.R" e "piRNAfunctions.R", caso ainda não
+# estejam no "getwd()" atual.
+Local <- c("piRNAproject.R","piRNAmethods.R", "matchpiRNA.Rdata")
+Url <- c("https://raw.githubusercontent.com/JsRoberto/piRNAproject" %s+%
+               "/master/piRNAproject.R",
+         "https://raw.githubusercontent.com/JsRoberto/piRNAproject" %s+%
+               "/master/piRNAmethods.R",
+         "https://raw.githubusercontent.com/JsRoberto/piRNAproject" %s+%
+               "/master/matchpiRNA.Rdata")
+
+Download <- function(Local, Url) {
+      if (!file.exists(Local)) {
+            download.file(Url, Local)
+      }
+}
+
+mapply(Download, Local, Url)
+
+load("matchpiRNA.Rdata")
+
+ChrmLocal <- "CHRMnew_" %s+% chrmNUM %s+% ".txt"
+ChrmUrl <- "https://raw.githubusercontent.com/JsRoberto/" %s+%
+      "piRNAproject/master/" %s+% ChrmLocal
+
+mapply(Download, ChrmLocal, ChrmUrl)
+
+##
 
 sidebar <- dashboardSidebar(
       sidebarMenu(
@@ -68,42 +98,16 @@ body <- dashboardBody(
                           box(title="Opções sobre piRNAs", width=4,
                               height=225, solidHeader=TRUE,
                               background="olive",
-                              numericInput(inputId="expgenmax", 
-                                           label="Máximo valor de " %s+%
-                                                 "expressão genômica:",
-                                           value=10),
-                              conditionalPanel(
-                                    "input.expgenmax <= 20",
-                                    sliderInput(
-                                          inputId="expgen", 
-                                          value=c(1,3), min=0, step=1,
-                                          max=20, 
-                                          label="Expressão Genômica:")
-                              ),
-                              conditionalPanel(
-                                    "input.expgenmax > 20 & 
-                                    input.expgenmax <= 50",
-                                    sliderInput(inputId="expgen", 
-                                                value=c(0,20),
-                                                label="Expressão Genômica:"
-                                                , min=0, max=50, step=5)
-                              ),
-                              conditionalPanel(
-                                    "input.expgenmax > 50 & 
-                                    input.expgenmax <= 500",
-                                    sliderInput(inputId="expgen", 
-                                                value=c(0,100),
-                                                label="Expressão Genômica:"
-                                                , min=0, max=500, step=10)
-                              ),
-                              conditionalPanel(
-                                    "input.expgenmax > 500 & 
-                                    input.expgenmax <= 1000",
-                                    sliderInput(inputId="expgen", 
-                                                value=c(0,100),
-                                                label="Expressão Genômica:"
-                                                , min=0, max=1000, step=10)
-                              )
+                              numericInput(inputId="alignmax", 
+                                           label="Número máximo de " %s+%
+                                                 "alinhamentos (ref." %s+%
+                                                 " hs37d5):",
+                                           value=3),
+                              numericInput(inputId="alignmin", 
+                                           label="Número mínimo de " %s+%
+                                                 "alinhamentos (ref." %s+%
+                                                 " hs37d5):",
+                                           value=1)
                           ),
                           box(title="Opções sobre Mutações", width=4,
                               height=225, solidHeader=TRUE,
@@ -129,24 +133,40 @@ body <- dashboardBody(
       tabItems(
             tabItem(tabName="apply2",
                     fluidRow(
-                          tabBox(title="Tabela Filtrada", width=12,
-                                 id="tabela", selected="tab2",
-                                 tabPanel(title="tab2", 
+                          tabBox(title="Tabelas - piRNA", width=12,
+                                 id="tabela", selected="piRNA Mutações",
+                                 tabPanel(title="piRNA Mutações", 
                                           DT::dataTableOutput(
                                                 outputId="piRNAtable2"),
                                           selectInput(
-                                                inputId="filetype",
+                                                inputId="filetype2",
                                                 label="Escolha o form" %s+%
                                                       "ato do arquivo: ", 
                                                 choices=c(
-                                                      "HTML", "Text File",
-                                                      "R Workspace")),
+                                                      "CSV", "TSV", "Excel", 
+                                                      "Image Text")),
                                           downloadButton(
-                                                outputId='downloadData',
+                                                outputId='downloadMain',
                                                 label='Download')
-                                          ),
-                                 tabPanel("tab3", DT::dataTableOutput(
-                                       outputId="piRNAtable3"))
+                                 ),
+                                 tabPanel(
+                                       title="Info Alélicas",
+                                       h3("Tabela de Mutações" %s+%
+                                                textOutput(
+                                                      outputId="infopirna")),
+                                       DT::dataTableOutput(
+                                             outputId="piRNAtable3"),
+                                       selectInput(
+                                             inputId="filetype3",
+                                             label="Escolha o form" %s+%
+                                                   "ato do arquivo: ",
+                                             choices=c(
+                                                   "CSV", "TSV", "Excel",
+                                                   "Image Text")),
+                                       downloadButton(
+                                             outputId='downloadPirna',
+                                             label='Download')
+                                 )
                           )
                     )
             )
@@ -166,13 +186,7 @@ ui <- dashboardPage(
 
 server <- function(input, output) {
       
-      # output$maxui <- renderUI({
-      #       if (is.null(input$iexpgenmax))
-      #             return()
-      #       
-      #       input$iexpgenmax
-      # })
-      #       
+      source("piRNAmethods.R", encoding="UTF-8")
       
       rv <- reactiveValues(chrm = 17, expmin = 1, expmax = 3, type = "all",
                            id = "all", afmin = 0.5, afmax = 50)
@@ -183,15 +197,13 @@ server <- function(input, output) {
       })
       observeEvent(input$update, {
             rv$chrm <- input$chrm
-            rv$expmin <- min(input$expgen)
-            rv$expmax <- max(input$expgen)
+            rv$expmin <- input$alignmin
+            rv$expmax <- input$alignmax
             rv$type <- input$type
             rv$id <- input$id
             rv$afmin <- min(input$AF)
             rv$afmax <- max(input$AF)
       })
-      
-      source("piRNAmethods.R", encoding="UTF-8")
       
       allnewCHRM <- reactive({
             piRNAposp2(CHRM=rv$chrm, AF.min=rv$afmin/100,
@@ -200,19 +212,18 @@ server <- function(input, output) {
                        ID.choice=rv$id)
       })
       
-      # createPIRNALink <- function(val) {
-      #       valaux <- stri_split_fixed(val,"+")
-      #       valoutput <- sapply(valaux, function(x) {
-      #             valout <- sprintf(
-      #                   '<a href="https://www.bioinfo.mochsl.org.br/~rpiuco' %s+%
-      #                         '/pirna/information/pirna/hsa-piR-%s>' %s+%
-      #                         x %s+% '</a>',stri_extract(x,regex="[0-9]+"))
-      #             valout <- stri_join(valout, collapse=" + ") %>% sprintf
-      #             return(valout)
-      #       })
-      #       return(valoutput)
-      # }
-      
+      createPIRNALink <- function(val) {
+            valaux <- stri_split_fixed(val,"+")
+            valoutput <- sapply(valaux, function(x) {
+                  valout <- sprintf(
+                        '<a href="https://www.ncbi.nlm.nih.gov/gquery/?term=%s">' %s+%
+                              x %s+% '</a>', stri_extract_all_regex(x,"[0-9]+"))
+                  valout <- stri_join(valout, collapse=" + ")
+                  return(valout)
+            })
+            return(valoutput)
+      }
+
       sketch_table2 <- htmltools::withTags(table(
             class = 'display',
             thead(
@@ -230,7 +241,7 @@ server <- function(input, output) {
       
       output$piRNAtable2 <- DT::renderDataTable({
             pirnatable <- allnewCHRM()[[1]]
-            #pirnatable$piRNA <- createPIRNALink(pirnatable$piRNA)
+            pirnatable$piRNA <- createPIRNALink(pirnatable$piRNA)
             return(pirnatable)}, 
             options=list(pageLength=15, autoWidth=T, scrollX=T, dom="tip"),
             colnames = c("piRNA.Chrm", "piRNA.Nome", "Local.Início",
@@ -238,35 +249,31 @@ server <- function(input, output) {
                          "Mutações.Indel", "Mutações.Subst"),
             caption='Table 1: Algum texto descrevendo conteúdo da tabela.',
             container=sketch_table2,
-            rownames=FALSE, #escape=FALSE, #1:nrow(allnewCHRM()[[1]]),
+            rownames=FALSE, escape=FALSE,
             selection='single', filter='top', class='cell-border stripe')
       
-      output$downloadData <- downloadHandler(
+      output$downloadMain <- downloadHandler(
             filename=function() {
-                  "allnewCHRM" %s+% rv$chrm %s+% "." %s+%
-                        switch(input$filetype,
-                               "HTML" = "html",
-                               "Text File" = ".txt",
-                               "R Workspace" = "Rdata")
+                  "allnewCHRM" %s+% rv$chrm %s+%
+                        switch(input$filetype2,
+                               "CSV" = ".csv",
+                               "TSV" = ".tsv",
+                               "Excel" = ".xlsx",
+                               "Image Text" = ".txt")
             },
             content=function(file) {
-                  switch(input$filetype,
-                         "R Workspace" = save(allnewCHRM(), file=file),
-                         "Text File" = {
-                               sink(file); allnewCHRM(); sink()
+                  switch(input$filetype2,
+                         "CSV" = write.csv(allnewCHRM()[[1]], file, 
+                                           row.names=F),
+                         "TSV" = write.table(allnewCHRM()[[1]], file, 
+                                             row.names=F, sep="\t"),
+                         "Excel" = {
+                               library(openxlsx)
+                               write.xlsx(allnewCHRM()[[1]], file,
+                                          sheetName=names(allnewCHRM())[1])
                          },
-                         "HTML" = {
-                               # src <- normalizePath('file.Rmd')
-                               # on.exit(setwd())
-                               # file.copy(src, 'file.Rmd', overwrite=T)
-                               # 
-                               # if(!suppressMessages(require(rmardown))) {
-                               #       install.packages("rmarkdown")
-                               #       suppressMessages(require(rmarkdown))
-                               # }
-                               # 
-                               # out <- render('file.Rmd', html_document())
-                               # file.rename(out, file)
+                         "Image Text" = {
+                               sink(file); allnewCHRM()[[1]]; sink()
                          })
             }
       )
@@ -278,18 +285,15 @@ server <- function(input, output) {
       sketch_table3 <- htmltools::withTags(table(
             class = 'display',
             thead(
-                  tr(
-                        th(colspan = 2, 'Mutações'),
-                        th(colspan = 2, 'Total'),
-                        th(colspan = 2, 'Africano'),
-                        th(colspan = 2, 'Americano'),
-                        th(colspan = 2, 'Leste_Asiático'),
-                        th(colspan = 2, 'Europeu'),
-                        th(colspan = 2, 'Sul_Asiático')
+                  tr(th(colspan = 2, 'Mutações'),
+                     th(colspan = 2, 'Total'),
+                     th(colspan = 2, 'Africano'),
+                     th(colspan = 2, 'Americano'),
+                     th(colspan = 2, 'Leste_Asiático'),
+                     th(colspan = 2, 'Europeu'),
+                     th(colspan = 2, 'Sul_Asiático')
                   ),
-                  tr(
-                        lapply(c("ID","Tipo", rep(c("AC","AF"),6)), th)
-                  )
+                  tr(lapply(c("ID","Tipo", rep(c("AC","AF"),6)), th))
             )
       ))
       
@@ -306,25 +310,58 @@ server <- function(input, output) {
             pirnatable$ID.mut <- createIDLink(pirnatable$ID.mut)
             return(pirnatable)},
             options=list(pageLength=10, autoWidth=T, scrollX=T),
-            colnames = c("Mutações.ID", "Mutações.Tipo", "Total.AC", 
-                         "Total.AF", "Africano.AC", "Africano.AF",
-                         "Americano.AC", "Americano.AF", 
-                         "Leste_Asiático.AC","Leste_Asiático.AF",
-                         "Europeu.AC","Europeu.AF","Sul_Asiático.AC",
-                         "Sul_Asiático.AF"),
-            caption=htmltools::tags$caption(
-                  style='caption-side: bottom; text-align: center;',
-                  'Table 2: ', htmltools::em(
-                        'Tabela do' %s+% stri_extract_first_regex(
-                              allnewCHRM()[[1]][idx(),"piRNA"],
-                              " piR-hsa-[0-9]+") %s+% ' de posição ' %s+%
-                              allnewCHRM()[[1]][idx(),"Local.ini"] %s+% 
-                              "-" %s+% allnewCHRM()[[1]][idx(),"Local.fim"])
-            ),
+            colnames=c("Mutações.ID", "Mutações.Tipo", "Total.AC", 
+                       "Total.AF", "Africano.AC", "Africano.AF",
+                       "Americano.AC", "Americano.AF", 
+                       "Leste_Asiático.AC","Leste_Asiático.AF",
+                       "Europeu.AC","Europeu.AF","Sul_Asiático.AC",
+                       "Sul_Asiático.AF"),
             selection='none', filter='top', escape=FALSE,
             container=sketch_table3, rownames=FALSE,
             autoHideNavigation=T, class='cell-border stripe')
       
+      output$infopirna <- renderText({
+            chrm <- allnewCHRM()[[1]][idx()-1,"CHRM"]
+            pirna <- allnewCHRM()[[1]][idx()-1,"piRNA"]
+            local <- allnewCHRM()[[1]][idx()-1,"Local.ini"] %s+% "-" %s+%
+                  allnewCHRM()[[1]][idx()-1,"Local.fim"]
+            
+            condpirna <- length(stri_split_fixed(pirna, "+")[[1]]) > 1
+            
+            info <- ifelse(condpirna,
+                  stri_extract_first_regex(pirna, "piR-hsa-[0-9]+\\+") %s+%
+                        "...",
+                  stri_extract_first_regex(pirna, "piR-hsa-[0-9]+"))
+            info <- 
+                  info %s+% " na posição " %s+% local %s+% " do cro" %s+%
+                  "mossomo " %s+% chrm
+            return(info)
+      })
+      
+      output$downloadPirna <- downloadHandler(
+            filename=function() {
+                  "allnewCHRM" %s+% rv$chrm %s+%
+                        switch(input$filetype3,
+                               "CSV" = ".csv",
+                               "TSV" = ".tsv",
+                               "Excel" = ".xlsx",
+                               "Image Text" = ".txt")
+            },
+            content=function(file) {
+                  switch(input$filetype3,
+                         "CSV" = write.csv(allnewCHRM()[[idx()]], file,
+                                           row.names=F),
+                         "TSV" = write.table(allnewCHRM()[[idx()]], file, 
+                                             row.names=F, sep="\t"),
+                         "Excel" = {
+                               library(openxlsx)
+                               write.xlsx(allnewCHRM()[[idx()]], file,
+                                          sheetName="teste")},
+                         "Image Text" = {
+                               sink(file); allnewCHRM()[[idx()]]; sink()
+                         })
+            }
+      )
 }
 
 shinyApp(ui = ui, server = server)
