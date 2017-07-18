@@ -600,8 +600,10 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
       
-      localCHRMnew <- "CHRMnew_" %s+% CHRM %s+% ".txt"
-      allnewCHRM <- read.delim(localCHRMnew, stringsAsFactors=F)
+      CHRMlocal <- "CHRMnew_" %s+% CHRM %s+% ".txt"
+      # CHRMurl <- url("https://raw.githubusercontent.com/JsRoberto/" %s+%
+      #       "piRNAproject/master/" %s+% ChrmLocal)
+      allnewCHRM <- read.delim(CHRMlocal, stringsAsFactors=F)
       
       # Selecionando os IDs
       try(if (ID.choice[1]!="all" & ID.choice[1]!="yes" &
@@ -734,7 +736,10 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             chrmNUMaux <- chrmFILES %>% stri_extract(regex="[0-9]+") %>%
                   unlist %>% sort
             mapNUMaux <- c(minMAP,maxMAP)
-            localMATCH <- "matchpiRNA.Rdata"
+            localMATCH <-  
+                  url("https://raw.githubusercontent.com/JsRoberto/" %s+%
+                            "piRNAproject/master/matchpiRNA.Rdata")
+            load(localMATCH)
             
             if (!file.exists(localMATCH)) {
                   pirnaNAME <- character()
@@ -742,17 +747,14 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   save(pirnaNAME, chrmNUM, mapNUM, file=localMATCH)
             }
             
-            load(localMATCH)
-            chrmTESTE <- all.equal(chrmNUM, chrmNUMaux)
             mapTESTE <- all.equal(mapNUM, mapNUMaux)
-            if (is.logical(chrmTESTE) & 
-                is.logical(mapTESTE)) {
+            if (is.logical(mapTESTE)) {
                   pirnaMATCH <- pirnaNAME
             } else {
                   pirnaNAME <- character()
-                  
+
                   for (i in 1:length(chrmFILES)) {
-                        pirnaNAME <- 
+                        pirnaNAME <-
                               c(pirnaNAME, unique.data.frame(
                                     read.delim(chrmFILES[i],
                                                stringsAsFactors=F)[

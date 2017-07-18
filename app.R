@@ -20,6 +20,10 @@ if(!suppressMessages(require(magrittr))) {
       install.packages("magrittr")
       suppressMessages(require(magrittr))
 }
+if(!suppressMessages(require(installr))) {
+      install.packages("installr")
+      suppressMessages(require(installr))
+}
 if(!suppressMessages(require(openxlsx))) {
       install.packages("openxlsx")
       suppressMessages(require(openxlsx))
@@ -28,6 +32,10 @@ if(!suppressMessages(require(shinydashboard))) {
       install.packages("shinydashboard")
       suppressMessages(require(shinydashboard))
 }
+
+# Instalando o Rtools - Se o sistema operacional for windows
+if (!file.exists("C:/Rtools"))
+      install.rtools(); Sys.setenv("R_ZIPCMD" = "C:/Rtools/bin/zip.exe")
 
 # Baixar os arquivos "piRNAproject.R" e "piRNAfunctions.R", caso ainda não
 # estejam no "getwd()" atual.
@@ -81,7 +89,7 @@ body <- dashboardBody(
                               background="olive",
                               radioButtons(inputId="chrm", 
                                            label="Cromossomo:", 
-                                           choices=c(17,18,19,20,21,22),
+                                           choices=c(10,11,13,15,16,17,18,19,20,21,22,"Y"),
                                            selected=17, inline=TRUE)
                           ),
                           box(title="Modificar Parâmetros: ", width=4,
@@ -151,7 +159,7 @@ body <- dashboardBody(
                                  ),
                                  tabPanel(
                                        title="Info Alélicas",
-                                       h3("Tabela de Mutações" %s+%
+                                       h4(#"Tabela de Mutações: " %s+%
                                                 textOutput(
                                                       outputId="infopirna")),
                                        DT::dataTableOutput(
@@ -217,7 +225,7 @@ server <- function(input, output) {
             valoutput <- sapply(valaux, function(x) {
                   valout <- sprintf(
                         '<a href="https://www.ncbi.nlm.nih.gov/gquery/?term=%s">' %s+%
-                              x %s+% '</a>', stri_extract_all_regex(x,"[0-9]+"))
+                              x %s+% '</a>', x)
                   valout <- stri_join(valout, collapse=" + ")
                   return(valout)
             })
@@ -243,7 +251,7 @@ server <- function(input, output) {
             pirnatable <- allnewCHRM()[[1]]
             pirnatable$piRNA <- createPIRNALink(pirnatable$piRNA)
             return(pirnatable)}, 
-            options=list(pageLength=15, autoWidth=T, scrollX=T, dom="tip"),
+            options=list(pageLength=25, autoWidth=T, scrollX=T, dom="tip"),
             colnames = c("piRNA.Chrm", "piRNA.Nome", "Local.Início",
                          "Local.Final", "Mutações.Total",
                          "Mutações.Indel", "Mutações.Subst"),
@@ -309,13 +317,14 @@ server <- function(input, output) {
             pirnatable <- allnewCHRM()[[idx()]]
             pirnatable$ID.mut <- createIDLink(pirnatable$ID.mut)
             return(pirnatable)},
-            options=list(pageLength=10, autoWidth=T, scrollX=T),
+            options=list(pageLength=20, autoWidth=T, scrollX=T, dom="tip"),
             colnames=c("Mutações.ID", "Mutações.Tipo", "Total.AC", 
                        "Total.AF", "Africano.AC", "Africano.AF",
                        "Americano.AC", "Americano.AF", 
                        "Leste_Asiático.AC","Leste_Asiático.AF",
                        "Europeu.AC","Europeu.AF","Sul_Asiático.AC",
                        "Sul_Asiático.AF"),
+            caption="Table 2: conteúdo de descrição da segunda tabela",
             selection='none', filter='top', escape=FALSE,
             container=sketch_table3, rownames=FALSE,
             autoHideNavigation=T, class='cell-border stripe')
@@ -330,11 +339,11 @@ server <- function(input, output) {
             
             info <- ifelse(condpirna,
                   stri_extract_first_regex(pirna, "piR-hsa-[0-9]+\\+") %s+%
-                        "...",
+                        "[co-localizados]",
                   stri_extract_first_regex(pirna, "piR-hsa-[0-9]+"))
             info <- 
-                  info %s+% " na posição " %s+% local %s+% " do cro" %s+%
-                  "mossomo " %s+% chrm
+                  "Tabela de Mutações: " %s+% info %s+% " na posição " %s+%
+                  local %s+% " do cromossomo " %s+% chrm
             return(info)
       })
       
@@ -356,7 +365,7 @@ server <- function(input, output) {
                          "Excel" = {
                                library(openxlsx)
                                write.xlsx(allnewCHRM()[[idx()]], file,
-                                          sheetName="teste")},
+                                          sheetName=output$infopirna)},
                          "Image Text" = {
                                sink(file); allnewCHRM()[[idx()]]; sink()
                          })
