@@ -195,7 +195,7 @@ piRNAcount <- function() {
             chrm %s+% ".txt"
       
       newVCF <- read.delim(localVCFnew, stringsAsFactors=F)
-      uniGFF <- UNIGFF[c(T,UNIGFF$V5 < newVCF$POS[length(newVCF$POS)]),]
+      uniGFF <- UNIGFF
       
       countCHRM <- function(newVCF, uniGFF, index) {
             vcfAUX <- newVCF
@@ -601,9 +601,10 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       suppressMessages(require(magrittr))
       
       CHRMlocal <- "CHRMnew_" %s+% CHRM %s+% ".txt"
-      # CHRMurl <- url("https://raw.githubusercontent.com/JsRoberto/" %s+%
-      #       "piRNAproject/master/" %s+% ChrmLocal)
+      CHRMurl <- url("https://raw.githubusercontent.com/JsRoberto/" %s+%
+             "piRNAproject/master/" %s+% CHRMlocal)
       allnewCHRM <- read.delim(CHRMlocal, stringsAsFactors=F)
+      close(CHRMurl)
       
       # Selecionando os IDs
       try(if (ID.choice[1]!="all" & ID.choice[1]!="yes" &
@@ -730,35 +731,44 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       piRNAmatch <- function(allnew, min=NMIN.map, max=NMAX.map) {
             minMAP <- ifelse(is.null(min), 1, min)
             maxMAP <- ifelse(is.null(max), 1e6, max)
-            pirnaNAME <- allnew[F,1]
-            chrmFILES <- list.files()[stri_detect(
-                  list.files(), regex="^CHRMnew_[0-9]+.txt")]
-            chrmNUMaux <- chrmFILES %>% stri_extract(regex="[0-9]+") %>%
-                  unlist %>% sort
+            #pirnaNAME <- allnew[F,1]
+            # chrmFILES <- list.files()[stri_detect(
+            #       list.files(), regex="^CHRMnew_[0-9]+.txt")]
+            
+            # chrmNUMaux <- chrmFILES %>% stri_extract(regex="[0-9]+") %>%
+            #       unlist %>% sort
             mapNUMaux <- c(minMAP,maxMAP)
-            localMATCH <-  
+            localMATCH <- 
                   url("https://raw.githubusercontent.com/JsRoberto/" %s+%
                             "piRNAproject/master/matchpiRNA.Rdata")
             load(localMATCH)
+            close(localMATCH)
             
-            if (!file.exists(localMATCH)) {
-                  pirnaNAME <- character()
-                  chrmNUM <- mapNUM <- numeric()
-                  save(pirnaNAME, chrmNUM, mapNUM, file=localMATCH)
-            }
+            chrmURLS <- 
+                  "https://raw.githubusercontent.com/JsRoberto/" %s+%
+                  "piRNAproject/master/CHRMnew_" %s+% chrmNUM %s+% ".txt"
+            
+            # if (!file.exists("matchpiRNA.Rdata")) {
+            #       pirnaNAME <- character()
+            #       chrmNUM <- mapNUM <- numeric()
+            #       save(pirnaNAME, chrmNUM, mapNUM, file=localMATCH)
+            # }
             
             mapTESTE <- all.equal(mapNUM, mapNUMaux)
+            #chrmTESTE <- all.equal(chrmNUM, chrmNUMaux)
             if (is.logical(mapTESTE)) {
                   pirnaMATCH <- pirnaNAME
             } else {
                   pirnaNAME <- character()
 
-                  for (i in 1:length(chrmFILES)) {
+                  for (i in 1:length(chrmURLS)) {
+                        chrmFILES <- url(chrmURLS[i])
                         pirnaNAME <-
                               c(pirnaNAME, unique.data.frame(
-                                    read.delim(chrmFILES[i],
+                                    read.delim(chrmFILES,
                                                stringsAsFactors=F)[
                                           ,1:4])$piRNA)
+                        #close(chrmFILES)
                   }
                   
                   expression <- function(pirna, min, max) {
@@ -770,9 +780,9 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   pirnaMATCH <- pirnaNAME <- unique(pirnaNAME)[
                         expression(pirnaNAME, minMAP, maxMAP)]
                   
-                  chrmNUM <- chrmNUMaux
+                  #chrmNUM <- chrmNUMaux
                   mapNUM <- mapNUMaux
-                  save(pirnaNAME, chrmNUM, mapNUM, file=localMATCH)
+                  #save(pirnaNAME, chrmNUM, mapNUM, file="matchpiRNA.Rdata")
             }
             
             #regexMATCH <- stri_join(pirnaMATCH, collapse="|")
