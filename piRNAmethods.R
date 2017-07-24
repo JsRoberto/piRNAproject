@@ -81,7 +81,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       
       # Parâmetros de busca dos dados de frequencias alélicas das super-
       # populações
-      popALL <- "AC=|AF=|AFR_AF=|AMR_AF=|EAS_AF=|EUR_AF=|SAS_AF="
+      popALL <- "AN=|AC=|AF=|AFR_AF=|AMR_AF=|EAS_AF=|EUR_AF=|SAS_AF="
       
       # Laço de interação para obtenção e tratamento da subtabelas
       seqNum <- seq(0, lines - comms, 1e5)
@@ -782,7 +782,7 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   
                   #chrmNUM <- chrmNUMaux
                   mapNUM <- mapNUMaux
-                  #save(pirnaNAME, chrmNUM, mapNUM, file="matchpiRNA.Rdata")
+                  save(pirnaNAME, chrmNUM, mapNUM, file="matchpiRNA.Rdata")
             }
             
             #regexMATCH <- stri_join(pirnaMATCH, collapse="|")
