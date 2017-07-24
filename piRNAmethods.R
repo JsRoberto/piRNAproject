@@ -103,7 +103,7 @@ piRNAprep <- function(vcf_file, gff_file) {
             vcfinfo <- mapply(function(x,y) x[y] %>% sort, vcfinfo, cinfo) 
             
             namesinfo <- stri_split(popALL, fixed="=|")[[1]] %>%
-                  sort; namesinfo[2] <- "AF"; namesinfo[7] <- "SAS_AF"
+                  sort; namesinfo[8] <- "SAS_AF"
             ginfo <- gl(n, length(namesinfo))
             vcfinfo <- tapply(vcfinfo, ginfo, function(x) stri_extract_all(
                   x, regex="[0-9]+\\.*[0-9]*") %>% stri_join_list(","))
