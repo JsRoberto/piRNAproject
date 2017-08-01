@@ -162,6 +162,26 @@ piRNAprep <- function(vcf_file, gff_file) {
       
       foreach (serie=seqNum) %do% updateVCF(vcf_file, serie)
       
+      # Adicionando os coeficientes
+      pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
+      localVCFnew <- pirnalocal %s+% "piRNAsDB/VCFs/VCFnew_" %s+%
+            chrm 
+      
+      newVCF <- read.delim(localVCFnew %s+% ".txt", stringsAsFactors=F)
+      
+      num <- unique(newVCF$AN) %>% sort
+      newVCFaux <- COEFaux <- list()
+      
+      for (i in 1:length(num)) {
+            newVCFaux[[i]] <- newVCF[newVCF$AN==num[i],-c(1:4,9)]
+            COEFaux[[i]] <- 
+                  Solve(newVCFaux[[i]][,-c(1:2)], newVCFaux[[i]][,1]) %>% round() 
+      }
+      
+      COEFaux$newVCF <- newVCF
+      
+      saveRDS(COEFaux, localVCFnew %s+% ".Rdata")
+      
 }
 
 # A função "piRNAcount()" produz um vetor com elementos nomeados que repre-
@@ -192,13 +212,13 @@ piRNAcount <- function() {
       
       pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       localVCFnew <- pirnalocal %s+% "piRNAsDB/VCFs/VCFnew_" %s+%
-            chrm %s+% ".txt"
+            chrm %s+% ".Rdata"
       
-      newVCF <- read.delim(localVCFnew, stringsAsFactors=F)
+      newVCF <- readRDS(localVCFnew)
       uniGFF <- UNIGFF
       
       countCHRM <- function(newVCF, uniGFF, index) {
-            vcfAUX <- newVCF
+            vcfAUX <- newVCF$newVCF
             gffAUX <- uniGFF
             
             # Extraindo indel e nonindels:
@@ -216,19 +236,24 @@ piRNAcount <- function() {
             piRNAlocalINI <- gffAUX$V4[index]
             piRNAlocalFIM <- gffAUX$V5[index]
             
-            pos.all <- vcfAUX$POS>=gffAUX$V4[index] &
-                  vcfAUX$POS<=gffAUX$V5[index]
-            pos.indel <- vcfINDEL$POS>=gffAUX$V4[index] &
-                  vcfINDEL$POS<=gffAUX$V5[index]
-            pos.subst <- vcfSUBST$POS>=gffAUX$V4[index] &
-                  vcfSUBST$POS<=gffAUX$V5[index]
+            pos.all <- vcfAUX$POS>=piRNAlocalINI &
+                  vcfAUX$POS<=piRNAlocalFIM
+            pos.indel <- vcfINDEL$POS>=piRNAlocalINI &
+                  vcfINDEL$POS<=piRNAlocalFIM
+            pos.subst <- vcfSUBST$POS>=piRNAlocalINI &
+                  vcfSUBST$POS<=piRNAlocalFIM
             
             quant.mut <- sum(pos.all)
             
-            coef <- c(1322, 694, 1008, 1006, 978)
             if (quant.mut >= 1) {
                   indel.mut <- sum(pos.indel)
                   subst.mut <- sum(pos.subst)
+                  
+                  numALL <- unique(vcfAUX$AN) %>% sort
+                  numNOW <- unique(vcfAUX[pos.all]$AN) %>% sort
+                  
+                  newAUX <- newVCF[c(numALL %in% numNOW, F)]
+                  newAUX <- matrix(unlist(newAUX),length(newAUX),5,byrow=T)
                   
                   vcfAUX <- vcfAUX[pos.all,]
                   
@@ -242,15 +267,15 @@ piRNAcount <- function() {
                               Subst.mut=subst.mut, ID.mut=piRNAid,
                               TYPE.mut=type.mut, AC=vcfAUX$AC, 
                               AF=vcfAUX$AF,
-                              AFR.AC=(coef[1]*vcfAUX$AFR_AF) %>% round,
+                              AFR.AC=(newAUX[,1]*vcfAUX$AFR_AF) %>% round,
                               AFR.AF=vcfAUX$AFR_AF,
-                              AMR.AC=(coef[2]*vcfAUX$AMR_AF) %>% round,
+                              AMR.AC=(newAUX[,2]*vcfAUX$AMR_AF) %>% round,
                               AMR.AF=vcfAUX$AMR_AF, 
-                              EAS.AC=(coef[3]*vcfAUX$EAS_AF) %>% round,
+                              EAS.AC=(newAUX[,3]*vcfAUX$EAS_AF) %>% round,
                               EAS.AF=vcfAUX$EAS_AF,
-                              EUR.AC=(coef[4]*vcfAUX$EUR_AF) %>% round,
+                              EUR.AC=(newAUX[,4]*vcfAUX$EUR_AF) %>% round,
                               EUR.AF=vcfAUX$EUR_AF,
-                              SAS.AC=(coef[5]*vcfAUX$SAS_AF) %>% round,
+                              SAS.AC=(newAUX[,5]*vcfAUX$SAS_AF) %>% round,
                               SAS.AF=vcfAUX$SAS_AF)
             } else {
                   CHRMaux <- 
