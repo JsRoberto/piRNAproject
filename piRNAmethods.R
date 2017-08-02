@@ -25,6 +25,10 @@ if(!suppressMessages(require(magrittr))) {
       install.packages("magrittr")
       suppressMessages(require(magrittr))
 }
+if(!suppressMessages(require(limSolve))) {
+      install.packages("limSolve")
+      suppressMessages(require(limSolve))
+}
 
 # A função "prePross()" realiza o pré-processamento dos arquivos '.vcf' e 
 # '.gff' no intuito de prepará-los para aplicação como argumentos de entra-
@@ -625,11 +629,25 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
       
-      CHRMlocal <- "CHRMnew_" %s+% CHRM %s+% ".txt"
-      CHRMurl <- url("https://raw.githubusercontent.com/JsRoberto/" %s+%
-             "piRNAproject/master/" %s+% CHRMlocal)
-      allnewCHRM <- read.delim(CHRMlocal, stringsAsFactors=F)
-      close(CHRMurl)
+      if (CHRM=="all") {
+            allnewCHRM <- data.frame()
+            for (chrm in c(1:22,"X","Y")) {
+                  CHRMlocal <- "CHRMnew_" %s+% chrm %s+% ".txt"
+                  CHRMurl <- url("https://raw.githubusercontent.com/JsRoberto/" %s+%
+                                       "piRNAproject/master/" %s+% CHRMlocal)
+                  allauxCHRM <- read.delim(CHRMurl, stringsAsFactors=F)
+                  allnewCHRM <- rbind(allnewCHRM, allauxCHRM)
+                  close(CHRMurl)
+            }
+      } else {
+            CHRMlocal <- "CHRMnew_" %s+% CHRM %s+% ".txt"
+            CHRMurl <- url("https://raw.githubusercontent.com/JsRoberto/" %s+%
+                                 "piRNAproject/master/" %s+% CHRMlocal)
+            allnewCHRM <- read.delim(CHRMlocal, stringsAsFactors=F)
+            close(CHRMurl)
+      }
+      
+      
       
       # Selecionando os IDs
       try(if (ID.choice[1]!="all" & ID.choice[1]!="yes" &
