@@ -631,13 +631,13 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       
       if (CHRM=="all") {
             allnewCHRM <- data.frame()
-            for (chrm in c(1:22,"X","Y")) {
-                  CHRMlocal <- "CHRMnew_" %s+% chrm %s+% ".txt"
-                  CHRMurl <- url("https://raw.githubusercontent.com/JsRoberto/" %s+%
-                                       "piRNAproject/master/" %s+% CHRMlocal)
-                  allauxCHRM <- read.delim(CHRMurl, stringsAsFactors=F)
-                  allnewCHRM <- rbind(allnewCHRM, allauxCHRM)
-                  close(CHRMurl)
+            for (i in c(1:22,"X","Y")) {
+                  CHRMlocal <- "CHRMnew_" %s+% i %s+% ".txt"
+                  CHRMurl <- 
+                        url("https://raw.githubusercontent.com/JsRoberto/" %s+%
+                                  "piRNAproject/master/" %s+% CHRMlocal)
+                  allnewAUX <- read.delim(CHRMurl, stringsAsFactors=F)
+                  allnewCHRM <- rbind(allnewCHRM, allnewAUX)
             }
       } else {
             CHRMlocal <- "CHRMnew_" %s+% CHRM %s+% ".txt"
@@ -646,8 +646,6 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             allnewCHRM <- read.delim(CHRMlocal, stringsAsFactors=F)
             close(CHRMurl)
       }
-      
-      
       
       # Selecionando os IDs
       try(if (ID.choice[1]!="all" & ID.choice[1]!="yes" &
@@ -658,19 +656,19 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       })
       
       if (ID.choice[1]=="all") {
-            allnewCHRM <- allnewCHRM[!is.na(allnewCHRM$ID.mut),]
+            #allnewCHRM <- allnewCHRM[!is.na(allnewCHRM$ID.mut),]
       }
       
       if (ID.choice[1]=="yes") {
             allnewCHRM <- 
-                  allnewCHRM[!is.na(allnewCHRM$ID.mut) &
+                  allnewCHRM[#!is.na(allnewCHRM$ID.mut) &
                                    !stri_detect_regex(
                                          allnewCHRM$ID.mut,"^\\.$"),]
       }
       
       if (ID.choice[1]=="no") {
             allnewCHRM <- 
-                  allnewCHRM[!is.na(allnewCHRM$ID.mut) &
+                  allnewCHRM[#!is.na(allnewCHRM$ID.mut) &
                                    stri_detect_regex(
                                          allnewCHRM$ID.mut,"^\\.$"),]
       }
@@ -797,10 +795,13 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             #       save(pirnaNAME, chrmNUM, mapNUM, file=localMATCH)
             # }
             
-            mapTESTE <- all.equal(mapNUM, mapNUMaux)
+            mapTESTE1 <- all.equal(mapNUM1, mapNUMaux)
+            mapTESTE2 <- all.equal(mapNUM2, mapNUMaux)
             #chrmTESTE <- all.equal(chrmNUM, chrmNUMaux)
-            if (is.logical(mapTESTE)) {
-                  pirnaMATCH <- pirnaNAME
+            if (is.logical(mapTESTE1) |
+                is.logical(mapTESTE2)) {
+                  pirnaMATCH <- if (is.logical(mapTESTE1)) pirnaNAME1 else
+                        pirnaNAME2
             } else {
                   pirnaNAME <- character()
 
@@ -824,8 +825,8 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                         expression(pirnaNAME, minMAP, maxMAP)]
                   
                   #chrmNUM <- chrmNUMaux
-                  mapNUM <- mapNUMaux
-                  save(pirnaNAME, chrmNUM, mapNUM, file="matchpiRNA.Rdata")
+                  #mapNUM <- mapNUMaux
+                  #save(pirnaNAME, chrmNUM, mapNUM, file="matchpiRNA.Rdata")
             }
             
             #regexMATCH <- stri_join(pirnaMATCH, collapse="|")
