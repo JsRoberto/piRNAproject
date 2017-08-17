@@ -56,6 +56,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       urlNumLines <- 
             "https://raw.githubusercontent.com/JsRoberto/piRNAproject" %s+%
             "/master/numLines.txt"
+      
       if (!file.exists(localNumLines)) {
             download.file(urlNumLines, localNumLines)
       }
@@ -167,7 +168,7 @@ piRNAprep <- function(vcf_file, gff_file) {
       foreach (serie=seqNum) %do% updateVCF(vcf_file, serie)
       
       # Adicionando os coeficientes
-      pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
+      #pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       localVCFnew <- pirnalocal %s+% "piRNAsDB/VCFs/VCFnew_" %s+%
             chrm 
       
@@ -179,7 +180,8 @@ piRNAprep <- function(vcf_file, gff_file) {
       for (i in 1:length(num)) {
             newVCFaux[[i]] <- newVCF[newVCF$AN==num[i],-c(1:4,9)]
             COEFaux[[i]] <- 
-                  Solve(newVCFaux[[i]][,-c(1:2)], newVCFaux[[i]][,1]) %>% round() 
+                  Solve(newVCFaux[[i]][,-c(1:2)] %>% as.matrix,
+                        newVCFaux[[i]][,1]) %>% round 
       }
       
       COEFaux$newVCF <- newVCF
@@ -216,13 +218,13 @@ piRNAcount <- function() {
       
       pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       localVCFnew <- pirnalocal %s+% "piRNAsDB/VCFs/VCFnew_" %s+%
-            chrm %s+% ".txt" #".Rdata"
+            chrm %s+% ".Rdata"
       
-      newVCF <- read.delim(localVCFnew, stringsAsFactors = F) #readRDS(localVCFnew)
+      newVCF <- readRDS(localVCFnew)
       uniGFF <- UNIGFF
       
       countCHRM <- function(newVCF, uniGFF, index) {
-            vcfAUX <- newVCF #$newVCF
+            vcfAUX <- newVCF$newVCF
             gffAUX <- uniGFF
             
             # Extraindo indel e nonindels:
