@@ -216,19 +216,19 @@ piRNAcount <- function() {
       
       pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
       localVCFnew <- pirnalocal %s+% "piRNAsDB/VCFs/VCFnew_" %s+%
-            chrm %s+% ".Rdata"
+            chrm %s+% ".txt" #".Rdata"
       
-      newVCF <- readRDS(localVCFnew)
+      newVCF <- read.delim(localVCFnew, stringsAsFactors = F) #readRDS(localVCFnew)
       uniGFF <- UNIGFF
       
       countCHRM <- function(newVCF, uniGFF, index) {
-            vcfAUX <- newVCF$newVCF
+            vcfAUX <- newVCF #$newVCF
             gffAUX <- uniGFF
             
             # Extraindo indel e nonindels:
             indels <- 
-                  vcfAUX$REF %>% stri_count(regex="^[ACGT]+$") != 
-                  vcfAUX$ALT %>% stri_count(regex="^[ACGT]+$")
+                  vcfAUX$REF %>% stri_count(regex="[ACGT]") != 
+                  vcfAUX$ALT %>% stri_count(regex="[ACGT]")
             
             vcfINDEL <- vcfAUX[indels,]
             vcfSUBST <- vcfAUX[!indels,]
@@ -630,15 +630,17 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       suppressMessages(require(magrittr))
       
       if (CHRM=="all") {
-            allnewCHRM <- data.frame()
-            for (i in c(1:22,"X","Y")) {
-                  CHRMlocal <- "CHRMnew_" %s+% i %s+% ".txt"
-                  CHRMurl <- 
-                        url("https://raw.githubusercontent.com/JsRoberto/" %s+%
-                                  "piRNAproject/master/" %s+% CHRMlocal)
-                  allnewAUX <- read.delim(CHRMurl, stringsAsFactors=F)
-                  allnewCHRM <- rbind(allnewCHRM, allnewAUX)
-            }
+            # allnewCHRM <- data.frame()
+            # for (i in c(1:22,"X","Y")) {
+            #       CHRMlocal <- "CHRMnew_" %s+% i %s+% ".txt"
+            #       CHRMurl <- 
+            #             url("https://raw.githubusercontent.com/JsRoberto/" %s+%
+            #                       "piRNAproject/master/" %s+% CHRMlocal)
+            #       allnewAUX <- read.delim(CHRMurl, stringsAsFactors=F)
+            #       allnewCHRM <- rbind(allnewCHRM, allnewAUX)
+            # }
+            CHRMlocal <- "CHRMnew_" %s+% CHRM %s+% ".txt"
+            allnewCHRM <- read.delim(CHRMlocal, stringsAsFactors=F)
       } else {
             CHRMlocal <- "CHRMnew_" %s+% CHRM %s+% ".txt"
             CHRMurl <- url("https://raw.githubusercontent.com/JsRoberto/" %s+%
