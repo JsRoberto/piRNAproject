@@ -256,7 +256,7 @@ piRNAcount <- function() {
                   subst.mut <- sum(pos.subst)
                   
                   numALL <- unique(vcfAUX$AN) %>% sort
-                  numNOW <- unique(vcfAUX[pos.all]$AN) %>% sort
+                  numNOW <- unique(vcfAUX[pos.all,]$AN) %>% sort
                   
                   newAUX <- newVCF[c(numALL %in% numNOW, F)]
                   newAUX <- matrix(unlist(newAUX),length(newAUX),5,byrow=T)
