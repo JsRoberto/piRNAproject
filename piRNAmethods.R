@@ -223,7 +223,7 @@ piRNAcount <- function() {
       newVCF <- readRDS(localVCFnew)
       uniGFF <- UNIGFF
       
-      countCHRM <- function(newVCF, uniGFF, index) {
+      countCHRM <- function(newVCF, uniGFF, region, index) {
             vcfAUX <- newVCF$newVCF
             gffAUX <- uniGFF
             
@@ -239,8 +239,18 @@ piRNAcount <- function() {
             piRNAname <- stri_extract_all_regex(gffAUX$V9[index],
                                                 "piR-hsa-[0-9]+")[[1]] %>%
                   unique %>% stri_join(collapse="+")
-            piRNAlocalINI <- gffAUX$V4[index]
-            piRNAlocalFIM <- gffAUX$V5[index]
+            
+            AUXregion <- 
+                  if (region=="3'" | region=="5'" | is.numeric(region)) {
+                        if (region=="5'") gffAUX$V4[index] - gffAUX$V5[index]
+                        if (region=="3'") gffAUX$V4[index] - gffAUX$V5[index]if (region=="3'") gffAUX$V5[index] - gffAUX$V4[index]
+                        if (is.numeric(region)) as.integer(region)
+                  } else {
+                        0
+                  }
+            
+            piRNAlocalINI <- gffAUX$V4[index] + AUXregion
+            piRNAlocalFIM <- gffAUX$V5[index] + AUXregion
             
             pos.all <- vcfAUX$POS>=piRNAlocalINI &
                   vcfAUX$POS<=piRNAlocalFIM
@@ -304,7 +314,7 @@ piRNAcount <- function() {
       }
       
       CHRMnew <- foreach (idx=1:nrow(uniGFF), .combine='rbind') %do% 
-            countCHRM(newVCF, uniGFF, idx)
+            countCHRM(newVCF, uniGFF, region, idx)
       
       CHRMnew <- cbind(CHRM=chrm, CHRMnew)
       
@@ -351,6 +361,7 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                       AC.max=NULL, AF.min=NULL, AF.max=NULL, 
                       NAME.pirna=NULL, LOC.pirna=NULL,
                       NMIN.map=NULL, NMAX.map=NULL,
+                      MUT.only=c("yes","no"), 
                       MUT.type=c("all","indel","subst"),
                       ID.choice=c("all","yes","no")) {
       suppressMessages(require(stringi))
@@ -626,16 +637,35 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                        AC.max=NULL, AF.min=NULL, AF.max=NULL, 
                        NAME.pirna=NULL, LOC.pirna=NULL,
                        NMIN.map=NULL, NMAX.map=NULL,
+                       MUT.only=c("yes","no","all"),
                        MUT.type=c("all","indel","subst"),
                        ID.choice=c("all","yes","no")) {
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
       
-      CHRMlocal <- "CHRMnew_" %s+% CHRM %s+% ".txt"
-      # CHRMurl <- url("https://raw.githubusercontent.com/JsRoberto/" %s+%
-      #                      "piRNAproject/master/" %s+% CHRMlocal)
-      allnewCHRM <- read.delim(CHRMlocal, stringsAsFactors=F)
-      # close(CHRMurl)
+      # testando
+      if (CHRM == "all") {
+            allnewCHRM <- data.frame(stringsAsFactors=F)
+            
+            shiny::withProgress(message='Carregando CHRMs:', value=0, {
+                   
+                  for (i in chrms <- c(1:22,"X","Y")) {
+                        CHRMlocal <- "CHRMnew_" %s+% i %s+% ".txt"
+                        
+                        allnewCHRMaux <- read.delim(CHRMlocal, stringsAsFactors=F)
+                        
+                        allnewCHRM <- rbind(allnewCHRM, allnewCHRMaux)
+                        
+                        shiny::incProgress(1/length(chrms), detail=paste("CHRM n ", i, "(PARTE 1 | 4)"))
+                  } 
+            })
+      } else {
+            CHRMlocal <- "CHRMnew_" %s+% CHRM %s+% ".txt"
+      
+            allnewCHRM <- read.delim(CHRMlocal, stringsAsFactors=F)
+      }
+      
+      #
       
       # Selecionando os IDs
       try(if (ID.choice[1]!="all" & ID.choice[1]!="yes" &
@@ -645,23 +675,12 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   rbind(allnewCHRM[F,7:21], NA)))
       })
       
-      if (ID.choice[1]=="all") {
-            #allnewCHRM <- allnewCHRM[!is.na(allnewCHRM$ID.mut),]
-      }
-      
-      if (ID.choice[1]=="yes") {
-            allnewCHRM <- 
-                  allnewCHRM[is.na(allnewCHRM$ID.mut) |
-                                   !stri_detect_regex(
-                                         allnewCHRM$ID.mut,"^\\.$"),]
-      }
-      
-      if (ID.choice[1]=="no") {
-            allnewCHRM <- 
-                  allnewCHRM[is.na(allnewCHRM$ID.mut) |
-                                   stri_detect_regex(
-                                         allnewCHRM$ID.mut,"^\\.$"),]
-      }
+      try(if (MUT.only[1]!="all" & MUT.only[1]!="yes" &
+              MUT.only[1]!="no") {
+            return(list(
+                  piRNAvariants=rbind(allnewCHRM[F,1:6], NA),
+                  rbind(allnewCHRM[F,7:21], NA)))
+      })
       
       # Selecionando apenas os pirnas integralmente contidos nos limites de
       # LOC.pirna
@@ -693,242 +712,274 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             allnewCHRM <- allnewCHRM[matchName,]
       }
       
-      # Selecionando apenas os piRNAs com certo número de mutações
-      try(if (MUT.type[1]!="all" & MUT.type[1]!="indel" & 
-              MUT.type[1]!="subst") {
-            return(list(
-                  piRNAvariants=rbind(allnewCHRM[F,1:6], NA),
-                  rbind(allnewCHRM[F,7:21], NA)))
-      })
+      cond.id <- complete.cases(allnewCHRM$ID.mut)
       
-      minMUT <- ifelse(!MUT.min %>% is.null, MUT.min, 1)
-      maxMUT <- ifelse(!MUT.max %>% is.null, MUT.max, 
-                       max(allnewCHRM$Local.fim-allnewCHRM$Local.ini))
-      
-      if (MUT.type[1]=="all") {
-            cond <- allnewCHRM$Total.mut >= minMUT & 
-                  allnewCHRM$Total.mut <= maxMUT
+      if (MUT.only[1]=="no") {
+            allnewCHRM <- allnewCHRM[!cond.id,]
             
-            try(if (sum(cond)==0) return(list(
-                  piRNAvariants=rbind(allnewCHRM[cond,1:6], NA),
-                  rbind(allnewCHRM[cond,7:21], NA))))
+            allnewCHRM <- piRNAmatch(allnewCHRM)
             
-            allnewCHRM <- allnewCHRM[cond,]
-      }
-      if (MUT.type[1]=="indel") {
-            cond <- allnewCHRM$Indel.mut >= minMUT & 
-                  allnewCHRM$Indel.mut <= maxMUT
+            allnewCHRM1 <- allnewCHRM[,1:7]
             
-            try(if (sum(cond)==0) return(list(
-                  piRNAvariants=rbind(allnewCHRM[cond,1:6], NA),
-                  rbind(allnewCHRM[cond,7:21], NA))))
+            allnewCHRM1 <- allnewCHRM1[order(allnewCHRM1$piRNA),]
             
-            allnewCHRM <- allnewCHRM[cond,]
-      }
-      if (MUT.type[1]=="subst") {
-            cond <- allnewCHRM$Subst.mut >= minMUT &
-                  allnewCHRM$Subst.mut <= maxMUT
+            allnewCHRMlist <- list(piRNAvariants=allnewCHRM1)
             
-            try(if (sum(cond)==0) return(list(
-                  piRNAvariants=rbind(allnewCHRM[cond,1:6], NA),
-                  rbind(allnewCHRM[cond,7:21], NA))))
-            
-            allnewCHRM <- allnewCHRM[cond,]
-      }
-      # Selecionando 
-      
-      popAF <- c("AFR.AF","AMR.AF","EAS.AF","EUR.AF","SAS.AF")
-      popAC <- c("AFR.AC","AMR.AC","EAS.AC","EUR.AC","SAS.AC")
-      
-      minAF <- ifelse(!AF.min %>% is.null, AF.min, 0)
-      maxAF <- ifelse(!AF.max %>% is.null, AF.max, 1)
-      minAC <- ifelse(!AC.min %>% is.null, AC.min, 0)
-      maxAC <- ifelse(!AC.max %>% is.null, AC.max, 5008)
-      
-      cond.AF <- allnewCHRM$AF >= minAF & allnewCHRM$AF <= maxAF
-      
-      cond.AC <- allnewCHRM$AC >= minAC & allnewCHRM$AC <= maxAC
-      
-      cond <- cond.AF & cond.AC
-      
-      try(if (sum(cond)==0) {
-            try(if (sum(cond)==0) return(list(
-                  piRNAvariants=rbind(allnewCHRM[cond,1:6], NA),
-                  rbind(allnewCHRM[cond,7:21], NA))))
-      })
-      
-      allnewCHRM2 <- allnewCHRM[cond,]
-      
-      piRNAmatch <- function(allnew, min=NMIN.map, max=NMAX.map) {
-            minMAP <- ifelse(is.null(min), 1, min)
-            maxMAP <- ifelse(is.null(max), 1e6, max)
-            #pirnaNAME <- allnew[F,1]
-            # chrmFILES <- list.files()[stri_detect(
-            #       list.files(), regex="^CHRMnew_[0-9]+.txt")]
-            
-            # chrmNUMaux <- chrmFILES %>% stri_extract(regex="[0-9]+") %>%
-            #       unlist %>% sort
-            mapNUMaux <- c(minMAP,maxMAP)
-            localMATCH <- "matchpiRNA.Rdata"
-            #url("https://raw.githubusercontent.com/JsRoberto/" %s+%
-            #          "piRNAproject/master/matchpiRNA.Rdata")
-            load(localMATCH)
-            #close(localMATCH)
-            
-            chrmURLS <- "CHRMnew_" %s+% chrmNUM %s+% ".txt"
-            # "https://raw.githubusercontent.com/JsRoberto/" %s+%
-            # "piRNAproject/master/CHRMnew_" %s+% chrmNUM %s+% ".txt"
-            
-            # if (!file.exists("matchpiRNA.Rdata")) {
-            #       pirnaNAME <- character()
-            #       chrmNUM <- mapNUM <- numeric()
-            #       save(pirnaNAME, chrmNUM, mapNUM, file=localMATCH)
-            # }
-            
-            mapTESTE1 <- all.equal(mapNUM1, mapNUMaux)
-            mapTESTE2 <- all.equal(mapNUM2, mapNUMaux)
-            #chrmTESTE <- all.equal(chrmNUM, chrmNUMaux)
-            if (is.logical(mapTESTE1) |
-                is.logical(mapTESTE2)) {
-                  pirnaMATCH <- if (is.logical(mapTESTE1)) pirnaNAME1 else
-                        pirnaNAME2
-            } else {
-                  pirnaNAME <- character()
-                  
-                  for (i in 1:length(chrmURLS)) {
-                        chrmFILES <- url(chrmURLS[i])
-                        pirnaNAME <-
-                              c(pirnaNAME, unique.data.frame(
-                                    read.delim(chrmFILES,
-                                               stringsAsFactors=F)[
-                                                     ,1:4])$piRNA)
-                        #close(chrmFILES)
-                  }
-                  
-                  expression <- function(pirna, min, max) {
-                        sapply(unique(pirna),
-                               function(x) {sum(pirna==x) >= min &
-                                           sum(pirna==x) <= max})
-                  }
-                  
-                  pirnaMATCH <- pirnaNAME <- unique(pirnaNAME)[
-                        expression(pirnaNAME, minMAP, maxMAP)]
-                  
-                  #chrmNUM <- chrmNUMaux
-                  #mapNUM <- mapNUMaux
-                  #save(pirnaNAME, chrmNUM, mapNUM, file="matchpiRNA.Rdata")
+            for (i in 1:nrow(allnewCHRM1)) {
+                  allnewCHRMlist[[i+1]] <- allnewCHRM[i,8:21]
             }
             
-            #regexMATCH <- stri_join(pirnaMATCH, collapse="|")
-            
-            condMATCH <- F
-            for (i in 1:length(pirnaMATCH)) {
-                  condMATCH <- condMATCH | pirnaMATCH[i]==allnew$piRNA
+            return(allnewCHRMlist)
+      } else {
+            if (ID.choice[1]=="all") {
+                  cond.aux <- cond.id
             }
             
-            allnewAUX <- allnew[condMATCH,]
-            
-            return(allnewAUX)
-      }
-      
-      piRNAmatch2 <- function(allnew, min=NMIN.map, max=NMAX.map) {
-            localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs"
-            chrmFILES <- list.files(localCHRMnew)[stri_detect(
-                  list.files(localCHRMnew), regex="^CHRM_[0-9]+$")]
-            chrmNUMaux <- chrmFILES %>% stri_extract(regex="[0-9]+") %>%
-                  unlist %>% sort
-            mapNUMaux <- c(min,max)
-            localMATCH <- pirnalocal %s+% "piRNAsDB/MATCHpiRNA.Rdata"
-            
-            if (!file.exists(localMATCH)) {
-                  pirnaNAME <- character()
-                  chrmNUM <- mapNUM <- numeric()
-                  save(pirnaNAME, chrmNUM, mapNUM, file=localMATCH)
-            }
-            
-            load(localMATCH)
-            chrmTESTE <- all.equal(chrmNUM, chrmNUMaux)
-            mapTESTE <- all.equal(mapNUM, mapNUMaux)
-            if (is.logical(chrmTESTE) & is.logical(mapTESTE)) {
-                  pirnaMATCH <- pirnaNAME
-            } else {
-                  pirnaNAME <- allnew[F,1]
-                  
-                  for (i in 1:length(chrmFILES)) {
-                        pirnaNAME <- c(pirnaNAME,
-                                       readRDS(chrmFILES[i])[,"piRNA",1])
-                  }
-                  minMAP <- ifelse(!min %>% is.null, min, 1)
-                  maxMAP <- ifelse(!max %>% is.null, max, 
-                                   length(pirnaNAME))
-                  
-                  expression <- function(pirna, min, max) {
-                        sapply(unique(pirna),
-                               function(x) sum(pirna==x) >= min &
-                                     sum(pirna==x) <= max)
-                  }
-                  
-                  pirnaMATCH <- pirnaNAME <- unique(pirnaNAME)[
-                        expression(pirnaNAME, minMAP,maxMAP)]
-                  
-                  chrmNUM <- chrmNUMaux
-                  mapNUM <- mapNUMaux
-                  save(pirnaNAME, chrmNUM, mapNUM, file=localMATCH)
-            }
-            
-            regexMATCH <- stri_join(pirnaMATCH, collapse="|")
-            
-            allnewAUX <- 
-                  allnew[stri_detect(allnew$piRNA,regex=regexMATCH),]
-            
-            return(allnewAUX)
-      }
-      
-      allnewCHRM2 <- piRNAmatch(allnewCHRM2)
-      
-      allnewCHRM2 <- 
-            allnewCHRM2[!duplicated.data.frame(allnewCHRM2[,1:4]),1:7]
-      
-      allnewCHRM2 <- 
-            allnewCHRM2[order(allnewCHRM2$piRNA,
-                              -allnewCHRM2$Total.mut,
-                              allnewCHRM2$Local.ini),]
-      
-      allnewCHRM3 <- list(piRNAvariants=allnewCHRM2)
-      
-      for (i in 1:nrow(allnewCHRM2)) {
-            allnewCHRM3[[i+1]] <- 
-                  subset(allnewCHRM, piRNA==allnewCHRM2$piRNA[i] &
-                               Local.ini==allnewCHRM2$Local.ini[i] &
-                               Local.fim==allnewCHRM2$Local.fim[i],
-                         select=ID.mut:SAS.AF)
             if (ID.choice[1]=="yes") {
-                  allnew <- allnewCHRM3[[i+1]]
-                  allnew <- allnew[complete.cases(allnew),]
-                  total <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$"))
-                  indel <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$") &
-                                     allnew$TYPE.mut=="indel")
-                  subst <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$") &
-                                     allnew$TYPE.mut=="subst")
-                  allnewCHRM3[[1]][
-                        i,c("Total.mut","Indel.mut","Subst.mut")] <-
-                        c(total,indel,subst)
+                  cond.aux <- cond.id & !stri_detect_regex(
+                        allnewCHRM$ID.mut,"^\\.$")   
             }
+            
             if (ID.choice[1]=="no") {
-                  allnew <- allnewCHRM3[[i+1]]
-                  allnew <- allnew[complete.cases(allnew),]
-                  total <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$"))
-                  indel <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$") &
-                                     allnew$TYPE.mut=="indel")
-                  subst <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$") &
-                                     allnew$TYPE.mut=="subst")
-                  allnewCHRM3[[1]][
-                        i,c("Total.mut","Indel.mut","Subst.mut")] <-
-                        c(total,indel,subst)
+                  cond.aux <- cond.id & stri_detect_regex(
+                        allnewCHRM$ID.mut,"^\\.$")  
             }
+            
+            if (MUT.only[1]=="all") {
+                  cond.aux <- cond.aux | !cond.id
+            }
+            
+            try(if (sum(cond.aux)==0) {
+                  return(list(
+                        piRNAvariants=rbind(allnewCHRM[F,1:6], NA),
+                        rbind(allnewCHRM[F,7:21], NA)))
+            })
+            
+            allnewCHRM <- allnewCHRM[cond.aux,]
+            
+            # minMUT <- ifelse(!MUT.min %>% is.null, MUT.min, 1)
+            # maxMUT <- ifelse(!MUT.max %>% is.null, MUT.max, 
+            #                  max(allnewCHRM$Local.fim-allnewCHRM$Local.ini))
+            
+            # Selecionando apenas os piRNAs com certo número de mutações
+            try(if (MUT.type[1]!="all" & MUT.type[1]!="indel" & 
+                    MUT.type[1]!="subst") {
+                  return(list(
+                        piRNAvariants=rbind(allnewCHRM[F,1:6], NA),
+                        rbind(allnewCHRM[F,7:21], NA)))
+            })
+            
+            if (MUT.type[1]=="all") {
+                  # cond.type <- allnewCHRM$Total.mut >= minMUT & 
+                  #       allnewCHRM$Total.mut <= maxMUT
+                  cond.type <- allnewCHRM$TYPE.mut == "indel" |
+                        allnewCHRM$TYPE.mut == "subst"
+            }
+            if (MUT.type[1]=="indel") {
+                  # cond.type <- allnewCHRM$Indel.mut >= minMUT & 
+                  #       allnewCHRM$Indel.mut <= maxMUT
+                  cond.type <- allnewCHRM$TYPE.mut == "indel"
+            }
+            if (MUT.type[1]=="subst") {
+                  # cond.type <- allnewCHRM$Subst.mut >= minMUT &
+                  #       allnewCHRM$Subst.mut <= maxMUT
+                  cond.type <- allnewCHRM$TYPE.mut == "subst" 
+            }
+            
+            minAF <- ifelse(!AF.min %>% is.null, AF.min, 0)
+            maxAF <- ifelse(!AF.max %>% is.null, AF.max, 1)
+            minAC <- ifelse(!AC.min %>% is.null, AC.min, 0)
+            maxAC <- ifelse(!AC.max %>% is.null, AC.max, 5008)
+            
+            cond.id <- complete.cases(allnewCHRM$ID.mut)
+            
+            cond.AF <- allnewCHRM$AF >= minAF & allnewCHRM$AF <= maxAF
+            
+            cond.AC <- allnewCHRM$AC >= minAC & allnewCHRM$AC <= maxAC
+            
+            condAUX <- ( cond.type & cond.AF & cond.AC ) | !cond.id
+            
+            try(if (sum(condAUX)==0) { return(list(
+                  piRNAvariants=rbind(allnewCHRM[condAUX,1:6], NA),
+                  rbind(allnewCHRM[condAUX,7:21], NA)))
+            })
+            
+            allnewCHRM <- allnewCHRM[condAUX,]
+            
+            #piRNAmatch <- function(allnew, mini=NMIN.map, maxi=NMAX.map) {
+                  minMAP <- ifelse(is.null(NMIN.map), 1, NMIN.map)
+                  maxMAP <- ifelse(is.null(NMAX.map), 1e6, NMAX.map)
+                  #pirnaNAME <- allnew[F,1]
+                  # chrmFILES <- list.files()[stri_detect(
+                  #       list.files(), regex="^CHRMnew_[0-9]+.txt")]
+                  
+                  # chrmNUMaux <- chrmFILES %>% stri_extract(regex="[0-9]+") %>%
+                  #       unlist %>% sort
+                  mapNUMaux <- c(minMAP,maxMAP)
+                  localMATCH <- "matchpiRNA.Rdata"
+                  #url("https://raw.githubusercontent.com/JsRoberto/" %s+%
+                  #          "piRNAproject/master/matchpiRNA.Rdata")
+                  load(localMATCH)
+                  #close(localMATCH)
+                  
+                  chrmURLS <- "CHRMnew_" %s+% chrmNUM %s+% ".txt"
+                  # "https://raw.githubusercontent.com/JsRoberto/" %s+%
+                  # "piRNAproject/master/CHRMnew_" %s+% chrmNUM %s+% ".txt"
+                  
+                  # if (!file.exists("matchpiRNA.Rdata")) {
+                  #       pirnaNAME <- character()
+                  #       chrmNUM <- mapNUM <- numeric()
+                  #       save(pirnaNAME, chrmNUM, mapNUM, file=localMATCH)
+                  # }
+                  
+                  mapTESTE1 <- all.equal(mapNUM1, mapNUMaux)
+                  mapTESTE2 <- all.equal(mapNUM2, mapNUMaux)
+                  #chrmTESTE <- all.equal(chrmNUM, chrmNUMaux)
+                  if (is.logical(mapTESTE1) |
+                      is.logical(mapTESTE2)) {
+                        pirnaMATCH <- if (is.logical(mapTESTE1)) pirnaNAME1 else
+                              pirnaNAME2
+                  } else {
+                        pirnaNAME <- character()
+                        
+                        # Adiconar progresso aqui!
+                        
+                        shiny::withProgress(message='Carregando piRNAs:', value=0, {
+                              prog1 <- 0
+                              inc1 <- 1/length(chrmURLS)
+                              for (chrmFILES in chrmURLS) {
+                                    pirnaNAME <-
+                                          c(pirnaNAME, unique.data.frame(
+                                                read.delim(chrmFILES,
+                                                           stringsAsFactors=F)[
+                                                                 ,1:4])$piRNA)
+                                    
+                                    prog1 <- prog1 + inc1 * 100
+
+                                    shiny::incProgress(inc1, detail=round(prog1,2) %s+% " % (PARTE 2 | 4)")
+                              }
+                        })
+                        #######################################
+                        
+                        # expression <- function(pirna, min, max) {
+                        #       sapply(unique(pirna),
+                        #              function(x) {sum(pirna==x) >= min &
+                        #                          sum(pirna==x) <= max})
+                        # }
+                        
+                        #expression2 <- function(pirna, mini, maxi) {
+                              cond.express <- vector()
+                              
+                              shiny::withProgress(message = 'Filtrando piRNAs:', value=0, {
+                                    prog2 <- 0
+                                    inc2 <- 1/length(unique(pirnaNAME))
+                                    for (x in unique(pirnaNAME)) {
+                                          cond.express <- c(cond.express, sum(pirnaNAME==x) >= minMAP &
+                                                sum(pirnaNAME==x) <= maxMAP)
+                                          
+                                          prog2 <- prog2 + inc2 * 100
+
+                                          shiny::incProgress(inc2, detail=round(prog2,2) %s+% " % (PARTE 3 | 4)")
+                                    }
+                              })
+                              
+                              #return(cond.express)
+                        #}
+                        
+                        # Adicionar progresso aqui também!
+                        pirnaMATCH <- pirnaNAME <- unique(pirnaNAME)[cond.express]
+                        ####################################
+                        
+                        
+                        #chrmNUM <- chrmNUMaux
+                        #mapNUM <- mapNUMaux
+                        #save(pirnaNAME, chrmNUM, mapNUM, file="matchpiRNA.Rdata")
+                  }
+                  
+                  #regexMATCH <- stri_join(pirnaMATCH, collapse="|")
+                  
+                  condMATCH <- F
+                  for (i in 1:length(pirnaMATCH)) {
+                        condMATCH <- condMATCH | pirnaMATCH[i]==allnewCHRM$piRNA
+                  }
+                  
+                  allnewCHRM <- allnewCHRM[condMATCH,]
+                  
+                  #return(allnewAUX)
+            #}
+            
+            #allnewCHRM <- piRNAmatch(allnewCHRM)
+            
+            allnewCHRM1 <- 
+                  allnewCHRM[!duplicated.data.frame(allnewCHRM[,1:4]),1:7]
+            
+            # allnewCHRM1 <- 
+            #       allnewCHRM1[order(allnewCHRM1$piRNA,
+            #                         -allnewCHRM1$Total.mut,
+            #                         allnewCHRM1$Local.ini),]
+            # 
+            
+            allnewCHRMlist <- list(piRNAvariants=allnewCHRM1)
+            
+            shiny::withProgress(message = 'Gerando tabelas:', value=0, {
+                  prog3 <- 0
+                  inc3 <- 1/nrow(allnewCHRM1)
+                  for (i in 1:nrow(allnewCHRM1)) {
+                        allnewCHRMlist[[i+1]] <- 
+                              subset(allnewCHRM, CHRM==allnewCHRM1$CHRM[i] &
+                                           piRNA==allnewCHRM1$piRNA[i] &
+                                           Local.ini==allnewCHRM1$Local.ini[i] &
+                                           Local.fim==allnewCHRM1$Local.fim[i],
+                                     select=ID.mut:SAS.AF)
+                        
+                        if (ID.choice[1]=="yes") {
+                              allnew <- allnewCHRMlist[[i+1]]
+                              allnew <- allnew[complete.cases(allnew),]
+                              total <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$"))
+                              indel <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$") &
+                                                 allnew$TYPE.mut=="indel")
+                              subst <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$") &
+                                                 allnew$TYPE.mut=="subst")
+                              allnewCHRMlist[[1]][
+                                    i,c("Total.mut","Indel.mut","Subst.mut")] <-
+                                    c(total,indel,subst) %s+% " (<b><em>" %s+% allnewCHRMlist[[1]][
+                                          i,c("Total.mut","Indel.mut","Subst.mut")] %s+% "</em></b>)"
+                        }
+                        if (ID.choice[1]=="no") {
+                              allnew <- allnewCHRMlist[[i+1]]
+                              allnew <- allnew[complete.cases(allnew),]
+                              total <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$"))
+                              indel <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$") &
+                                                 allnew$TYPE.mut=="indel")
+                              subst <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$") &
+                                                 allnew$TYPE.mut=="subst")
+                              allnewCHRMlist[[1]][
+                                    i,c("Total.mut","Indel.mut","Subst.mut")] <-
+                                    c(total,indel,subst) %s+% " (<b><em>" %s+% allnewCHRMlist[[1]][
+                                          i,c("Total.mut","Indel.mut","Subst.mut")] %s+% "</em></b>)"
+                        }
+                        if (ID.choice[1]=="all") {
+                              allnew <- allnewCHRMlist[[i+1]]
+                              allnew <- allnew[complete.cases(allnew),]
+                              total <- nrow(allnew)
+                              indel <- sum(allnew$TYPE.mut=="indel")
+                              subst <- sum(allnew$TYPE.mut=="subst")
+                              allnewCHRMlist[[1]][
+                                    i,c("Total.mut","Indel.mut","Subst.mut")] <-
+                                    c(total,indel,subst) %s+% " (<b><em>" %s+% allnewCHRMlist[[1]][
+                                          i,c("Total.mut","Indel.mut","Subst.mut")] %s+% "</em></b>)"
+                        }
+                        
+                        prog3 <- prog3 + inc3 * 100
+                        
+                        shiny::incProgress(inc3, detail=round(prog3,2) %s+% " % (PARTE 4 | 4)")
+                  }
+            })
+            
+            
+            return(allnewCHRMlist)
       }
-      
-      return(allnewCHRM3)
+
 }
 
 piRNAsave <- function(CHRM=chrm, CHRMnew) {
