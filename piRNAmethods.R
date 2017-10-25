@@ -211,7 +211,7 @@ piRNAprep <- function(vcf_file, gff_file) {
 # qual sua frequência alélica (AF='Allele Frequency') delas em relação ao
 # total de indivíduos analisados pelo projeto '1000 Genomes'.
 # -------------------------------------------------------------------------
-piRNAcount <- function(region) {
+piRNAcount <- function(region="") {
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
       suppressMessages(require(foreach))
@@ -318,14 +318,14 @@ piRNAcount <- function(region) {
       
       CHRMnew <- cbind(CHRM=chrm, CHRMnew)
       
-      localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs/CHRMnew_" %s+%
+      localCHRMnew <- pirnalocal %s+% "piRNAsDB/CHRMs/" %s+% region %s+% "CHRMnew_" %s+%
             chrm %s+% ".txt"
       
       write.table(CHRMnew, localCHRMnew, sep="\t", row.names=F)
       
 }
 
-piRNAcalc <- function(vcf_file, gff_file, region) {
+piRNAcalc <- function(vcf_file, gff_file, region="") {
       piRNAprep(vcf_file, gff_file)
       piRNAcount(region)
 }
