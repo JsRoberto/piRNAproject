@@ -243,7 +243,7 @@ piRNAcount <- function(region) {
             AUXregion <- 
                   if (region=="3'" | region=="5'" | is.numeric(region)) {
                         if (region=="5'") gffAUX$V4[index] - gffAUX$V5[index]
-                        if (region=="3'") gffAUX$V4[index] - gffAUX$V5[index]if (region=="3'") gffAUX$V5[index] - gffAUX$V4[index]
+                        if (region=="3'") gffAUX$V4[index] - gffAUX$V5[index]
                         if (is.numeric(region)) as.integer(region)
                   } else {
                         0
