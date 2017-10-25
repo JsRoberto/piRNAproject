@@ -211,7 +211,7 @@ piRNAprep <- function(vcf_file, gff_file) {
 # qual sua frequência alélica (AF='Allele Frequency') delas em relação ao
 # total de indivíduos analisados pelo projeto '1000 Genomes'.
 # -------------------------------------------------------------------------
-piRNAcount <- function() {
+piRNAcount <- function(region) {
       suppressMessages(require(stringi))
       suppressMessages(require(magrittr))
       suppressMessages(require(foreach))
@@ -325,9 +325,9 @@ piRNAcount <- function() {
       
 }
 
-piRNAcalc <- function(vcf_file, gff_file) {
+piRNAcalc <- function(vcf_file, gff_file, region) {
       piRNAprep(vcf_file, gff_file)
-      piRNAcount()
+      piRNAcount(region)
 }
 
 # A função "posSelect()" tem o objetivo de transformar os informações do
