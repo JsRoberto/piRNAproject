@@ -240,14 +240,13 @@ piRNAcount <- function(region="") {
                                                 "piR-hsa-[0-9]+")[[1]] %>%
                   unique %>% stri_join(collapse="+")
             
-            AUXregion <- 
-                  if (region=="3'" | region=="5'" | is.numeric(region)) {
-                        if (region=="5'") gffAUX$V4[index] - gffAUX$V5[index]
-                        if (region=="3'") gffAUX$V4[index] - gffAUX$V5[index]
-                        if (is.numeric(region)) as.integer(region)
-                  } else {
-                        0
-                  }
+            if (region=="3'" | region=="5'" | is.numeric(region)) {
+                  if (region=="5'") AUXregion <- gffAUX$V4[index] - gffAUX$V5[index]
+                  if (region=="3'") AUXregion <- gffAUX$V4[index] - gffAUX$V5[index]
+                  if (is.numeric(region)) AUXregion <- as.integer(region)
+            } else {
+                  AUXregion <- 0
+            }
             
             piRNAlocalINI <- gffAUX$V4[index] + AUXregion
             piRNAlocalFIM <- gffAUX$V5[index] + AUXregion
@@ -633,7 +632,7 @@ piRNAposp <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       return(allnewCHRM3)
 }
 
-piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
+piRNAposp2 <- function(CHRM=chrm, REGION="", MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                        AC.max=NULL, AF.min=NULL, AF.max=NULL, 
                        NAME.pirna=NULL, LOC.pirna=NULL,
                        NMIN.map=NULL, NMAX.map=NULL,
@@ -650,7 +649,7 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             shiny::withProgress(message='Carregando CHRMs:', value=0, {
                    
                   for (i in chrms <- c(1:22,"X","Y")) {
-                        CHRMlocal <- "CHRMnew_" %s+% i %s+% ".txt"
+                        CHRMlocal <- REGION %s+% "CHRMnew_" %s+% i %s+% ".txt"
                         
                         allnewCHRMaux <- read.delim(CHRMlocal, stringsAsFactors=F)
                         
@@ -660,7 +659,7 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   } 
             })
       } else {
-            CHRMlocal <- "CHRMnew_" %s+% CHRM %s+% ".txt"
+            CHRMlocal <- REGION %s+% "CHRMnew_" %s+% CHRM %s+% ".txt"
       
             allnewCHRM <- read.delim(CHRMlocal, stringsAsFactors=F)
       }
@@ -822,7 +821,7 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
                   load(localMATCH)
                   #close(localMATCH)
                   
-                  chrmURLS <- "CHRMnew_" %s+% chrmNUM %s+% ".txt"
+                  chrmURLS <- REGION %s+% "CHRMnew_" %s+% chrmNUM %s+% ".txt"
                   # "https://raw.githubusercontent.com/JsRoberto/" %s+%
                   # "piRNAproject/master/CHRMnew_" %s+% chrmNUM %s+% ".txt"
                   
@@ -910,6 +909,12 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
             
             #allnewCHRM <- piRNAmatch(allnewCHRM)
             
+            ###############
+            LOCALallnewCHRM <- REGION %s+% "allnewCHRM_" %s+% CHRM %s+% ".txt"
+            write.table(allnewCHRM, LOCALallnewCHRM, sep="\t", row.names=F)
+            
+            ###############      
+            
             allnewCHRM1 <- 
                   allnewCHRM[!duplicated.data.frame(allnewCHRM[,1:4]),1:7]
             
@@ -981,6 +986,113 @@ piRNAposp2 <- function(CHRM=chrm, MUT.min=NULL, MUT.max=NULL, AC.min=NULL,
       }
 
 }
+
+piRNAfinal <- function(CHRM, mutTYPE=c("all","indel","subst")) {
+      local_pirna <- "allnewCHRM_" %s+% CHRM %s+% ".txt"
+      local-MIL <- -1000 %s+% local_pirna
+      local+MIL <- +1000 %s+% local_pirna
+      local_5l <- "5'" %s+% local_pirna
+      local_3l <- "3'" %s+% local_pirna
+      
+      #############
+      
+      CHRM-mil <- read.delim(local-MIL, stringsAsFactors=F)
+      CHRM+mil <- read.delim(local+MIL, stringsAsFactors=F)
+      CHRM_5l <- read.delim(local_5l, stringsAsFactors=F)
+      CHRM_3l <- read.delim(local_3l, stringsAsFactors=F)
+      CHRM_pirna <- read.delim(local_pirna, stringsAsFactors=F)
+      
+      #############
+      
+      CHRMpirna <- CHRM_pirna[!duplicated.data.frame(CHRM_pirna[,1:4]),1:4]
+      
+      calculation <- function(CHRMtable, nFACTOR) {
+            
+            CHRMtableAUX <- data.frame()
+            
+            if(nFACTOR=="3'" | nFACTOR=="5'") {
+                  nF <- CHRMpirna[,4] - CHRMpirna[,3]
+                  if (nFACTOR=="5'") nF <- -nF
+            } else { nF <- rep(nFACTOR, dim(CHRMpirna)[1])}
+            
+            for (i in 1:nrow(CHRMpirna)) {
+                  tableAUX <- 
+                        subset.data.frame(CHRMtable, CHRM==CHRMpirna[i,1] &
+                                          piRNA==CHRMpirna[i,2] &
+                                          Local.ini==CHRMpirna[i,3]+nF[i] &
+                                          Local.fim==CHRMpirna[i,4]+nF[i])
+            
+                  CHRMtableAUX <- rbind(CHRMtableAUX, tableAUX)
+            }
+            
+            CHRMtableAUX2 <- 
+                  subset(CHRMtableAUX,
+                         select=c("AFR.AC","AMR.AC","EAS.AC","EUR.AC","SAS.AC"))
+            
+            uniCOND1 <- rowSums(CHRMtableAUX2!=0) == 1
+            uniCOND2 <- rowSums(CHRMtableAUX2) <= 3
+            
+            vecdist <- function(grupo) {
+                  grupodist <- numeric()
+                  
+                  CONDmutTYPE <- if (mutTYPE[1]=="all") T else {
+                        grupo$TYPE.mut==mutTYPE[1]
+                  }
+                  
+                  for (i in 1:nrow(CHRMpirna)) {
+                        tableAUX <- 
+                              subset.data.frame(grupo, CHRM==CHRMpirna[i,1] &
+                                                      piRNA==CHRMpirna[i,2] &
+                                                      Local.ini==CHRMpirna[i,3]+nF[i] &
+                                                      Local.fim==CHRMpirna[i,4]+nF[i] &
+                                                      CONDmutTYPE)
+                        
+                        grupodist <- c(grupodist, nrow(tableAUX))
+                  }
+                  return(grupodist)
+            }
+            
+            grupoUNI <- subset(CHRMtableAUX, uniCOND1 & uniCOND2) %>% dim()[1]
+            grupo0_05 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
+                                      (0 < AF <= 0.005)) %>% vecdist
+            grupo05_10 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
+                                       (0.005 < AF <= 0.01)) %>% vecdist
+            grupo10_20 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
+                                       (0.01 < AF <= 0.02)) %>% vecdist
+            grupo20_50 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
+                                       (0.02 < AF <= 0.05)) %>% vecdist
+            grupo50_100 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
+                                        (0.05 < AF <= 0.1)) %>% vecdist
+            grupo100_200 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
+                                         (0.1 < AF <= 0.2)) %>% vecdist
+            grupo200_500 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
+                                         (0.2 < AF <= 0.5)) %>% vecdist
+            
+            result <- data.frame(GU=grupoUNI, G0=grupo0_05, G1=grupo05_10,
+                                 G2=grupo10_20, G3=grupo20_50,
+                                 G4=grupo50_100, G5g=rupo100_200, 
+                                 G6=grupo200_500)
+            
+            return(result)
+      }
+      
+      RESULT_TOTAL <- list("Adjacent -1000"=calculation(CHRM-mil, -1000),
+                           "5' Flank"=calculation(CHRM_5l, "5'"),
+                           "piRNA"=calculation(CHRM_pirna, 0),
+                           "3' Flank"=calculation(CHRM_3l, "3'"),
+                           "Adjacent +1000"=calculation(CHRM+mil, 1000))
+      
+      
+      RESULTfile <- "CHRMfinal-" %s+% mutTYPE[1] %s+% "_" %s+% CHRM %s+%
+            ".Rdata"
+      
+      save(RESULT_TOTAL, file=RESULTfile)
+      
+}
+
+
+
+
 
 piRNAsave <- function(CHRM=chrm, CHRMnew) {
       pirnalocal <- "/data/projects/metagenomaCG/jose/piRNAproject/"
