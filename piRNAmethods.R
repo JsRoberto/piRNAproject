@@ -1054,19 +1054,19 @@ piRNAfinal <- function(CHRM, mutTYPE=c("all","indel","subst")) {
             
             grupoUNI <- subset(CHRMtableAUX, uniCOND1 & uniCOND2) %>% dim()[1]
             grupo0_05 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
-                                      (0 < AF <= 0.005)) %>% vecdist
+                                      0 < AF & AF <= 0.005) %>% vecdist
             grupo05_10 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
-                                       (0.005 < AF <= 0.01)) %>% vecdist
+                                       0.005 < AF & AF <= 0.01) %>% vecdist
             grupo10_20 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
-                                       (0.01 < AF <= 0.02)) %>% vecdist
+                                       0.01 < AF & AF <= 0.02) %>% vecdist
             grupo20_50 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
-                                       (0.02 < AF <= 0.05)) %>% vecdist
+                                       0.02 < AF & AF <= 0.05) %>% vecdist
             grupo50_100 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
-                                        (0.05 < AF <= 0.1)) %>% vecdist
+                                        0.05 < AF & AF <= 0.1) %>% vecdist
             grupo100_200 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
-                                         (0.1 < AF <= 0.2)) %>% vecdist
+                                         0.1 < AF & AF <= 0.2) %>% vecdist
             grupo200_500 <- subset(CHRMtableAUX, !(uniCOND1 & uniCOND2) & 
-                                         (0.2 < AF <= 0.5)) %>% vecdist
+                                         0.2 < AF & AF <= 0.5) %>% vecdist
             
             result <- data.frame(GU=grupoUNI, G0=grupo0_05, G1=grupo05_10,
                                  G2=grupo10_20, G3=grupo20_50,
