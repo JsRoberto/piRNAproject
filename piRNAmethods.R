@@ -242,7 +242,7 @@ piRNAcount <- function(region="") {
             
             if (region=="3'" | region=="5'" | is.numeric(region)) {
                   if (region=="5'") AUXregion <- gffAUX$V4[index] - gffAUX$V5[index]
-                  if (region=="3'") AUXregion <- gffAUX$V4[index] - gffAUX$V5[index]
+                  if (region=="3'") AUXregion <- gffAUX$V5[index] - gffAUX$V4[index]
                   if (is.numeric(region)) AUXregion <- as.integer(region)
             } else {
                   AUXregion <- 0
@@ -912,92 +912,92 @@ piRNAposp2 <- function(CHRM=chrm, REGION="", MUT.min=NULL, MUT.max=NULL, AC.min=
             ###############
             LOCALallnewCHRM <- REGION %s+% "allnewCHRM_" %s+% CHRM %s+% ".txt"
             write.table(allnewCHRM, LOCALallnewCHRM, sep="\t", row.names=F)
-            
-            ###############      
-            
-            allnewCHRM1 <- 
-                  allnewCHRM[!duplicated.data.frame(allnewCHRM[,1:4]),1:7]
-            
-            # allnewCHRM1 <- 
-            #       allnewCHRM1[order(allnewCHRM1$piRNA,
-            #                         -allnewCHRM1$Total.mut,
-            #                         allnewCHRM1$Local.ini),]
-            # 
-            
-            allnewCHRMlist <- list(piRNAvariants=allnewCHRM1)
-            
-            shiny::withProgress(message = 'Gerando tabelas:', value=0, {
-                  prog3 <- 0
-                  inc3 <- 1/nrow(allnewCHRM1)
-                  for (i in 1:nrow(allnewCHRM1)) {
-                        allnewCHRMlist[[i+1]] <- 
-                              subset(allnewCHRM, CHRM==allnewCHRM1$CHRM[i] &
-                                           piRNA==allnewCHRM1$piRNA[i] &
-                                           Local.ini==allnewCHRM1$Local.ini[i] &
-                                           Local.fim==allnewCHRM1$Local.fim[i],
-                                     select=ID.mut:SAS.AF)
-                        
-                        if (ID.choice[1]=="yes") {
-                              allnew <- allnewCHRMlist[[i+1]]
-                              allnew <- allnew[complete.cases(allnew),]
-                              total <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$"))
-                              indel <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$") &
-                                                 allnew$TYPE.mut=="indel")
-                              subst <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$") &
-                                                 allnew$TYPE.mut=="subst")
-                              allnewCHRMlist[[1]][
-                                    i,c("Total.mut","Indel.mut","Subst.mut")] <-
-                                    c(total,indel,subst) %s+% " (<b><em>" %s+% allnewCHRMlist[[1]][
-                                          i,c("Total.mut","Indel.mut","Subst.mut")] %s+% "</em></b>)"
-                        }
-                        if (ID.choice[1]=="no") {
-                              allnew <- allnewCHRMlist[[i+1]]
-                              allnew <- allnew[complete.cases(allnew),]
-                              total <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$"))
-                              indel <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$") &
-                                                 allnew$TYPE.mut=="indel")
-                              subst <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$") &
-                                                 allnew$TYPE.mut=="subst")
-                              allnewCHRMlist[[1]][
-                                    i,c("Total.mut","Indel.mut","Subst.mut")] <-
-                                    c(total,indel,subst) %s+% " (<b><em>" %s+% allnewCHRMlist[[1]][
-                                          i,c("Total.mut","Indel.mut","Subst.mut")] %s+% "</em></b>)"
-                        }
-                        if (ID.choice[1]=="all") {
-                              allnew <- allnewCHRMlist[[i+1]]
-                              allnew <- allnew[complete.cases(allnew),]
-                              total <- nrow(allnew)
-                              indel <- sum(allnew$TYPE.mut=="indel")
-                              subst <- sum(allnew$TYPE.mut=="subst")
-                              allnewCHRMlist[[1]][
-                                    i,c("Total.mut","Indel.mut","Subst.mut")] <-
-                                    c(total,indel,subst) %s+% " (<b><em>" %s+% allnewCHRMlist[[1]][
-                                          i,c("Total.mut","Indel.mut","Subst.mut")] %s+% "</em></b>)"
-                        }
-                        
-                        prog3 <- prog3 + inc3 * 100
-                        
-                        shiny::incProgress(inc3, detail=round(prog3,2) %s+% " % (PARTE 4 | 4)")
-                  }
-            })
-            
-            
-            return(allnewCHRMlist)
+# 
+#             ###############
+# 
+#             allnewCHRM1 <-
+#                   allnewCHRM[!duplicated.data.frame(allnewCHRM[,1:4]),1:7]
+# 
+#             # allnewCHRM1 <-
+#             #       allnewCHRM1[order(allnewCHRM1$piRNA,
+#             #                         -allnewCHRM1$Total.mut,
+#             #                         allnewCHRM1$Local.ini),]
+#             #
+# 
+#             allnewCHRMlist <- list(piRNAvariants=allnewCHRM1)
+# 
+#             shiny::withProgress(message = 'Gerando tabelas:', value=0, {
+#                   prog3 <- 0
+#                   inc3 <- 1/nrow(allnewCHRM1)
+#                   for (i in 1:nrow(allnewCHRM1)) {
+#                         allnewCHRMlist[[i+1]] <-
+#                               subset(allnewCHRM, CHRM==allnewCHRM1$CHRM[i] &
+#                                            piRNA==allnewCHRM1$piRNA[i] &
+#                                            Local.ini==allnewCHRM1$Local.ini[i] &
+#                                            Local.fim==allnewCHRM1$Local.fim[i],
+#                                      select=ID.mut:SAS.AF)
+# 
+#                         if (ID.choice[1]=="yes") {
+#                               allnew <- allnewCHRMlist[[i+1]]
+#                               allnew <- allnew[complete.cases(allnew),]
+#                               total <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$"))
+#                               indel <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$") &
+#                                                  allnew$TYPE.mut=="indel")
+#                               subst <- sum(!stri_detect_regex(allnew$ID.mut,"^\\.$") &
+#                                                  allnew$TYPE.mut=="subst")
+#                               allnewCHRMlist[[1]][
+#                                     i,c("Total.mut","Indel.mut","Subst.mut")] <-
+#                                     c(total,indel,subst) %s+% " (<b><em>" %s+% allnewCHRMlist[[1]][
+#                                           i,c("Total.mut","Indel.mut","Subst.mut")] %s+% "</em></b>)"
+#                         }
+#                         if (ID.choice[1]=="no") {
+#                               allnew <- allnewCHRMlist[[i+1]]
+#                               allnew <- allnew[complete.cases(allnew),]
+#                               total <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$"))
+#                               indel <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$") &
+#                                                  allnew$TYPE.mut=="indel")
+#                               subst <- sum(stri_detect_regex(allnew$ID.mut,"^\\.$") &
+#                                                  allnew$TYPE.mut=="subst")
+#                               allnewCHRMlist[[1]][
+#                                     i,c("Total.mut","Indel.mut","Subst.mut")] <-
+#                                     c(total,indel,subst) %s+% " (<b><em>" %s+% allnewCHRMlist[[1]][
+#                                           i,c("Total.mut","Indel.mut","Subst.mut")] %s+% "</em></b>)"
+#                         }
+#                         if (ID.choice[1]=="all") {
+#                               allnew <- allnewCHRMlist[[i+1]]
+#                               allnew <- allnew[complete.cases(allnew),]
+#                               total <- nrow(allnew)
+#                               indel <- sum(allnew$TYPE.mut=="indel")
+#                               subst <- sum(allnew$TYPE.mut=="subst")
+#                               allnewCHRMlist[[1]][
+#                                     i,c("Total.mut","Indel.mut","Subst.mut")] <-
+#                                     c(total,indel,subst) %s+% " (<b><em>" %s+% allnewCHRMlist[[1]][
+#                                           i,c("Total.mut","Indel.mut","Subst.mut")] %s+% "</em></b>)"
+#                         }
+# 
+#                         prog3 <- prog3 + inc3 * 100
+# 
+#                         shiny::incProgress(inc3, detail=round(prog3,2) %s+% " % (PARTE 4 | 4)")
+#                   }
+#             })
+# 
+# 
+#             return(allnewCHRMlist)
       }
 
 }
 
 piRNAfinal <- function(CHRM, mutTYPE=c("all","indel","subst")) {
       local_pirna <- "allnewCHRM_" %s+% CHRM %s+% ".txt"
-      local-MIL <- -1000 %s+% local_pirna
-      local+MIL <- +1000 %s+% local_pirna
+      local_downMIL <- -1000 %s+% local_pirna
+      local_upMIL <- +1000 %s+% local_pirna
       local_5l <- "5'" %s+% local_pirna
       local_3l <- "3'" %s+% local_pirna
       
       #############
       
-      CHRM-mil <- read.delim(local-MIL, stringsAsFactors=F)
-      CHRM+mil <- read.delim(local+MIL, stringsAsFactors=F)
+      CHRM_downmil <- read.delim(local_downMIL, stringsAsFactors=F)
+      CHRM_upmil <- read.delim(local_upMIL, stringsAsFactors=F)
       CHRM_5l <- read.delim(local_5l, stringsAsFactors=F)
       CHRM_3l <- read.delim(local_3l, stringsAsFactors=F)
       CHRM_pirna <- read.delim(local_pirna, stringsAsFactors=F)
@@ -1076,11 +1076,11 @@ piRNAfinal <- function(CHRM, mutTYPE=c("all","indel","subst")) {
             return(result)
       }
       
-      RESULT_TOTAL <- list("Adjacent -1000"=calculation(CHRM-mil, -1000),
+      RESULT_TOTAL <- list("Adjacent -1000"=calculation(CHRM_downmil, -1000),
                            "5' Flank"=calculation(CHRM_5l, "5'"),
                            "piRNA"=calculation(CHRM_pirna, 0),
                            "3' Flank"=calculation(CHRM_3l, "3'"),
-                           "Adjacent +1000"=calculation(CHRM+mil, 1000))
+                           "Adjacent +1000"=calculation(CHRM_upmil, 1000))
       
       
       RESULTfile <- "CHRMfinal-" %s+% mutTYPE[1] %s+% "_" %s+% CHRM %s+%
