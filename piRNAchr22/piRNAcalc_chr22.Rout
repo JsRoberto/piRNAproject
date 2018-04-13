@@ -1,0 +1,41 @@
+### Tempos de execução registrados em piRNAcalc_chr22.Rout
+
+#### Tempos de execução para tratamento do arquivo VCF:
+
+Leitura do arquivo VCF: 1436.043 sec elapsed
+
+Limpeza dos atributos `INFO` do arquivo VCF: 623.078 sec elapsed
+
+Tratamento de observações com múltiplas mutações: 8.364 sec elapsed
+
+Cálculo dos ACs de cada população: 380.581 sec elapsed
+
+#### Tempos de execução para tratamento do arquivo GFF:
+
+Leitura do arquivo GFF: 7.206 sec elapsed
+
+Limpeza do campo `attributes` do arquivo GFF: 0.86 sec elapsed
+
+#### Processamento para a região -1000 
+
+Atualização do objeto `InfoPirna` para a região -1000: 5493.202 sec elapsed
+
+#### Processamento para a região 5' 
+
+Atualização do objeto `InfoPirna` para a região 5': 5572.179 sec elapsed
+
+#### Processamento para a região piRNA 
+
+Atualização do objeto `InfoPirna` para a região piRNA: 5549.547 sec elapsed
+
+#### Processamento para a região 3' 
+
+Atualização do objeto `InfoPirna` para a região 3': 5552.042 sec elapsed
+
+#### Processamento para a região +1000 
+
+Atualização do objeto `InfoPirna` para a região +1000: 5558.291 sec elapsed
+
+#### Fim do relatório de execução de piRNAcalc_chr22.Rout
+
+Tempo total de execução: 30184.794 sec elapsed
