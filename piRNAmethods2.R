@@ -454,7 +454,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
   system("git config --global user.email 'jsroberto.slima@gmail.com'")
   system("git config --global user.name 'JsRoberto'")
   system("git add .")
-  system("git commit -m 'Adicionando um arquivo existente'")
+  system("git commit -m 'Add files via piRNAcalc()'")
   system("git push --force origin master")
       
 }

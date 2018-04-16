@@ -249,8 +249,8 @@ piRNAgraphs  <- function(chrom) {
     annotate("text", size = 3,
              x = c(0.64, 0.82, 1, 1.18, 1.36, 1.64, 1.82, 2, 2.18, 2.36),
              y = fun_rescale(rep(0.01, 10) / 100), 
-             label = 'n=' %s+% c(table(meltMUTdataNonZero$variable[condSNP]),
-                                 table(meltMUTdataNonZero$variable[condINDEL]))) +
+             label = 'n=' %s+% c(table(meltMUTdataNonZero$variable[condINDEL]),
+                                 table(meltMUTdataNonZero$variable[condSNP]))) +
     scale_y_continuous(
       breaks = fun_rescale(c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) / 100),
       labels = c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) %s+% "%"
