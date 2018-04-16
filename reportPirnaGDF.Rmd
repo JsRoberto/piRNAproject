@@ -211,7 +211,8 @@ ggplot(data = pirnaData, aes(x = piRNA.Tipo, fill = piRNA.Tipo)) +
             position = position_dodge(width = 0.9)) +
   labs(title = 'Classificação de piRNAs no cromossomo ' %s+% 
          stri_extract_all(params$chrom, regex='[1-9]+|[XY]+'),
-       subtitle = 'piRNAs mutados vs não mutados', x = '', 
+       subtitle = 'piRNAs mutados vs não mutados (Total de piRNAs =' %s+%
+         nrow(pirnaData) %s+% ')', x = '', 
        y = 'Quantidade de\npiRNAs') +
   theme(legend.position = 'none') +
   scale_color_pirna("cool") +
@@ -223,20 +224,22 @@ ggplot(data = mutData,
        aes(fill = ifelse(`Mutação.ID` == '.', 'Sem RS', 'Com RS'),
            x    = `Mutação.Tipo`)) +
   geom_bar(position = 'dodge') +
-  geom_text(stat = 'count', aes(label = ..count.., y = ..count.. / 2),
+  geom_text(stat = 'count', 
+            aes(label = ..count.., y = ..count.. / 2),
             position = position_dodge(width = 0.9)) +
   labs(title = 'Classificação de mutações em piRNAs no cromossomo ' %s+% 
          stri_extract_all(params$chrom, regex = '[1-9]+|[XY]+'),
-       subtitle = 'Mutações SNP vs INDEL', fill = 'Identificador dbSNP',
+       subtitle = 'Mutações SNP vs INDEL (Total de mutações =' %s+%
+         nrow(mutData) %s+% ')', fill = 'Identificador dbSNP',
        x = '', y = 'Quantidade de\nmutações') +
-  theme(legend.position = c(0.75, 0.8)) +
+  theme(legend.position = "top") +
   scale_color_pirna("cool") +
   scale_fill_pirna("cool")
 ```
 
 ```{r plot3}
 par(mfrow=c(1,2))
-for (nameMut in c("SNP", "INDEL")) {
+for (nameMut in c("INDEL", "SNP")) {
   if (sum(sapply(vennMUTdata[[nameMut]], length)) == 0) {
     venn(length(vennMUTdata[[nameMut]]),
          snames = names(vennMUTdata[[nameMut]]),
@@ -248,7 +251,7 @@ for (nameMut in c("SNP", "INDEL")) {
     venn(vennMUTdata[[nameMut]], cexsn = 0.75, cexil = 0.75, opacity = 0.6,
          zcolor = pirna_palettes$mixed, col = pirna_palettes$mixed)
   }
-  if (nameMut == "SNP") {
+  if (nameMut == "INDEL") {
     text(
       x      = c(0, 0), cex = c(1.1, 0.8), 
       y      = c(1100, 1025), pos = c(4, 4),
@@ -256,7 +259,7 @@ for (nameMut in c("SNP", "INDEL")) {
                  "Diagrama de Venn para quantidade de mutações por")
     )
   }
-  if (nameMut == "INDEL") {
+  if (nameMut == "SNP") {
     text(
       x      = c(355, 170), cex = c(1.1, 0.8), 
       y      = c(1100, 1025), pos = c(2, 2),
@@ -275,7 +278,9 @@ for (nameMut in c("SNP", "INDEL")) {
 
 ```{r plot4}
 ggplot(data = meltMUTdataNonZero,
-       aes(x = `Mutação.Tipo`, 
+       aes(x = ifelse(`Mutação.Tipo` == "INDEL", 
+                      "INDEL (n=" %s+% sum(condINDEL) %s+% ")",
+                      "SNP (n=" %s+% sum(condSNP) %s+% ")"), 
            y = fun_rescale(value),
            fill = variable)) +
   geom_boxplot(width = 0.9) +

@@ -1,4 +1,41 @@
-#' ### Tempos de execução registrados em piRNAcalc_chr20.Rout
-#' 
-#' #### Tempos de execução para tratamento do arquivo VCF:
-...Lendo arquivo VCF...
+### Tempos de execução registrados em piRNAcalc_chr20.Rout
+
+#### Tempos de execução para tratamento do arquivo VCF:
+
+Leitura do arquivo VCF: 9155.285 sec elapsed
+
+Limpeza dos atributos `INFO` do arquivo VCF: 1093.174 sec elapsed
+
+Tratamento de observações com múltiplas mutações: 55.941 sec elapsed
+
+Cálculo dos ACs de cada população: 620.486 sec elapsed
+
+#### Tempos de execução para tratamento do arquivo GFF:
+
+Leitura do arquivo GFF: 6.002 sec elapsed
+
+Limpeza do campo `attributes` do arquivo GFF: 1.384 sec elapsed
+
+#### Processamento para a região -1000 
+
+Atualização do objeto `InfoPirna` para a região -1000: 10172.901 sec elapsed
+
+#### Processamento para a região 5' 
+
+Atualização do objeto `InfoPirna` para a região 5': 10197.655 sec elapsed
+
+#### Processamento para a região piRNA 
+
+Atualização do objeto `InfoPirna` para a região piRNA: 10182.003 sec elapsed
+
+#### Processamento para a região 3' 
+
+Atualização do objeto `InfoPirna` para a região 3': 10184.612 sec elapsed
+
+#### Processamento para a região +1000 
+
+Atualização do objeto `InfoPirna` para a região +1000: 10187.534 sec elapsed
+
+#### Fim do relatório de execução de piRNAcalc_chr20.Rout
+
+Tempo total de execução: 61860.94 sec elapsed

@@ -15,6 +15,14 @@ piRNAgraphs  <- function(chrom) {
     fileRout    = "piRNAcalc_" %s+% chrom %s+% ".Rout",
     chrom       = chrom
   )
+  # params     <- list(
+  #   pirnaDir    = "C:/Rdir/" %s+%
+  #     "piRNAproject/piRNA" %s+% chrom,
+  #   gitHubDir   = "C:/Rdir/piRNAproject",
+  #   pirnaObject = "pirnaGDF" %s+% chrom %s+% ".rds",
+  #   fileRout    = "piRNAcalc_" %s+% chrom %s+% ".Rout",
+  #   chrom       = chrom
+  # )
   fig.height <- 5 * 96 # units = "px"
   fig.width  <- 7 * 96 # units = "px"
   fig.path   <- params$pirnaDir
@@ -123,8 +131,8 @@ piRNAgraphs  <- function(chrom) {
   ))
   
   meltMUTdataNonZero <- meltMUTdata[as.numeric(meltMUTdata$value) != 0, ]
-  condSNP   <- meltMUTdataNonZero$`Mutação.Tipo` == "SNP"
-  condINDEL <- meltMUTdataNonZero$`Mutação.Tipo` == "INDEL" 
+  condSNP   <- meltMUTdataNonZero[`Mutação.Tipo` == "SNP"]
+  condINDEL <- meltMUTdataNonZero[`Mutação.Tipo` == "INDEL"] 
   
   fun_rescale    <- function(y) {as.numeric(y) ^ {log10(0.5) / log10(0.05)}}
   fun_rescaleInv <- function(y) {as.numeric(y) ^ {log10(0.05) / log10(0.5)}}
@@ -162,7 +170,8 @@ piRNAgraphs  <- function(chrom) {
               position = position_dodge(width = 0.9)) +
     labs(title = 'Classificação de piRNAs no cromossomo ' %s+% 
            stri_extract_all(params$chrom, regex='[1-9]+|[XY]+'),
-         subtitle = 'piRNAs mutados vs não mutados', x = '', 
+         subtitle = 'piRNAs mutados vs não mutados (Total de piRNAs =' %s+%
+           nrow(pirnaData) %s+% ')', x = '', 
          y = 'Quantidade de\npiRNAs') +
     theme(legend.position = 'none') +
     scale_color_pirna("cool") +
@@ -175,13 +184,15 @@ piRNAgraphs  <- function(chrom) {
          aes(fill = ifelse(`Mutação.ID` == '.', 'Sem RS', 'Com RS'),
              x    = `Mutação.Tipo`)) +
     geom_bar(position = 'dodge') +
-    geom_text(stat = 'count', aes(label = ..count.., y = ..count.. / 2),
+    geom_text(stat = 'count', 
+              aes(label = ..count.., y = ..count.. / 2),
               position = position_dodge(width = 0.9)) +
     labs(title = 'Classificação de mutações em piRNAs no cromossomo ' %s+% 
            stri_extract_all(params$chrom, regex = '[1-9]+|[XY]+'),
-         subtitle = 'Mutações SNP vs INDEL', fill = 'Identificador dbSNP',
+         subtitle = 'Mutações SNP vs INDEL (Total de mutações =' %s+%
+           nrow(mutData) %s+% ')', fill = 'Identificador dbSNP',
          x = '', y = 'Quantidade de\nmutações') +
-    theme(legend.position = c(0.75, 0.8)) +
+    theme(legend.position = "top") +
     scale_color_pirna("cool") +
     scale_fill_pirna("cool")
   dev.off()
@@ -189,12 +200,19 @@ piRNAgraphs  <- function(chrom) {
   png(filename = file.path(fig.path, "plot3_" %s+% params$chrom %s+% ".png"), 
       width = fig.width, height = fig.height)
   par(mfrow=c(1,2))
-  for (nameMut in c("SNP", "INDEL")) {
-    venn(vennMUTdata[[nameMut]], cexsn = 0.75, cexil = 0.75, opacity = 0.6,
-         snames = names(vennMUTdata[[nameMut]]), ilabels = TRUE,
-         zcolor = pirna_palettes$mixed,
-         col    = pirna_palettes$mixed)
-    if (nameMut == "SNP") {
+  for (nameMut in c("INDEL", "SNP")) {
+    if (sum(sapply(vennMUTdata[[nameMut]], length)) == 0) {
+      venn(length(vennMUTdata[[nameMut]]),
+           snames = names(vennMUTdata[[nameMut]]),
+           zcolor = "lightgray", col = "lightgray",
+           cexsn = 0.75, cexil = 0.75, opacity = 1)
+      text(x = c(500, 500), y = c(525, 475), 
+           labels = c("Não há mutações", "nas populações"))
+    } else {
+      venn(vennMUTdata[[nameMut]], cexsn = 0.75, cexil = 0.75, opacity = 0.6,
+           zcolor = pirna_palettes$mixed, col = pirna_palettes$mixed)
+    }
+    if (nameMut == "INDEL") {
       text(
         x      = c(0, 0), cex = c(1.1, 0.8), 
         y      = c(1100, 1025), pos = c(4, 4),
@@ -202,7 +220,7 @@ piRNAgraphs  <- function(chrom) {
                    "Diagrama de Venn para quantidade de mutações por")
       )
     }
-    if (nameMut == "INDEL") {
+    if (nameMut == "SNP") {
       text(
         x      = c(355, 170), cex = c(1.1, 0.8), 
         y      = c(1100, 1025), pos = c(2, 2),
@@ -216,13 +234,15 @@ piRNAgraphs  <- function(chrom) {
     segments(0, 1000, 1000, 1000, col = "white", lty = 1, lwd = 1)
     segments(1000, 1000, 1000, 0, col = "white", lty = 1, lwd = 1)
     segments(1000, 0, 0, 0, col = "white", lty = 1, lwd = 1)  
-  }
+  }  
   dev.off()
   
   png(filename = file.path(fig.path, "plot4_" %s+% params$chrom %s+% ".png"), 
       width = fig.width, height = fig.height)
   ggplot(data = meltMUTdataNonZero,
-         aes(x = `Mutação.Tipo`, 
+         aes(x = ifelse(`Mutação.Tipo` == "INDEL", 
+                        "INDEL (n=" %s+% sum(condINDEL) %s+% ")",
+                        "SNP (n=" %s+% sum(condSNP) %s+% ")"), 
              y = fun_rescale(value),
              fill = variable)) +
     geom_boxplot(width = 0.9) +
@@ -256,7 +276,8 @@ piRNAgraphs  <- function(chrom) {
     exeObject = c("vcf.reading", "vcf.cleaning", "vcf.multMut", "vcf.calcAC", 
                   "gff.reading", "gff.cleaning",
                   "infopirna.-1000", "infopirna.5'", "infopirna.piRNA", 
-                  "infopirna.3'", "infopirna.+1000"),
+                  "infopirna.3'", "infopirna.+1000",
+                  "total"),
     exeTime   = newRout
   )
   write(tableRout, file = "exeTime_" %s+% params$chrom)

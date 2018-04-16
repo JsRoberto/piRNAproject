@@ -6,51 +6,45 @@
 
 if(!suppressMessages(require(knitr))) {
   install.packages("knitr")
-  suppressMessages(require(knitr))
 }
 if(!suppressMessages(require(devtools))) {
   install.packages("devtools")
-  suppressMessages(require(devtools))
 }
 if(!suppressMessages(require(tictoc))) {
   devtools::install_github("collectivemedia/tictoc")
-  suppressMessages(require(tictoc))
 }
 if(!suppressMessages(require(pbapply))) {
   install.packages("pbapply")
-  suppressMessages(require(pbapply))
 }
 if(!suppressMessages(require(stringi))) {
   install.packages("stringi")
-  suppressMessages(require(stringi))
 }
 if(!suppressMessages(require(stringr))) {
   install.packages("stringr")
-  suppressMessages(require(stringr))
 }
 if(!suppressMessages(require(magrittr))) {
   install.packages("magrittr")
-  suppressMessages(require(magrittr))
 }
 if(!suppressMessages(require(reshape2))) {
   install.packages("reshape2")
-  suppressMessages(require(reshape2))
+}
+if(!suppressMessages(require(readr))) {
+  install.packages("readr")
 }
 if(!suppressMessages(require(foreach))) {
   install.packages("foreach")
-  suppressMessages(require(foreach))
+}
+if(!suppressMessages(require(doSNOW))) {
+  install.packages("doSNOW")
 }
 if(!suppressMessages(require(limSolve))) {
   install.packages("limSolve")
-  suppressMessages(require(limSolve))
 }
 if(!suppressMessages(require(venn))) {
   install.packages("venn")
-  suppressMessages(require(venn))
 }
 if(!suppressMessages(require(ggplot2))) {
   install.packages("ggplot2")
-  suppressMessages(require(ggplot2))
 }
 
 # A função piRNAcalc tem dois objetivos:
@@ -63,13 +57,15 @@ if(!suppressMessages(require(ggplot2))) {
 # adjacente 5'; piRNA; adjacente 3'; adjacente +1000).
 piRNAcalc <- function(vcf_file, gff_file) {
   # Pacotes para execução do código piRNAcalc ----------------------------------
-  suppressMessages(require(stringi))
-  suppressMessages(require(stringr))
-  suppressMessages(require(pbapply))
-  suppressMessages(require(magrittr))
-  suppressMessages(require(limSolve))
-  suppressMessages(require(foreach))
-  suppressMessages(require(tictoc))
+  suppressPackageStartupMessages(require(stringi))
+  suppressPackageStartupMessages(require(stringr))
+  suppressPackageStartupMessages(require(pbapply))
+  suppressPackageStartupMessages(require(magrittr))
+  suppressPackageStartupMessages(require(limSolve))
+  suppressPackageStartupMessages(require(data.table))
+  suppressPackageStartupMessages(require(readr))
+  suppressPackageStartupMessages(require(foreach))
+  suppressPackageStartupMessages(require(tictoc))
   # ----------------------------------------------------------------------------
   
   # Funções de execução interna do código piRNAcalc: ---------------------------
@@ -77,7 +73,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
   catExeTime <- function(expressionTime, expressionR) {
     tic(expressionTime)
     expressionR
-    cat("#' \n#' ")
+    cat("\n#' \n#' ")
     toc()
   }
   # ----------------------------------------------------------------------------
@@ -107,82 +103,103 @@ piRNAcalc <- function(vcf_file, gff_file) {
   
   cat("#' ### Tempos de execução registrados em " %s+% fileRout,
       "#' \n#' #### Tempos de execução para tratamento do arquivo VCF:",
-      "...Lendo arquivo VCF...", sep = "\n")
+      "   Lendo arquivo VCF", sep = "\n")
   
   catExeTime(
     expressionTime = "Leitura do arquivo VCF",
     expressionR    = {
-      metaData <- data.frame(chrom     = paste0("chr", c(1:22, "X", "Y")),
-                             metaLines = c(rep(250, 22), 54, 123),
-                             numClass  = c(rep(2507, 23), 1235))
-      vcfTable <- read.table(
-        vcf_file, sep = "\t", skip = metaData$metaLines[metaData$chrom==chrom],
-        stringsAsFactors = FALSE, colClasses = c(
-          "character", "numeric", rep("character", 3), "numeric",
-          rep("character", metaData$numClass[metaData$chrom == chrom])
-        )
-      )[, c(1:5, 8)]
-      names(vcfTable) <- c("CHROM", "POS", "ID", "REF", "ALT", "INFO")
+      infoData <- data.frame(
+        chromID  = paste0("chr", c(1:22, "X", "Y")),
+        numColumns = c(rep(2513, 23), 1242),
+        infoLines = c(6468094, 7081600, 5832276, 5732585, 5265763, 5024119,
+                      4716715, 4597105, 3560687, 3992219, 4045628, 3868428,
+                      2857916, 2655067, 2424689, 2697949, 2329288, 2267185,
+                      1832506, 1812841, 1105538, 1103547, 3468093, 62042),
+        # infoLines = c(rep(10000, 24) - c(rep(250, 22), 54, 123)),
+        metaLines = c(rep(250, 22), 54, 123)
+      )
+      infoData <- data.table(infoData)
+      
+      vcfTable <- read_delim(
+        vcf_file, delim = "\t", 
+        skip      = infoData[chromID == chrom, metaLines], 
+        n_max     = infoData[chromID == chrom, infoLines],
+        col_names = c("CHROM", "POS", "ID", "REF", "ALT", "INFO"),
+        col_types = paste0(collapse = "", c(
+          "ccccc--c", rep("-", infoData[chromID == chrom, numColumns] - 8)
+        ))
+      )
+      vcfTable <- data.table(vcfTable, key = "POS")
     }
   )
   
   catExeTime(
     expressionTime = "Limpeza dos atributos `INFO` do arquivo VCF",
     expressionR    = {
-      fieldINFO <- vcfTable$INFO %>% stri_split_fixed(";")
-      namesINFO <- c("AC=", "AF=", "AFR_AF=", "AMR_AF=",
-                     "EAS_AF=", "EUR_AF=", "SAS_AF=")
-      regexINFO <- stri_flatten(namesINFO, "|")
-      cat("...Limpando campo `INFO`...\n")
-      dataINFO  <- pbsapply(fieldINFO, function(data) {
-        data[stri_detect_regex(data, regexINFO)] %>% 
-          stri_sort %>% stri_replace_all_regex(
-            pattern     = "[A-Z]+_*[A-Z]*=",
-            replacement = ""
-          )
-      }) %>% t %>% as.data.frame(stringsAsFactors = FALSE)
-      colnames(dataINFO) <- stri_replace_all_fixed(namesINFO, "=", "")
-      vcfTable <- cbind(vcfTable[, -6], dataINFO)
+      cat("   Limpando campo `INFO`\n")
+      vcfTable[, c("AC", "AF", "AMR_AF", "AFR_AF",
+                   "EUR_AF", "SAS_AF", "EAS_AF") := pblapply(
+        tstrsplit(INFO, ";", fixed = TRUE)[
+          sapply(tstrsplit(INFO, ";", fixed = TRUE),
+                 function(first) stri_detect_regex(
+                   first[1], "AC|AF|AMR_AF|AFR_AF|EUR_AF|SAS_AF|EAS_AF"
+                 ))
+        ],
+        function(col) {
+          stri_replace_all_regex(col, "[A-Z]+_*[A-Z]*=", "")
+        }
+      )]
+      vcfTable[ , `:=`(INFO = NULL)]
     }  
   ) 
   
   catExeTime(
     expressionTime = "Tratamento de observações com múltiplas mutações",
     expressionR    = {
-      vcfTable      <- vcfTable[stri_detect_regex(vcfTable$ALT, "^[ACGT]+"), ]
-      multiALT      <- stri_count(vcfTable$ALT, fixed = ",") + 1
-      vcfTableUni   <- vcfTable[multiALT == 1, , drop = FALSE] 
-      vcfTableMulti <- vcfTable[multiALT != 1, , drop = FALSE]
-      if (sum(multiALT != 1) == 0) {
-        cat("...Não há mutações múltiplas...\n")
+      vcfTable      <- vcfTable[stri_detect_regex(ALT, "^[ACGT]+")]
+      vcfTableUni   <- vcfTable[stri_count(ALT, fixed = ",") + 1 == 1] 
+      vcfTableMulti <- vcfTable[stri_count(ALT, fixed = ",") + 1 != 1]
+      if (nrow(vcfTableMulti) == 0) {
+        cat("   Não há mutações múltiplas\n")
       } else {
-        cat("...Tratando mutações múltiplas...\n")
+        cat("   Tratando mutações múltiplas\n")
         vcfTableMulti <- pbapply(vcfTableMulti, 2, function(var) {
           if (stri_detect_fixed(var[1], ",")) {
             stri_split_fixed(var, ",") %>% unlist
-          } else { 
-            rep(var, multiALT[multiALT != 1])
+          } else {
+            rep(var, vcfTableMulti[ , stri_count(ALT, fixed = ",") + 1])
           }
-        }) %>% data.frame(stringsAsFactors = FALSE)
+        }) %>% data.frame(stringsAsFactors = FALSE) %>% data.table
       }
-      vcfTable <- rbind(vcfTableUni, vcfTableMulti)
-    } 
+      vcfTable <- rbindlist(list(vcfTableUni, vcfTableMulti), 
+                            use.names = TRUE, fill = TRUE)
+    }
   )
   
-  catExeTime(        
+  catExeTime(  
     expressionTime = "Cálculo dos ACs de cada população",
     expressionR    = {
-      cat("...Calculando os ACs de cada população...\n")
-      namesAF  <- c("AFR_AF", "AMR_AF", "EAS_AF", "EUR_AF", "SAS_AF")
-      infoAF   <- pbapply(vcfTable[ , namesAF], 2, as.numeric)
-      totalAC  <- Solve(infoAF, as.numeric(vcfTable[ , c("AC")])) %>% round
-      namesAC  <- names(totalAC) <-
-        c("AFR_AC", "AMR_AC", "EAS_AC", "EUR_AC", "SAS_AC")
-      infoAC   <- pbapply(infoAF, 1, function(row) {row * totalAC}) %>% 
-        t %>% round; colnames(infoAC) <- namesAC
-      vcfTable <- cbind(vcfTable, as.data.frame(infoAC))
-      vcfTable <- vcfTable[ , c(names(vcfTable)[1:7],
-                                sort(c(namesAF, namesAC)))]
+      cat("   Calculando os ACs de cada população   \n")
+      namesAF  <- c("AMR_AF", "AFR_AF", "EUR_AF",  "SAS_AF", "EAS_AF")
+      infoAF   <- apply(vcfTable[ , c(
+        "AMR_AF", "AFR_AF", "EUR_AF",  "SAS_AF", "EAS_AF"
+      )], 2, as.numeric)
+      if (chrom != "chrY") {
+        totalAC <- c(AMR_AC = 694, AFR_AC = 1322, EUR_AC = 1006, 
+                     SAS_AC = 978, EAS_AC = 1008)
+      } else {
+        totalAC <- c(AMR_AC = 340, AFR_AC = 638, EUR_AC = 480, 
+                     SAS_AC = 520, EAS_AC = 488)
+      }
+      namesAC  <- names(totalAC)
+      infoAC   <- pbapply(infoAF, 1, function(row) row * totalAC) %>% 
+        t %>% round %>% data.table
+      colnames(infoAC) <- namesAC
+      vcfTable <- SJ(vcfTable, infoAC)
+      vcfTable <- subset(
+        vcfTable, subset = TRUE, 
+        select = c(names(vcfTable)[1:7], sort(c(namesAF, namesAC)))
+      )
       names(vcfTable) <- c("Mutação.Cromossomo", "Mutação.Local", "Mutação.ID",
                            "Alelo.Referência", "Alelo.Alternativo", "Total.AC",
                            "Total.AF", "Africano.AC", "Africano.AF",
@@ -196,33 +213,28 @@ piRNAcalc <- function(vcf_file, gff_file) {
   catExeTime(
     expressionTime = "Leitura do arquivo GFF",
     expressionR    = {
-      cat("...Lendo o arquivo GFF...\n")
-      gffTable <- read.delim(
-        gff_file, stringsAsFactors = FALSE, header = FALSE,
-        col.names  = c("seqid", "source", "type", "start", "end", "score",
-                      "strand", "phase", "attributes"),
-        colClasses = c(rep("character", 3), rep("numeric", 2),
-                       rep("character", 4))
+      cat("   Lendo o arquivo GFF\n")
+      gffTable <- read_delim(
+        gff_file, delim = "\t", n_max = 600984, col_types = "c--nn---c",
+        col_names = c("seqid", "start", "end", "attributes")
       )
-      gffTable <- gffTable[gffTable$seqid == chrom, 
-                           c("seqid", "start", "end", "attributes"),
-                           drop = FALSE]
+      gffTable <- data.table(gffTable)
+      gffTable <- gffTable[seqid == chrom]
     } 
   )
   
   catExeTime(
     expressionTime = "Limpeza do campo `attributes` do arquivo GFF",
     expressionR    = {
-      cat("...Limpando o campo `attributes` do arquivo GFF...\n")
-      gffTable$attributes <- pbsapply(
-        stri_split_fixed(gffTable$attributes, "transcript_id "),
-        function(attr_id) {
-          stri_replace(attr_id[2], fixed = ";", "")
-        }
-      )
-      gffTable <- gffTable[ , c("seqid", "attributes", "start", "end")]
-      names(gffTable) <- c("piRNA.Cromossomo", "piRNA.Nome", "Local.Início",
-                           "Local.Final")
+      cat("   Limpando o campo `attributes` do arquivo GFF\n")
+      gffTable[, .(attributes = pbsapply(
+        stri_split_fixed(attributes, "\""), function(attr_id) attr_id[2]
+      ))]
+      gffTable <- gffTable[ , .(
+        piRNA.Cromossomo = seqid,
+        piRNA.Nome       = attributes,
+        `Local.Início`   = start,
+        `Local.Final`    = end)]
     }
   )
   
@@ -231,9 +243,6 @@ piRNAcalc <- function(vcf_file, gff_file) {
   ###################################################################
   
   countProperly <- function(vcfTable, gffTable, region) {
-    suppressMessages(require(stringi))
-    suppressMessages(require(stringr))
-    
     if (region == "-1000") {cteRegion <- -1000 - 1} 
     if (region == "5'") {
       cteRegion <- -(gffTable$`Local.Final` - gffTable$`Local.Início`) - 1
@@ -244,48 +253,64 @@ piRNAcalc <- function(vcf_file, gff_file) {
     }
     if (region == "+1000") {cteRegion <- +1000 + 1}
     
-    regionStart <- gffTable$`Local.Início` + cteRegion
-    regionEnd   <- gffTable$`Local.Final`  + cteRegion
+    regionStart <- gffTable[ , `Local.Início`] + cteRegion
+    regionEnd   <- gffTable[ , `Local.Final`]  + cteRegion
     
-    eachPirna <- function(each) {
-      gffDataAux <- gffTable[each, , drop = FALSE]
-      vcfDataAux <- 
-        vcfTable[as.numeric(vcfTable$`Mutação.Local`) >= regionStart[each] &
-                   as.numeric(vcfTable$`Mutação.Local`) <= regionEnd[each], , 
-                 drop = FALSE]
-      indelSearch <- 
-            stri_count(vcfDataAux$`Alelo.Referência`,
-                       regex = "[ACGT]") !=
-            stri_count(vcfDataAux$`Alelo.Alternativo`,
-                       regex = "[ACGT]")
-      indelQuant  <- sum(indelSearch)
-      snpQuant    <- sum(!indelSearch)
-                  
-      gffDataFrame <<- 
-        rbind(gffDataFrame, cbind(gffDataAux,
-                                  `Mutações.Total` = snpQuant + indelQuant,
-                                  `Mutações.SNP`   = snpQuant,
-                                  `Mutações.INDEL` = indelQuant))
-                  
-      vcfDataAux <- cbind(
-            vcfDataAux[ , 1:5],
-            `Mutação.Tipo` = ifelse(indelSearch, "INDEL", "SNP"),
-            vcfDataAux[ , 6:17]
-      )
-                  
-      if (nrow(vcfDataAux) == 0) {
-        vcfNames   <- colnames(vcfDataAux)
-        vcfDataAux <- rbind(vcfDataAux, c(rep(NA, 6), rep(0, 12)))
-        colnames(vcfDataAux) <- vcfNames
-      }
+    vcfTableAux <- vcfTable 
+    
+    indelSearch <- 
+      vcfTableAux[ , stri_count(`Alelo.Referência`,  regex = "[ACGT]") !=
+                     stri_count(`Alelo.Alternativo`, regex = "[ACGT]")]
+    
+    vcfTableAux[ , `Mutação.Tipo` := 
+                   factor(ifelse(indelSearch, "INDEL", "SNP"))]
+    
+    vcfTableAux <- subset(vcfTableAux, subset = TRUE, 
+                          select = c(names(vcfTableAux)[1:5],
+                                     names(vcfTableAux)[18],
+                                     names(vcfTableAux)[6:17]))
+    
+    eachPirnaGFF <- function(each) {
+      suppressPackageStartupMessages(require(stringi))
+      suppressPackageStartupMessages(require(stringr))
+      suppressPackageStartupMessages(require(pbapply))
+      suppressPackageStartupMessages(require(readr))
+      suppressPackageStartupMessages(require(data.table))
+      suppressPackageStartupMessages(require(magrittr))
+      suppressPackageStartupMessages(require(limSolve))
+      suppressPackageStartupMessages(require(foreach))
+      suppressPackageStartupMessages(require(tictoc))
       
-      pirnaID <- stri_join("Região ", region, "::", 
-                           stri_flatten(gffDataAux, ".."))
-                  
-      vcfList[[pirnaID]] <<- vcfDataAux
+      vcfTableAux2 <- vcfTableAux[as.numeric(`Mutação.Local`) >= regionStart[each] &
+                                as.numeric(`Mutação.Local`) <= regionEnd[each]]
       
-      setTxtProgressBar(progressBar, each)
+      gffTableAux <- gffTable[each, ]
       
+      gffTableAux <- SJ(gffTableAux, vcfTableAux2[ , .(
+        `Mutações.Total` = length(`Mutação.Local`),
+        `Mutações.SNP`   = sum(`Mutação.Tipo` == "SNP"),
+        `Mutações.INDEL` = sum(`Mutação.Tipo` == "INDEL"))])
+      
+      return(gffTableAux)
+      
+    }
+    
+    eachPirnaVCF <- function(each) {
+      suppressPackageStartupMessages(require(stringi))
+      suppressPackageStartupMessages(require(stringr))
+      suppressPackageStartupMessages(require(pbapply))
+      suppressPackageStartupMessages(require(readr))
+      suppressPackageStartupMessages(require(data.table))
+      suppressPackageStartupMessages(require(magrittr))
+      suppressPackageStartupMessages(require(limSolve))
+      suppressPackageStartupMessages(require(foreach))
+      suppressPackageStartupMessages(require(tictoc))
+      
+      vcfTableAux2 <- vcfTableAux[
+        as.numeric(`Mutação.Local`) >= regionStart[each] &
+          as.numeric(`Mutação.Local`) <= regionEnd[each]]
+      
+      return(vcfTableAux2)
     } 
     
     cat("\n#' \n#' #### Processamento para a região " %s+% region %s+% " \n")        
@@ -293,27 +318,58 @@ piRNAcalc <- function(vcf_file, gff_file) {
       expressionTime = "Atualização do objeto `InfoPirna` para a região " %s+%
         region,
       expressionR    = {
-        cat("...Atualizando o objeto `InfoPirna` para a região " %s+%
-              region %s+% "...")
-        vcfList      <<- list()
-        gffDataFrame <<- data.frame()
-        progressBar  <- txtProgressBar(min = 0, max = nrow(gffTable), style = 3)
-        foreach(loop = 1:nrow(gffTable)) %do% eachPirna(loop)
-        close(progressBar)
+        cat("   Atualizando o objeto `InfoPirna` para a região " %s+%
+              region %s+% "\n")
+        suppressPackageStartupMessages(require(parallel))
+        numberOfCuster <- detectCores() / 2
+        
+        suppressPackageStartupMessages(require(doSNOW))
+        cl <- makeCluster(numberOfCuster)
+        registerDoSNOW(cl)
+        
+        cat("\n   [PARTE I - Objeto 'pirnaData']\n")
+        progressBar1 <- txtProgressBar(
+          min = 0, max = nrow(gffTable), char = "+", style = 3
+        )
+        # progressBar2 <- txtProgressBar(
+        #   min = 0, max = nrow(gffTable), char = "+", style = 3
+        # )
+        options1 <- list(progress = function(rows) {
+          setTxtProgressBar(progressBar1, rows)
+        })
+        # options2 <- list(progress = function(rows) {
+        #   setTxtProgressBar(progressBar2, rows)
+        # })
+        
+        pirnaData <- foreach(rows = 1:nrow(gffTable), .options.snow = options1, 
+                             .combine = rbind, .multicombine = TRUE, 
+                             .maxcombine = nrow(gffTable)) %dopar% 
+          eachPirnaGFF(rows)
+        
+        cat("\n   [PARTE II - Objeto 'mutData']\n")
+        mutData <- foreach(rows = 1:nrow(gffTable), .options.snow = options1, 
+                           .combine = list, .multicombine = TRUE, 
+                           .maxcombine = nrow(gffTable)) %dopar% 
+          eachPirnaVCF(rows)
+        assign(
+          x     = "adjRegion:" %s+% region, 
+          envir = environment(fun = countProperly),
+          value = InfoPirna(pirnaData = pirnaData, 
+                            mutData   = mutData)
+        )
+        
+        close(progressBar1)
+        # close(progressBar2)
+        stopCluster(cl)
       }
-    ) 
-    
-    assign(
-      x     = "adjRegion:" %s+% region, 
-      envir = globalenv(),
-      value = InfoPirna(pirnaData = gffDataFrame, mutData = vcfList)
     )
   }
   
-  invisible(
-    foreach(regions = c("-1000", "5'", "piRNA", "3'", "+1000")) %do%
-      countProperly(vcfTable, gffTable, regions)
-  )
+  countProperly(vcfTable, gffTable, "-1000")
+  countProperly(vcfTable, gffTable, "5'")
+  countProperly(vcfTable, gffTable, "piRNA")
+  countProperly(vcfTable, gffTable, "3'")
+  countProperly(vcfTable, gffTable, "+1000")
   
   generalInfo <- stringi::stri_wrap(width = 100, prefix = "#' ", c(
     "@título Quantificação de mutações SNP e INDEL em regiões de piRNA e " %s+%
@@ -381,6 +437,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
              con  = file(fileRout, encoding = "UTF-8"))
   
   setwd(gitHubDir)
+  options(bitmapType = 'cairo')
   rmarkdown::render(
     input         = "reportPirnaGDF.Rmd",
     output_dir    = pirnaDir,
@@ -398,7 +455,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
   system("git config --global user.name 'JsRoberto'")
   system("git add .")
   system("git commit -m 'Adicionando um arquivo existente'")
-  system("git push origin master")
+  system("git push --force origin master")
       
 }
 
