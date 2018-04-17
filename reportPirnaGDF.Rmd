@@ -149,34 +149,17 @@ scale_fill_pirna <- function(palette = "main", discrete = TRUE,
 ```
 
 ```{r plot_dataPrep}
-pirnaData <- pirnaGDF["adjRegion:piRNA", "pirnaData"]
-pirnaData$piRNA.Tipo <- factor(ifelse(pirnaData$`Mutações.Total` == 0,
-                                      'piRNAs não mutados',
-                                      'piRNAs mutados'))
-mutData <- pirnaGDF["adjRegion:piRNA", "mutData"]
-mutData <- foreach(subset = 1:sum(pirnaData$`Mutações.Total` != 0), 
-                   .combine = rbind) %do% 
-  mutData[pirnaData$`Mutações.Total` != 0][[subset]]
-meltMUTdata <- melt(mutData[ , c(1, 2, 6, 10, 12, 14, 16, 18)], 
-                    id = c("Mutação.Cromossomo", "Mutação.Local",
-                           "Mutação.Tipo"))
-meltMUTdata$variable <- factor(stri_replace_all_fixed(
-  str         = meltMUTdata$variable, 
-  pattern     = ".AF", 
-  replacement = ""
+pirnaData <- rbindlist(list(
+  pirnaGDF["adjRegion:piRNA", "pirnaDataMut"],
+  pirnaGDF["adjRegion:piRNA", "pirnaDataNonMut"]
 ))
-meltMUTdata$AF.Tipo <- factor(ifelse(
-      test = as.numeric(meltMUTdata$value) != 0,
-      yes  = "AF > 0",
-      no   = "AF = 0"
-))
- 
-meltMUTdataNonZero <- meltMUTdata[as.numeric(meltMUTdata$value) != 0, ]
-condSNP   <- meltMUTdataNonZero$`Mutação.Tipo` == "SNP"
-condINDEL <- meltMUTdataNonZero$`Mutação.Tipo` == "INDEL" 
 
-fun_rescale    <- function(y) {as.numeric(y) ^ {log10(0.5) / log10(0.05)}}
-fun_rescaleInv <- function(y) {as.numeric(y) ^ {log10(0.05) / log10(0.5)}}
+pirnaData[ , piRNA.Tipo := factor(ifelse(
+  test = `Mutações.Total` == 0, 
+  yes  = 'piRNAs não mutados', 
+  no   = 'piRNAs mutados'
+))]
+mutData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"], idcol = "mutID")
 
 attach(mutData)
 vennMUTdata <- list(
@@ -202,6 +185,34 @@ vennMUTdata <- list(
                                                     `Mutação.Tipo` == "INDEL"])
 )
 detach(mutData)
+
+meltMUTdata <- melt.data.table(
+  data = mutData[ , c(1, 2, 6, 10, 12, 14, 16, 18)], id.vars = "mutID"
+)
+meltMUTdata[ , `:=`(
+  variable = factor(stri_replace_all_fixed(
+    str  = variable, pattern = ".AF", replacement = "")),
+  AF.Tipo  = factor(ifelse(
+    test = as.numeric(value) > 0, yes = "AF > 0", no = "AF = 0"
+  ))
+)]
+
+tableINDEL <- meltMUTdata[ , table(
+  variable[AF.Tipo == "AF > 0" & `Mutação.Tipo` == "INDEL"])]
+tableSNP   <- meltMUTdata[ , table(
+  variable[AF.Tipo == "AF > 0" & `Mutação.Tipo` == "SNP"])]
+
+meltMUTdata[ , `:=`(
+  `Mutação.Tipo` = ifelse(
+    test = `Mutação.Tipo` == "INDEL",
+    yes  = "INDEL (n=" %s+% sum(`Mutação.Tipo` == "INDEL") %s+% ")",
+    no   = "SNP (n=" %s+% sum(`Mutação.Tipo` == "SNP") %s+% ")"
+  )
+)]
+
+fun_rescale    <- function(y) {as.numeric(y) ^ {log10(0.5) / log10(0.05)}}
+fun_rescaleInv <- function(y) {as.numeric(y) ^ {log10(0.05) / log10(0.5)}}
+
 ```
 
 ```{r plot1}
@@ -279,18 +290,13 @@ for (nameMut in c("INDEL", "SNP")) {
 ```
 
 ```{r plot4}
-ggplot(data = meltMUTdataNonZero,
-       aes(x = ifelse(`Mutação.Tipo` == "INDEL", 
-                      "INDEL (n=" %s+% sum(condINDEL) %s+% ")",
-                      "SNP (n=" %s+% sum(condSNP) %s+% ")"), 
-           y = fun_rescale(value),
-           fill = variable)) +
+ggplot(data = meltMUTdata[AF.Tipo == "AF > 0"],
+       aes(x = `Mutação.Tipo`,  y = fun_rescale(value), fill = variable)) +
   geom_boxplot(width = 0.9) +
   annotate("text", size = 3,
            x = c(0.64, 0.82, 1, 1.18, 1.36, 1.64, 1.82, 2, 2.18, 2.36),
            y = fun_rescale(rep(0.01, 10) / 100), 
-           label = 'n=' %s+% c(table(meltMUTdataNonZero$variable[condINDEL]),
-                               table(meltMUTdataNonZero$variable[condSNP]))) +
+           label = 'n=' %s+% c(tableINDEL, tableSNP)) +
   scale_y_continuous(
     breaks = fun_rescale(c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) / 100),
     labels = c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) %s+% "%"

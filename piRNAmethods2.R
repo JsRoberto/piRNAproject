@@ -65,6 +65,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
   suppressPackageStartupMessages(require(data.table))
   suppressPackageStartupMessages(require(readr))
   suppressPackageStartupMessages(require(foreach))
+  suppressPackageStartupMessages(require(doSNOW))
   suppressPackageStartupMessages(require(tictoc))
   # ----------------------------------------------------------------------------
   
@@ -79,7 +80,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
   # ----------------------------------------------------------------------------
   
   mainDir <- "/data/projects/metagenomaCG/jose/piRNAproject"
-  #mainDir <- "C:/Rdir"
+  # mainDir <- "C:/Rdir"
   
   gitHubDir <- file.path(mainDir, "piRNAproject")
   dir.create(gitHubDir, showWarnings = FALSE)
@@ -137,12 +138,14 @@ piRNAcalc <- function(vcf_file, gff_file) {
     expressionTime = "Limpeza dos atributos `INFO` do arquivo VCF",
     expressionR    = {
       cat("   Limpando campo `INFO`\n")
-      vcfTable[, c("AC", "AF", "AMR_AF", "AFR_AF",
-                   "EUR_AF", "SAS_AF", "EAS_AF") := pblapply(
+      vcfTable <- vcfTable[!stri_detect_regex(ALT, "[^ACGT]")]
+      vcfTable[ , c("AC", "AF", "AMR_AF", "AFR_AF",
+                    "EUR_AF", "SAS_AF", "EAS_AF") := pblapply(
         tstrsplit(INFO, ";", fixed = TRUE)[
           sapply(tstrsplit(INFO, ";", fixed = TRUE),
                  function(first) stri_detect_regex(
-                   first[1], "AC|AF|AMR_AF|AFR_AF|EUR_AF|SAS_AF|EAS_AF"
+                   first[1], "^AC=|^AF=|^AMR_AF=|^AFR_AF=|" %s+%
+                     "^EUR_AF=|^SAS_AF=|^EAS_AF="
                  ))
         ],
         function(col) {
@@ -151,12 +154,11 @@ piRNAcalc <- function(vcf_file, gff_file) {
       )]
       vcfTable[ , `:=`(INFO = NULL)]
     }  
-  ) 
+  )
   
   catExeTime(
     expressionTime = "Tratamento de observações com múltiplas mutações",
     expressionR    = {
-      vcfTable      <- vcfTable[stri_detect_regex(ALT, "^[ACGT]+")]
       vcfTableUni   <- vcfTable[stri_count(ALT, fixed = ",") + 1 == 1] 
       vcfTableMulti <- vcfTable[stri_count(ALT, fixed = ",") + 1 != 1]
       if (nrow(vcfTableMulti) == 0) {
@@ -281,17 +283,18 @@ piRNAcalc <- function(vcf_file, gff_file) {
       suppressPackageStartupMessages(require(foreach))
       suppressPackageStartupMessages(require(tictoc))
       
-      vcfTableAux2 <- vcfTableAux[as.numeric(`Mutação.Local`) >= regionStart[each] &
-                                as.numeric(`Mutação.Local`) <= regionEnd[each]]
+      vcfTableAux2 <- vcfTableAux[
+        as.numeric(`Mutação.Local`) >= regionStart[each] &
+          as.numeric(`Mutação.Local`) <= regionEnd[each]]
       
-      gffTableAux <- gffTable[each, ]
+      gffTableAux2 <- gffTable[each, ]
       
-      gffTableAux <- SJ(gffTableAux, vcfTableAux2[ , .(
+      gffTableAux2 <- SJ(gffTableAux2, vcfTableAux2[ , .(
         `Mutações.Total` = length(`Mutação.Local`),
         `Mutações.SNP`   = sum(`Mutação.Tipo` == "SNP"),
         `Mutações.INDEL` = sum(`Mutação.Tipo` == "INDEL"))])
       
-      return(gffTableAux)
+      return(gffTableAux2)
       
     }
     
@@ -320,46 +323,49 @@ piRNAcalc <- function(vcf_file, gff_file) {
       expressionR    = {
         cat("   Atualizando o objeto `InfoPirna` para a região " %s+%
               region %s+% "\n")
-        suppressPackageStartupMessages(require(parallel))
-        numberOfCuster <- detectCores() / 2
         
-        suppressPackageStartupMessages(require(doSNOW))
-        cl <- makeCluster(numberOfCuster)
+        numberOfCluster <- parallel::detectCores() / 2
+        cl <- makeCluster(numberOfCluster)
         registerDoSNOW(cl)
         
-        cat("\n   [PARTE I - Objeto 'pirnaData']\n")
-        progressBar1 <- txtProgressBar(
+        cat("\n   [PARTE I - Objetos 'pirnaDataNonMut' e 'pirnaDataMut']\n")
+        progressBar <- txtProgressBar(
           min = 0, max = nrow(gffTable), char = "+", style = 3
         )
-        # progressBar2 <- txtProgressBar(
-        #   min = 0, max = nrow(gffTable), char = "+", style = 3
-        # )
-        options1 <- list(progress = function(rows) {
-          setTxtProgressBar(progressBar1, rows)
+        options <- list(progress = function(rows) {
+          setTxtProgressBar(progressBar, rows)
         })
-        # options2 <- list(progress = function(rows) {
-        #   setTxtProgressBar(progressBar2, rows)
-        # })
         
-        pirnaData <- foreach(rows = 1:nrow(gffTable), .options.snow = options1, 
-                             .combine = rbind, .multicombine = TRUE, 
-                             .maxcombine = nrow(gffTable)) %dopar% 
+        pirnaData <- 
+          foreach(rows = 1:nrow(gffTable), .options.snow = options,
+                  .combine = rbind, .multicombine = TRUE,
+                  .maxcombine = nrow(gffTable)) %dopar% 
           eachPirnaGFF(rows)
         
+        pirnaData <- data.table(pirnaData, key = c(
+          "piRNA.Cromossomo", "piRNA.Nome", "`Local.Início`", "`Local.Final`"
+        ))
+        
         cat("\n   [PARTE II - Objeto 'mutData']\n")
-        mutData <- foreach(rows = 1:nrow(gffTable), .options.snow = options1, 
-                           .combine = list, .multicombine = TRUE, 
-                           .maxcombine = nrow(gffTable)) %dopar% 
+        mutData <- 
+          foreach(rows = 1:nrow(gffTable), .options.snow = options,
+                  .combine = list, .multicombine = TRUE,
+                  .maxcombine = nrow(gffTable)) %:%
+          when(vcfTableAux[ , sum(
+            as.numeric(`Mutação.Local`) >= regionStart[rows] &
+              as.numeric(`Mutação.Local`) <= regionEnd[rows]) != 0]
+          ) %dopar% 
           eachPirnaVCF(rows)
+        
         assign(
           x     = "adjRegion:" %s+% region, 
           envir = environment(fun = countProperly),
-          value = InfoPirna(pirnaData = pirnaData, 
-                            mutData   = mutData)
+          value = InfoPirna(pirnaDataNonMut = pirnaData[`Mutações.Total` == 0],
+                            pirnaDataMut    = pirnaData[`Mutações.Total` != 0], 
+                            mutData         = mutData)
         )
         
-        close(progressBar1)
-        # close(progressBar2)
+        close(progressBar)
         stopCluster(cl)
       }
     )
@@ -382,11 +388,12 @@ piRNAcalc <- function(vcf_file, gff_file) {
     "@slot \"generalInfo\" apresenta título, descrição e detalhes do objeto.", 
     "",
     "@slot \"adjRegion:piRNA\" objeto da classe InfoPirna que apresenta " %s+%
-      "(1) uma tabela com informações sobre os piRNAs -- nome, posição " %s+%
-      "genômica e quantidade de mutações; (2) uma lista correlacionada " %s+%
-      "com informações sobre as mutações de cada piRNA -- identificador " %s+%
-      "NCBI, posição genômica, alteração em relação à referência, tipo de " %s+%
-      "mutação, frequências e números de alelos em cada população humana.", 
+      "(1) duas tabelas com informações sobre os piRNAs mutados e não mu" %s+%
+      "tados -- nome, posição genômica e quantidade de mutações; (2) uma " %s+%
+      "lista correlacionada com informações sobre as mutações de cada pi" %s+%
+      "RNA mutado -- identificador dbSNP, posição genômica, alteração em " %s+%
+      "relação à referência, tipo de mutação, frequências e números de " %s+%
+      "alelos em cada população humana.", 
     "",
     "@slot \"adjRegion:+1000\" objeto da classe InfoPirna, ou seja, " %s+%
       "apresenta as mesmas características de \"adjRegion:piRNA\", sendo " %s+%
