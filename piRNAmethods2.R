@@ -450,12 +450,12 @@ piRNAcalc <- function(vcf_file, gff_file) {
                   chrom       = chrom)
   )
 
-  system("cd " %s+% gitHubDir)
-  system("git config --global user.email 'jsroberto.slima@gmail.com'")
-  system("git config --global user.name 'JsRoberto'")
-  system("git add .")
-  system("git commit -m 'Add files via piRNAcalc()'")
-  system("git push --force origin master")
+  # system("cd " %s+% gitHubDir)
+  # system("git config --global user.email 'jsroberto.slima@gmail.com'")
+  # system("git config --global user.name 'JsRoberto'")
+  # system("git add piRNA" %s+% chrom %s+% "/\*")
+  # system("git commit -m 'Add files via piRNAcalc() para " %s+% chrom %s+% "'")
+  # system("git push --force origin piRNA" %s+% chrom)
       
 }
 

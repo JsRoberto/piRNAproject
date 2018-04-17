@@ -2,27 +2,27 @@
 #.libPaths("/home/lghm/R/x86_64-pc-linux-gnu-library/3.4/")
 library(knitr)
 library(stringi); library(magrittr); library(reshape2); library(foreach);
-library(grid); library(venn); library(ggplot2)
+library(data.table); library(grid); library(venn); library(ggplot2)
 
 options(bitmapType = 'cairo')
 
 piRNAgraphs  <- function(chrom) {
-  params     <- list(
-    pirnaDir    = "/data/projects/metagenomaCG/jose/piRNAproject/" %s+%
-      "piRNAproject/piRNA" %s+% chrom,
-    gitHubDir   = "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject",
-    pirnaObject = "pirnaGDF" %s+% chrom %s+% ".rds",
-    fileRout    = "piRNAcalc_" %s+% chrom %s+% ".Rout",
-    chrom       = chrom
-  )
   # params     <- list(
-  #   pirnaDir    = "C:/Rdir/" %s+%
+  #   pirnaDir    = "/data/projects/metagenomaCG/jose/piRNAproject/" %s+%
   #     "piRNAproject/piRNA" %s+% chrom,
-  #   gitHubDir   = "C:/Rdir/piRNAproject",
+  #   gitHubDir   = "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject",
   #   pirnaObject = "pirnaGDF" %s+% chrom %s+% ".rds",
   #   fileRout    = "piRNAcalc_" %s+% chrom %s+% ".Rout",
   #   chrom       = chrom
   # )
+  params     <- list(
+    pirnaDir    = "C:/Rdir/" %s+%
+      "piRNAproject/piRNA" %s+% chrom,
+    gitHubDir   = "C:/Rdir/piRNAproject",
+    pirnaObject = "pirnaGDF" %s+% chrom %s+% ".rds",
+    fileRout    = "piRNAcalc_" %s+% chrom %s+% ".Rout",
+    chrom       = chrom
+  )
   fig.height <- 5 * 96 # units = "px"
   fig.width  <- 7 * 96 # units = "px"
   fig.path   <- params$pirnaDir
@@ -222,14 +222,16 @@ piRNAgraphs  <- function(chrom) {
     }
     if (nameMut == "SNP") {
       text(
-        x      = c(355, 170), cex = c(1.1, 0.8), 
+        x      = c(355 + 10, 170 - 10), cex = c(1.1, 0.8), 
         y      = c(1100, 1025), pos = c(2, 2),
         labels = c("cromossomo " %s+%
                      stri_extract_all(params$chrom, regex = '[1-9]+|[XY]+'),
                    "população")
       )
     }
-    text(x = 500, y = 10, labels = nameMut, cex = 1.1, pos = 1)
+    text(x = 500, y = 10, cex = 1.1, pos = 1,
+         labels = nameMut %s+% "(n=" %s+% 
+           mutData[ , sum(`Mutação.Tipo` == nameMut)] %s+% ")")
     segments(0, 0, 0, 1000, col = "white", lty = 1, lwd = 1)
     segments(0, 1000, 1000, 1000, col = "white", lty = 1, lwd = 1)
     segments(1000, 1000, 1000, 0, col = "white", lty = 1, lwd = 1)
