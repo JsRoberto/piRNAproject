@@ -106,6 +106,10 @@ piRNAcalc <- function(vcf_file, gff_file) {
       "#' \n#' #### Tempos de execução para tratamento do arquivo VCF:",
       "   Lendo arquivo VCF", sep = "\n")
   
+  numberOfCluster <- parallel::detectCores() / 2
+  cl <- makeCluster(numberOfCluster)
+  registerDoSNOW(cl)
+  
   catExeTime(
     expressionTime = "Leitura do arquivo VCF",
     expressionR    = {
@@ -150,7 +154,8 @@ piRNAcalc <- function(vcf_file, gff_file) {
         ],
         function(col) {
           as.numeric(stri_replace_all_regex(col, "[A-Z]+_*[A-Z]*=", ""))
-        }
+        },
+        cl = cl
       )]
       vcfTable[ , `:=`(INFO = NULL)]
     }  
@@ -171,7 +176,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
           } else {
             rep(var, vcfTableMulti[ , stri_count(ALT, fixed = ",") + 1])
           }
-        }) %>% data.frame(stringsAsFactors = FALSE) %>% data.table
+        }, cl = cl) %>% data.frame(stringsAsFactors = FALSE) %>% data.table
       }
       vcfTable <- rbindlist(
         list(vcfTableUni, vcfTableMulti), use.names = TRUE, fill = TRUE
@@ -193,7 +198,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
                      SAS_AC = 520, EAS_AC = 488)
       }
       namesAC  <- names(totalAC)
-      infoAC   <- pbapply(infoAF, 1, function(row) row * totalAC) %>% 
+      infoAC   <- pbapply(infoAF, 1, function(row) row * totalAC, cl = cl) %>% 
         t %>% round %>% data.table
       colnames(infoAC) <- namesAC
       vcfTable <- SJ(vcfTable, infoAC)
@@ -229,7 +234,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
     expressionR    = {
       cat("   Limpando o campo `attributes` do arquivo GFF\n")
       gffTable[, attributes := pbsapply(
-        stri_split_fixed(attributes, "\""), function(attr_id) attr_id[2]
+        stri_split_fixed(attributes, "\""), function(attrId) attrId[2], cl = cl
       )]
       gffTable <- gffTable[ , .(
         piRNA.Cromossomo = seqid,
@@ -323,9 +328,9 @@ piRNAcalc <- function(vcf_file, gff_file) {
         cat("   Atualizando o objeto `InfoPirna` para a região " %s+%
               region %s+% "\n")
         
-        numberOfCluster <- parallel::detectCores() / 2
-        cl <- makeCluster(numberOfCluster)
-        registerDoSNOW(cl)
+        # numberOfCluster <- parallel::detectCores() / 2
+        # cl <- makeCluster(numberOfCluster)
+        # registerDoSNOW(cl)
         
         cat("\n   [PARTE I - Objetos 'pirnaDataNonMut' e 'pirnaDataMut']\n")
         progressBar1 <- txtProgressBar(
@@ -336,7 +341,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
         })
         
         pirnaData <- 
-          foreach(rows = 1:nrow(gffTable), .options.snow = options1,
+          foreach(rows = seq(nrow(gffTable)), .options.snow = options1,
                   .combine = rbind, .multicombine = TRUE,
                   .maxcombine = nrow(gffTable)) %dopar% 
           eachPirnaGFF(rows)
@@ -370,8 +375,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
           )]
         
         close(progressBar2)
-        stopCluster(cl)
-        
+        # stopCluster(cl)
         assign(
           x     = "adjRegion:" %s+% region, 
           envir = environment(fun = countProperly),
@@ -388,6 +392,8 @@ piRNAcalc <- function(vcf_file, gff_file) {
   countProperly(vcfTable, gffTable, "piRNA")
   countProperly(vcfTable, gffTable, "3'")
   countProperly(vcfTable, gffTable, "+1000")
+  
+  stopCluster(cl)
   
   generalInfo <- stringi::stri_wrap(width = 100, prefix = "#' ", c(
     "@título Quantificação de mutações SNP e INDEL em regiões de piRNA e " %s+%
@@ -447,13 +453,14 @@ piRNAcalc <- function(vcf_file, gff_file) {
   # A função writeRout reescreve um arquivo que armazenou informações de saída 
   # no console do GUI R.
   setwd(pirnaDir)
-  newRout <- readLines(file(fileRout, encoding = "UTF-8"))
+  fileRoutCon <- file(fileRout, encoding = "UTF-8")
+  newRout <- readLines(fileRoutCon)
   if (sum(stri_detect_fixed(str = newRout, pattern = "#' ")) != 0) {
     newRout <- newRout[startsWith(newRout, "#' ")] %>% 
       stri_replace_first_fixed("#' ", "")
   } 
-  writeLines(text = newRout, 
-             con  = file(fileRout, encoding = "UTF-8"))
+  writeLines(text = newRout, con  = fileRoutCon)
+  close(fileRoutCon)
   
   setwd(gitHubDir)
   options(bitmapType = 'cairo')
