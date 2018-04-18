@@ -153,7 +153,9 @@ piRNAcalc <- function(vcf_file, gff_file) {
                  ))
         ],
         function(col) {
-          as.numeric(stri_replace_all_regex(col, "[A-Z]+_*[A-Z]*=", ""))
+          as.numeric(stringi::stri_replace_all_regex(
+            col, "[A-Z]+_*[A-Z]*=", ""
+          ))
         },
         cl = cl
       )]
@@ -171,10 +173,13 @@ piRNAcalc <- function(vcf_file, gff_file) {
       } else {
         cat("   Tratando mutações múltiplas\n")
         vcfTableMulti <- pbapply(vcfTableMulti, 2, function(var) {
-          if (stri_detect_fixed(var[1], ",")) {
-            stri_split_fixed(var, ",") %>% unlist
+          suppressPackageStartupMessages(require(data.table))
+          if (stringi::stri_detect_fixed(var[1], ",")) {
+            stringi::stri_split_fixed(var, ",") %>% unlist
           } else {
-            rep(var, vcfTableMulti[ , stri_count(ALT, fixed = ",") + 1])
+            rep(var, vcfTableMulti[ , stringi::stri_count(
+              ALT, fixed = ",") + 1
+            ])
           }
         }, cl = cl) %>% data.frame(stringsAsFactors = FALSE) %>% data.table
       }
