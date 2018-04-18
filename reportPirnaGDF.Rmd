@@ -373,10 +373,11 @@ Os tempos de execução do código foram obtidos com base no pacote `tictoc`
 foram calculados os tempos de execução em 3 momentos distintos do código:
 
 ```{r}
-newRout <- readLines(file(
-  file.path(params$pirnaDir, params$fileRout), 
-  encoding = "UTF-8"
-))
+fileRoutCon <- file(
+  file.path(params$pirnaDir, params$fileRout), encoding = "UTF-8"
+)
+newRout <- readLines(fileRoutCon)
+close(fileRoutCon)
 
 newRout <- newRout[endsWith(newRout, "elapsed")] %>% 
   stri_split_fixed(": ") %>% sapply(function(x) x[2])
