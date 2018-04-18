@@ -206,8 +206,8 @@ tableSNP   <- meltMUTdata[
 meltMUTdata[ , `:=`(
   `Mutação.Tipo` = ifelse(
     test = `Mutação.Tipo` == "INDEL",
-    yes  = "INDEL (n=" %s+% sum(`Mutação.Tipo` == "INDEL") / 5 %s+% ")",
-    no   = "SNP (n=" %s+% sum(`Mutação.Tipo` == "SNP") / 5 %s+% ")"
+    yes  = "INDEL (n=" %s+% (sum(`Mutação.Tipo` == "INDEL") / 5) %s+% ")",
+    no   = "SNP (n=" %s+% (sum(`Mutação.Tipo` == "SNP") / 5) %s+% ")"
   )
 )]
 
@@ -283,7 +283,7 @@ for (nameMut in c("INDEL", "SNP")) {
   }
   if (nameMut == "SNP") {
     text(
-      x      = c(355 + 10, 170 - 5), cex = c(1.1, 0.8), 
+      x      = c(355 + 11, 170 - 4), cex = c(1.1, 0.8), 
       y      = c(1100, 1025), pos = c(2, 2),
       labels = c("no cromossomo " %s+% stri_extract_all(
         params$chrom, regex = '[1-9]+|[XY]+'), "população"
