@@ -240,7 +240,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
     expressionR    = {
       cat("   Limpando o campo `attributes` do arquivo GFF\n")
       gffTable[, attributes := pbsapply(
-        stri_split_fixed(attributes, "\""), function(attrId) attrId[2], cl = cl
+        stri_split_fixed(attributes, "\""), function(attrId) attrId[2]
       )]
       gffTable <- gffTable[ , .(
         piRNA.Cromossomo = seqid,
