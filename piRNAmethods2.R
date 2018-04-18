@@ -106,9 +106,11 @@ piRNAcalc <- function(vcf_file, gff_file) {
       "#' \n#' #### Tempos de execução para tratamento do arquivo VCF:",
       "   Lendo arquivo VCF", sep = "\n")
   
-  numberOfCluster <- parallel::detectCores() / 2
-  cl <- makeCluster(numberOfCluster)
-  registerDoSNOW(cl)
+  # numberOfCluster <- parallel::detectCores() / 2
+  # cl <- makeCluster(numberOfCluster)
+  # registerDoSNOW(cl)
+  
+  pboptions(type = "timer", style = 3, char = "=")
   
   catExeTime(
     expressionTime = "Leitura do arquivo VCF",
@@ -156,8 +158,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
           as.numeric(stringi::stri_replace_all_regex(
             col, "[A-Z]+_*[A-Z]*=", ""
           ))
-        },
-        cl = cl
+        }
       )]
       vcfTable[ , `:=`(INFO = NULL)]
     }  
@@ -181,7 +182,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
               ALT, fixed = ",") + 1
             ])
           }
-        }, cl = cl) %>% data.frame(stringsAsFactors = FALSE) %>% data.table
+        }) %>% data.frame(stringsAsFactors = FALSE) %>% data.table
       }
       vcfTable <- rbindlist(
         list(vcfTableUni, vcfTableMulti), use.names = TRUE, fill = TRUE
@@ -203,7 +204,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
                      SAS_AC = 520, EAS_AC = 488)
       }
       namesAC  <- names(totalAC)
-      infoAC   <- pbapply(infoAF, 1, function(row) row * totalAC, cl = cl) %>% 
+      infoAC   <- pbapply(infoAF, 1, function(row) row * totalAC) %>% 
         t %>% round %>% data.table
       colnames(infoAC) <- namesAC
       vcfTable <- SJ(vcfTable, infoAC)
@@ -333,13 +334,13 @@ piRNAcalc <- function(vcf_file, gff_file) {
         cat("   Atualizando o objeto `InfoPirna` para a região " %s+%
               region %s+% "\n")
         
-        # numberOfCluster <- parallel::detectCores() / 2
-        # cl <- makeCluster(numberOfCluster)
-        # registerDoSNOW(cl)
+        numberOfCluster <- parallel::detectCores() / 2
+        cl <- makeCluster(numberOfCluster)
+        registerDoSNOW(cl)
         
         cat("\n   [PARTE I - Objetos 'pirnaDataNonMut' e 'pirnaDataMut']\n")
         progressBar1 <- txtProgressBar(
-          min = 0, max = nrow(gffTable), char = "+", style = 3
+          min = 0, max = nrow(gffTable), char = "=", style = 3
         )
         options1 <- list(progress = function(rows) {
           setTxtProgressBar(progressBar1, rows)
@@ -360,7 +361,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
         
         cat("\n   [PARTE II - Objeto 'mutData']\n")
         progressBar2 <- txtProgressBar(
-          min = 0, max = nrow(pirnaDataMut), char = "+", style = 3
+          min = 0, max = nrow(pirnaDataMut), char = "=", style = 3
         )
         options2 <- list(progress = function(rows) {
           setTxtProgressBar(progressBar2, rows)
@@ -380,7 +381,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
           )]
         
         close(progressBar2)
-        # stopCluster(cl)
+        stopCluster(cl)
         assign(
           x     = "adjRegion:" %s+% region, 
           envir = environment(fun = countProperly),
@@ -398,7 +399,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
   countProperly(vcfTable, gffTable, "3'")
   countProperly(vcfTable, gffTable, "+1000")
   
-  stopCluster(cl)
+  # stopCluster(cl)
   
   generalInfo <- stringi::stri_wrap(width = 100, prefix = "#' ", c(
     "@título Quantificação de mutações SNP e INDEL em regiões de piRNA e " %s+%
