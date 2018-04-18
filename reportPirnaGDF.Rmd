@@ -206,8 +206,8 @@ tableSNP   <- meltMUTdata[
 meltMUTdata[ , `:=`(
   `Mutação.Tipo` = ifelse(
     test = `Mutação.Tipo` == "INDEL",
-    yes  = "INDEL (n=" %s+% sum(`Mutação.Tipo` == "INDEL") %s+% ")",
-    no   = "SNP (n=" %s+% sum(`Mutação.Tipo` == "SNP") %s+% ")"
+    yes  = "INDEL (n=" %s+% sum(`Mutação.Tipo` == "INDEL") / 5 %s+% ")",
+    no   = "SNP (n=" %s+% sum(`Mutação.Tipo` == "SNP") / 5 %s+% ")"
   )
 )]
 
