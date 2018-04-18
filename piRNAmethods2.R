@@ -127,7 +127,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
         n_max     = infoData[chromID == chrom, infoLines],
         col_names = c("CHROM", "POS", "ID", "REF", "ALT", "INFO"),
         col_types = paste0(collapse = "", c(
-          "ccccc--c", rep("-", infoData[chromID == chrom, numColumns] - 8)
+          "cnccc--c", rep("-", infoData[chromID == chrom, numColumns] - 8)
         ))
       )
       vcfTable <- data.table(vcfTable, key = "POS")
@@ -149,7 +149,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
                  ))
         ],
         function(col) {
-          stri_replace_all_regex(col, "[A-Z]+_*[A-Z]*=", "")
+          as.numeric(stri_replace_all_regex(col, "[A-Z]+_*[A-Z]*=", ""))
         }
       )]
       vcfTable[ , `:=`(INFO = NULL)]
@@ -173,8 +173,9 @@ piRNAcalc <- function(vcf_file, gff_file) {
           }
         }) %>% data.frame(stringsAsFactors = FALSE) %>% data.table
       }
-      vcfTable <- rbindlist(list(vcfTableUni, vcfTableMulti), 
-                            use.names = TRUE, fill = TRUE)
+      vcfTable <- rbindlist(
+        list(vcfTableUni, vcfTableMulti), use.names = TRUE, fill = TRUE
+      )
     }
   )
   
@@ -183,9 +184,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
     expressionR    = {
       cat("   Calculando os ACs de cada população   \n")
       namesAF  <- c("AMR_AF", "AFR_AF", "EUR_AF",  "SAS_AF", "EAS_AF")
-      infoAF   <- apply(vcfTable[ , c(
-        "AMR_AF", "AFR_AF", "EUR_AF",  "SAS_AF", "EAS_AF"
-      )], 2, as.numeric)
+      infoAF   <- vcfTable[ , .(AMR_AF, AFR_AF, EUR_AF,  SAS_AF, EAS_AF)]
       if (chrom != "chrY") {
         totalAC <- c(AMR_AC = 694, AFR_AC = 1322, EUR_AC = 1006, 
                      SAS_AC = 978, EAS_AC = 1008)
@@ -229,9 +228,9 @@ piRNAcalc <- function(vcf_file, gff_file) {
     expressionTime = "Limpeza do campo `attributes` do arquivo GFF",
     expressionR    = {
       cat("   Limpando o campo `attributes` do arquivo GFF\n")
-      gffTable[, .(attributes = pbsapply(
+      gffTable[, attributes := pbsapply(
         stri_split_fixed(attributes, "\""), function(attr_id) attr_id[2]
-      ))]
+      )]
       gffTable <- gffTable[ , .(
         piRNA.Cromossomo = seqid,
         piRNA.Nome       = attributes,
@@ -314,7 +313,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
           as.numeric(`Mutação.Local`) <= regionEnd[each]]
       
       return(vcfTableAux2)
-    } 
+    }
     
     cat("\n#' \n#' #### Processamento para a região " %s+% region %s+% " \n")        
     catExeTime(
@@ -329,44 +328,57 @@ piRNAcalc <- function(vcf_file, gff_file) {
         registerDoSNOW(cl)
         
         cat("\n   [PARTE I - Objetos 'pirnaDataNonMut' e 'pirnaDataMut']\n")
-        progressBar <- txtProgressBar(
+        progressBar1 <- txtProgressBar(
           min = 0, max = nrow(gffTable), char = "+", style = 3
         )
-        options <- list(progress = function(rows) {
-          setTxtProgressBar(progressBar, rows)
+        options1 <- list(progress = function(rows) {
+          setTxtProgressBar(progressBar1, rows)
         })
         
         pirnaData <- 
-          foreach(rows = 1:nrow(gffTable), .options.snow = options,
+          foreach(rows = 1:nrow(gffTable), .options.snow = options1,
                   .combine = rbind, .multicombine = TRUE,
                   .maxcombine = nrow(gffTable)) %dopar% 
           eachPirnaGFF(rows)
+        close(progressBar1)
         
         pirnaData <- data.table(pirnaData, key = c(
           "piRNA.Cromossomo", "piRNA.Nome", "`Local.Início`", "`Local.Final`"
         ))
+        pirnaDataNonMut <- pirnaData[`Mutações.Total` == 0]
+        pirnaDataMut    <- pirnaData[`Mutações.Total` != 0]
         
         cat("\n   [PARTE II - Objeto 'mutData']\n")
+        progressBar2 <- txtProgressBar(
+          min = 0, max = nrow(pirnaDataMut), char = "+", style = 3
+        )
+        options2 <- list(progress = function(rows) {
+          setTxtProgressBar(progressBar2, rows)
+        })
         mutData <- 
-          foreach(rows = 1:nrow(gffTable), .options.snow = options,
+          foreach(rows = seq(nrow(gffTable)), .options.snow = options2,
                   .combine = list, .multicombine = TRUE,
-                  .maxcombine = nrow(gffTable)) %:%
+                  .maxcombine = nrow(pirnaDataMut)) %:%
           when(vcfTableAux[ , sum(
             as.numeric(`Mutação.Local`) >= regionStart[rows] &
               as.numeric(`Mutação.Local`) <= regionEnd[rows]) != 0]
-          ) %dopar% 
+          ) %dopar%
           eachPirnaVCF(rows)
+        names(mutData) <- "Região " %s+% region %s+% "::" %s+% 
+          pirnaDataMut[ , stri_join(sep = "..",
+            piRNA.Cromossomo, piRNA.Nome, `Local.Início`, `Local.Final`
+          )]
+        
+        close(progressBar2)
+        stopCluster(cl)
         
         assign(
           x     = "adjRegion:" %s+% region, 
           envir = environment(fun = countProperly),
-          value = InfoPirna(pirnaDataNonMut = pirnaData[`Mutações.Total` == 0],
-                            pirnaDataMut    = pirnaData[`Mutações.Total` != 0], 
+          value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut,
+                            pirnaDataMut    = pirnaDataMut, 
                             mutData         = mutData)
         )
-        
-        close(progressBar)
-        stopCluster(cl)
       }
     )
   }

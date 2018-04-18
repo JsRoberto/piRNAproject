@@ -108,59 +108,70 @@ piRNAgraphs  <- function(chrom) {
     }
   }
   
-  pirnaData <- pirnaGDF["adjRegion:piRNA", "pirnaData"]
-  pirnaData$piRNA.Tipo <- factor(ifelse(pirnaData$`Mutações.Total` == 0,
-                                        'piRNAs não mutados',
-                                        'piRNAs mutados'))
-  mutData <- pirnaGDF["adjRegion:piRNA", "mutData"]
-  mutData <- foreach(subset = 1:sum(pirnaData$`Mutações.Total` != 0), 
-                     .combine = rbind) %do% 
-    mutData[pirnaData$`Mutações.Total` != 0][[subset]]
-  meltMUTdata <- melt(mutData[ , c(1, 2, 6, 10, 12, 14, 16, 18)], 
-                      id = c("Mutação.Cromossomo", "Mutação.Local",
-                             "Mutação.Tipo"))
-  meltMUTdata$variable <- factor(stri_replace_all_fixed(
-    str         = meltMUTdata$variable, 
-    pattern     = ".AF", 
-    replacement = ""
-  ))
-  meltMUTdata$AF.Tipo <- factor(ifelse(
-    test = as.numeric(meltMUTdata$value) != 0,
-    yes  = "AF > 0",
-    no   = "AF = 0"
+  pirnaData <- rbindlist(list(
+    pirnaGDF["adjRegion:piRNA", "pirnaDataMut"],
+    pirnaGDF["adjRegion:piRNA", "pirnaDataNonMut"]
   ))
   
-  meltMUTdataNonZero <- meltMUTdata[as.numeric(meltMUTdata$value) != 0, ]
-  condSNP   <- meltMUTdataNonZero[`Mutação.Tipo` == "SNP"]
-  condINDEL <- meltMUTdataNonZero[`Mutação.Tipo` == "INDEL"] 
+  pirnaData[ , piRNA.Tipo := factor(ifelse(
+    test = `Mutações.Total` == 0, 
+    yes  = 'piRNAs não mutados', 
+    no   = 'piRNAs mutados'
+  ))]
+  mutData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"], 
+                       idcol = "piRNA.Referência")
+  
+  vennMUTdata <- list(
+    SNP   = as.list(
+      mutData[`Mutação.Tipo` == "SNP", .(
+        Africano         = `Mutação.Local`[Africano.AC != 0],
+        Americano        = `Mutação.Local`[Americano.AC != 0],
+        Europeu          = `Mutação.Local`[Europeu.AC != 0],
+        `Leste Asiático` = `Mutação.Local`[`Leste Asiático.AC` != 0],
+        `Sul Asiático`   = `Mutação.Local`[`Sul Asiático.AC` != 0]
+      )]
+    ),
+    INDEL = as.list(
+      mutData[`Mutação.Tipo` == "INDEL", .(
+        Africano         = `Mutação.Local`[Africano.AC != 0],
+        Americano        = `Mutação.Local`[Americano.AC != 0],
+        Europeu          = `Mutação.Local`[Europeu.AC != 0],
+        `Leste Asiático` = `Mutação.Local`[`Leste Asiático.AC` != 0],
+        `Sul Asiático`   = `Mutação.Local`[`Sul Asiático.AC` != 0]
+      )]
+    )
+  )
+  
+  meltMUTdata <- melt.data.table(
+    data    = mutData[ , c(2, 3, 7, 11, 13, 15, 17, 19)], 
+    id.vars = c("Mutação.Cromossomo", "Mutação.Local", "Mutação.Tipo")
+  )
+  meltMUTdata[ , `:=`(
+    variable = factor(stri_replace_all_fixed(
+      str  = variable, pattern = ".AF", replacement = ""
+    )),
+    AF.Tipo  = factor(ifelse(
+      test = as.numeric(value) > 0, yes = "AF > 0", no = "AF = 0"
+    ))
+  )]
+  
+  tableINDEL <- meltMUTdata[
+    AF.Tipo == "AF > 0" & `Mutação.Tipo` == "INDEL", .N, by = variable
+  ]
+  tableSNP   <- meltMUTdata[
+    AF.Tipo == "AF > 0" & `Mutação.Tipo` == "SNP", .N, by = variable
+  ]
+  
+  meltMUTdata[ , `:=`(
+    `Mutação.Tipo` = ifelse(
+      test = `Mutação.Tipo` == "INDEL",
+      yes  = "INDEL (n=" %s+% sum(`Mutação.Tipo` == "INDEL") %s+% ")",
+      no   = "SNP (n=" %s+% sum(`Mutação.Tipo` == "SNP") %s+% ")"
+    )
+  )]
   
   fun_rescale    <- function(y) {as.numeric(y) ^ {log10(0.5) / log10(0.05)}}
   fun_rescaleInv <- function(y) {as.numeric(y) ^ {log10(0.05) / log10(0.5)}}
-  
-  attach(mutData)
-  vennMUTdata <- list(
-    SNP   = list(Africano         = `Mutação.Local`[Africano.AC != 0 &
-                                                      `Mutação.Tipo` == "SNP"],
-                 Americano        = `Mutação.Local`[Americano.AC != 0 &
-                                                      `Mutação.Tipo` == "SNP"],
-                 Europeu          = `Mutação.Local`[Europeu.AC != 0 &
-                                                      `Mutação.Tipo` == "SNP"],
-                 `Leste Asiático` = `Mutação.Local`[`Leste Asiático.AC` != 0 &
-                                                      `Mutação.Tipo` == "SNP"],
-                 `Sul Asiático`   = `Mutação.Local`[`Sul Asiático.AC` != 0 &
-                                                      `Mutação.Tipo` == "SNP"]),
-    INDEL = list(Africano         = `Mutação.Local`[Africano.AC != 0 &
-                                                      `Mutação.Tipo` == "INDEL"],
-                 Americano        = `Mutação.Local`[Americano.AC != 0 &
-                                                      `Mutação.Tipo` == "INDEL"],
-                 Europeu          = `Mutação.Local`[Europeu.AC != 0 &
-                                                      `Mutação.Tipo` == "INDEL"],
-                 `Leste Asiático` = `Mutação.Local`[`Leste Asiático.AC` != 0 &
-                                                      `Mutação.Tipo` == "INDEL"],
-                 `Sul Asiático`   = `Mutação.Local`[`Sul Asiático.AC` != 0 &
-                                                      `Mutação.Tipo` == "INDEL"])
-  )
-  detach(mutData)
   
   png(filename = file.path(fig.path, "plot1_" %s+% params$chrom %s+% ".png"), 
       width = fig.width, height = fig.height)
@@ -224,9 +235,9 @@ piRNAgraphs  <- function(chrom) {
       text(
         x      = c(355 + 10, 170 - 10), cex = c(1.1, 0.8), 
         y      = c(1100, 1025), pos = c(2, 2),
-        labels = c("cromossomo " %s+%
-                     stri_extract_all(params$chrom, regex = '[1-9]+|[XY]+'),
-                   "população")
+        labels = c("cromossomo " %s+% stri_extract_all(
+          params$chrom, regex = '[1-9]+|[XY]+'), "população"
+        )
       )
     }
     text(x = 500, y = 10, cex = 1.1, pos = 1,
@@ -236,23 +247,18 @@ piRNAgraphs  <- function(chrom) {
     segments(0, 1000, 1000, 1000, col = "white", lty = 1, lwd = 1)
     segments(1000, 1000, 1000, 0, col = "white", lty = 1, lwd = 1)
     segments(1000, 0, 0, 0, col = "white", lty = 1, lwd = 1)  
-  }  
+  }
   dev.off()
   
   png(filename = file.path(fig.path, "plot4_" %s+% params$chrom %s+% ".png"), 
       width = fig.width, height = fig.height)
-  ggplot(data = meltMUTdataNonZero,
-         aes(x = ifelse(`Mutação.Tipo` == "INDEL", 
-                        "INDEL (n=" %s+% sum(condINDEL) %s+% ")",
-                        "SNP (n=" %s+% sum(condSNP) %s+% ")"), 
-             y = fun_rescale(value),
-             fill = variable)) +
+  ggplot(data = meltMUTdata[AF.Tipo == "AF > 0"],
+         aes(x = `Mutação.Tipo`,  y = fun_rescale(value), fill = variable)) +
     geom_boxplot(width = 0.9) +
     annotate("text", size = 3,
              x = c(0.64, 0.82, 1, 1.18, 1.36, 1.64, 1.82, 2, 2.18, 2.36),
              y = fun_rescale(rep(0.01, 10) / 100), 
-             label = 'n=' %s+% c(table(meltMUTdataNonZero$variable[condINDEL]),
-                                 table(meltMUTdataNonZero$variable[condSNP]))) +
+             label = 'n=' %s+% c(tableINDEL$N, tableSNP$N)) +
     scale_y_continuous(
       breaks = fun_rescale(c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) / 100),
       labels = c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) %s+% "%"

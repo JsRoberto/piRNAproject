@@ -133,16 +133,16 @@ setMethod(
         "* Dados para a região de piRNA =",
         "* 1) Dados sobre cada piRNA não mutado ('pirnaDataNonMut') = ", 
         "* ", sep = "\n")
-    object["adjRegion:piRNA", "pirnaDataNonMut"]
+    show(object["adjRegion:piRNA", "pirnaDataNonMut"])
     cat("* ",
         "* 2) Dados sobre cada piRNA mutado ('pirnaDataMut') = ",
         "* ", sep = "\n")
-    object["adjRegion:piRNA", "pirnaDataMut"]
+    show(object["adjRegion:piRNA", "pirnaDataMut"])
     cat("* ", 
         "* 3) Dados sobre cada mutação ('mutData') = ", 
         "* ", sep = "\n")
-    rbindlist(object["adjRegion:piRNA", "mutData"], 
-              use.names = TRUE, fill = TRUE)
+    show(rbindlist(object["adjRegion:piRNA", "mutData"], 
+                   use.names = TRUE, fill = TRUE, idcol = "mutRef"))
     cat(
       "* -----------------------------------------------------------------" %s+%
         "------------------------------------ ",     
