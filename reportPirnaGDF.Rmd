@@ -214,12 +214,14 @@ meltMUTdata[ , `:=`(
 fun_rescale    <- function(y) {as.numeric(y) ^ {log10(0.5) / log10(0.05)}}
 fun_rescaleInv <- function(y) {as.numeric(y) ^ {log10(0.05) / log10(0.5)}}
 
-x.annotate <-
-  if (meltMUTdata[AF.Tipo == "AF > 0" & `Mutação.Tipo` == "INDEL", .N] == 0) {
-     c(0.64, 0.82, 1, 1.18, 1.36)
-  } else {
-    c(0.64, 0.82, 1, 1.18, 1.36, 1.64, 1.82, 2, 2.18, 2.36)
-  }
+
+if (meltMUTdata[AF.Tipo == "AF > 0" & `Mutação.Tipo` == "INDEL", .N] == 0) {
+  x.annotate <- c(0.64, 0.82, 1, 1.18, 1.36)
+  label.annotate <- c(tableSNP$N)
+} else {
+  x.annotate <- c(0.64, 0.82, 1, 1.18, 1.36, 1.64, 1.82, 2, 2.18, 2.36)
+  label.annotate <- c(tableINDEL$N, tableSNP$N)
+}
 y.annotate <- fun_rescale(rep(0.01, length(x.annotate)) / 100)
 
 ```
@@ -303,7 +305,7 @@ ggplot(data = meltMUTdata[AF.Tipo == "AF > 0"],
        aes(x = `Mutação.Tipo`,  y = fun_rescale(value), fill = variable)) +
   geom_boxplot(width = 0.9) +
   annotate("text", size = 3, x = x.annotate, y = y.annotate, 
-           label = 'n=' %s+% c(tableINDEL$N, tableSNP$N)) +
+           label = 'n=' %s+% label.annotate) +
   scale_y_continuous(
     breaks = fun_rescale(c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) / 100),
     labels = c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) %s+% "%"
