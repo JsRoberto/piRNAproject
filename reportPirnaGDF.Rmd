@@ -214,6 +214,14 @@ meltMUTdata[ , `:=`(
 fun_rescale    <- function(y) {as.numeric(y) ^ {log10(0.5) / log10(0.05)}}
 fun_rescaleInv <- function(y) {as.numeric(y) ^ {log10(0.05) / log10(0.5)}}
 
+x.annotate <-
+  if (meltMUTdata[AF.Tipo == "AF > 0" & `Mutação.Tipo` == "INDEL", .N]$N == 0) {
+     c(0.64, 0.82, 1, 1.18, 1.36)
+  } else {
+    c(0.64, 0.82, 1, 1.18, 1.36, 1.64, 1.82, 2, 2.18, 2.36)
+  }
+y.annotate <- fun_rescale(rep(0.01, length(x.annotate)) / 100)
+
 ```
 
 ```{r plot1}
@@ -223,7 +231,7 @@ ggplot(data = pirnaData, aes(x = piRNA.Tipo, fill = piRNA.Tipo)) +
             position = position_dodge(width = 0.9)) +
   labs(title = 'Classificação de piRNAs no cromossomo ' %s+% 
          stri_extract_all(params$chrom, regex='[1-9]+|[XY]+'),
-       subtitle = 'piRNAs mutados vs não mutados (Total de piRNAs =' %s+%
+       subtitle = 'piRNAs mutados vs não mutados (Total de piRNAs = ' %s+%
          nrow(pirnaData) %s+% ')', x = '', 
        y = 'Quantidade de\npiRNAs') +
   theme(legend.position = 'none') +
@@ -241,7 +249,7 @@ ggplot(data = mutData,
             position = position_dodge(width = 0.9)) +
   labs(title = 'Classificação de mutações em piRNAs no cromossomo ' %s+% 
          stri_extract_all(params$chrom, regex = '[1-9]+|[XY]+'),
-       subtitle = 'Mutações SNP vs INDEL (Total de mutações =' %s+%
+       subtitle = 'Mutações SNP vs INDEL (Total de mutações = ' %s+%
          nrow(mutData) %s+% ')', fill = 'Identificador dbSNP',
        x = '', y = 'Quantidade de\nmutações') +
   theme(legend.position = "top") +
@@ -267,15 +275,15 @@ for (nameMut in c("INDEL", "SNP")) {
     text(
       x      = c(0, 0), cex = c(1.1, 0.8), 
       y      = c(1100, 1025), pos = c(4, 4),
-      labels = c("Distribuição de mutações em piRNAs no",
+      labels = c("Distribuição de mutações em piRNAs",
                  "Diagrama de Venn para quantidade de mutações por")
     )
   }
   if (nameMut == "SNP") {
     text(
-      x      = c(355 + 10, 170 - 10), cex = c(1.1, 0.8), 
+      x      = c(355 + 10, 170 - 5), cex = c(1.1, 0.8), 
       y      = c(1100, 1025), pos = c(2, 2),
-      labels = c("cromossomo " %s+% stri_extract_all(
+      labels = c("no cromossomo " %s+% stri_extract_all(
         params$chrom, regex = '[1-9]+|[XY]+'), "população"
       )
     )
@@ -294,9 +302,7 @@ for (nameMut in c("INDEL", "SNP")) {
 ggplot(data = meltMUTdata[AF.Tipo == "AF > 0"],
        aes(x = `Mutação.Tipo`,  y = fun_rescale(value), fill = variable)) +
   geom_boxplot(width = 0.9) +
-  annotate("text", size = 3,
-           x = c(0.64, 0.82, 1, 1.18, 1.36, 1.64, 1.82, 2, 2.18, 2.36),
-           y = fun_rescale(rep(0.01, 10) / 100), 
+  annotate("text", size = 3, x = x.annotate, y = y.annotate, 
            label = 'n=' %s+% c(tableINDEL$N, tableSNP$N)) +
   scale_y_continuous(
     breaks = fun_rescale(c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) / 100),
