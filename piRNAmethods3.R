@@ -274,6 +274,8 @@ piRNAcalc <- function(vcf_file, gff_file) {
     }
   )
   
+  VCFteste <<- vcfTable
+  
   catExeTime(
     expressionTime = "Cálculo das taxas de mutacão",
     expressionR    = {
@@ -283,7 +285,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
       ##   groupvars: a vector containing names of columns that contain grouping variables
       ##   na.rm: a boolean that indicates whether to ignore NA's
       ##   conf.interval: the percent range of the confidence interval (default is 95%)
-      saveMutRate <- function(data, region, fileRate) {
+      saveMutRate <<- function(data, region, fileRate) {
         summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
                               conf.interval=.95, .drop=TRUE) {
           suppressPackageStartupMessages(require(plyr))
