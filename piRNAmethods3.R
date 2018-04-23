@@ -296,14 +296,19 @@ piRNAcalc <- function(vcf_file, gff_file) {
           
           # This does the summary. For each group's data frame, return a vector with
           # N, mean, and sd
-          datac <- ddply(data, groupvars, .drop=.drop,
-                         .fun = function(xx, col) {
-                           c(N    = length2(xx[[col]], na.rm=na.rm),
-                             rate = sum    (xx[[col]], na.rm=na.rm) / nt,
-                             sd   = sd     (xx[[col]], na.rm=na.rm)
-                           )
-                         },
-                         measurevar
+          datac <- ddply(
+            data, groupvars, .drop=.drop,
+            .fun = function(xx, col) {
+              c(N    = length2(xx[[col]], na.rm=na.rm),
+                rate = mean   (c(xx[[col]],
+                                 rep(0, nt - length2(xx[[col]], na.rm=na.rm))),
+                               na.rm=na.rm),
+                sd   = sd     (c(xx[[col]], 
+                                 rep(0, nt - length2(xx[[col]], na.rm=na.rm))),
+                               na.rm=na.rm)
+              )
+            },
+            measurevar
           )
           
           # Rename the "mean" column    
