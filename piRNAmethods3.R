@@ -274,8 +274,6 @@ piRNAcalc <- function(vcf_file, gff_file) {
     }
   )
   
-  VCFteste <<- vcfTable
-  
   catExeTime(
     expressionTime = "Cálculo das taxas de mutacão",
     expressionR    = {
@@ -285,69 +283,36 @@ piRNAcalc <- function(vcf_file, gff_file) {
       ##   groupvars: a vector containing names of columns that contain grouping variables
       ##   na.rm: a boolean that indicates whether to ignore NA's
       ##   conf.interval: the percent range of the confidence interval (default is 95%)
-      saveMutRate <<- function(data, region, fileRate) {
-        summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
-                              conf.interval=.95, .drop=TRUE) {
-          suppressPackageStartupMessages(require(plyr))
-          
-          # New version of length which can handle NA's: if na.rm==T, don't count them
-          length2 <- function (x, na.rm=FALSE) {
-            if (na.rm) sum(!is.na(x))
-            else       length(x)
-          }
-          
-          # This does the summary. For each group's data frame, return a vector with
-          # N, mean, and sd
-          datac <- ddply(
-            data, groupvars, .drop=.drop,
-            .fun = function(xx, col) {
-              c(N    = length2(xx[[col]], na.rm=na.rm),
-                rate = mean   (c(xx[[col]],
-                                 rep(0, nt - length2(xx[[col]], na.rm=na.rm))),
-                               na.rm=na.rm),
-                sd   = sd     (c(xx[[col]], 
-                                 rep(0, nt - length2(xx[[col]], na.rm=na.rm))),
-                               na.rm=na.rm)
-              )
-            },
-            measurevar
-          )
-          
-          # Rename the "mean" column    
-          #datac <- rename(datac, c("rate" = measurevar))
-          
-          datac$se <- datac$sd / sqrt(datac$N)  # Calculate standard error of the mean
-          
-          # Confidence interval multiplier for standard error
-          # Calculate t-statistic for confidence interval: 
-          # e.g., if conf.interval is .95, use .975 (above/below), and use df=N-1
-          ciMult <- qt(conf.interval/2 + .5, datac$N-1)
-          datac$ci <- datac$se * ciMult
-          
-          return(datac)
-        }
+      saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
         if (region == "all") {
           nt <- infoData[chromID == chrom, numBases]
         }
         if (region == "piRNA") {
           nt <- pirnaData[ , sum(Local.Final - `Local.Início`)]
         }
-        mutRate <- summarySE(
-          data, measurevar = "Total.AF", groupvars = "Mutação.Tipo"
-        )
+        mutRate <- data[ , .(
+          bases = nt, 
+          rate  = mean(c(Total.AF, rep(0, nt - .N))),
+          sd    = sd(c(Total.AF, rep(0, nt - .N)))
+        ), by = `Mutação.Tipo`]
+        
+        mutRate[ , se := sd / sqrt(bases)]
+        
+        mutRate[ , ci := se * qt(conf.interval / 2 + .5, bases - 1)]
+        
         allDir <- file.path(gitHubDir, "piRNAall")
         dir.create(allDir, showWarnings = FALSE)
-        fileRate <- file.path(allDir, fileRate)
-        if (!file.exists(fileRate)) {
+        pathFileRate <- file.path(allDir, fileRate)
+        if (!file.exists(pathFileRate)) {
           tableRate <- cbind(chrom = chrom, region = region, mutRate)
-          saveRDS(tableRate, file = fileRate)
+          saveRDS(tableRate, file = pathFileRate)
         } else {
-          tableRate <- readRDS(fileRate)
+          tableRate <- readRDS(pathFileRate)
           tableRate <- rbind(tableRate, cbind(
             chrom = chrom, region = region, mutRate
           ))
           tableRate <- tableRate[order(chrom, region)]
-          saveRDS(tableRate, file = fileRate)
+          saveRDS(tableRate, file = pathFileRate)
         }
       }
       
