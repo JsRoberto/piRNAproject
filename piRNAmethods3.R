@@ -339,7 +339,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
           tableRate <- rbind(tableRate, cbind(
             chrom = chrom, region = region, mutRate
           ))
-          tableRate <- tableRate[order(chrom, region, `Mutação.Tipo`)]
+          tableRate <- tableRate[order(chrom, region)]
           saveRDS(tableRate, file = fileRate)
         }
       }
