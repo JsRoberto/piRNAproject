@@ -290,11 +290,14 @@ piRNAcalc <- function(vcf_file, gff_file) {
         if (region == "piRNA") {
           nt <- pirnaData[ , sum(Local.Final - `Local.Início`)]
         }
+        
+        mutRate <- data[ , tipo := `Mutação.Tipo`]
+        
         mutRate <- data[ , .(
           bases = nt, 
           rate  = mean(c(Total.AF, rep(0, nt - .N))),
           sd    = sd(c(Total.AF, rep(0, nt - .N)))
-        ), by = `Mutação.Tipo`]
+        ), by = tipo]
         
         mutRate[ , se := sd / sqrt(bases)]
         
