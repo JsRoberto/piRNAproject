@@ -300,6 +300,8 @@ piRNAcalc <- function(vcf_file, gff_file) {
         
         mutRate[ , ci := se * qt(conf.interval / 2 + .5, bases - 1)]
         
+        mutRate[ , `:=`(tipo = `Mutação.Tipo`, `Mutação.Tipo` = NULL)]
+        
         allDir <- file.path(gitHubDir, "piRNAall")
         dir.create(allDir, showWarnings = FALSE)
         pathFileRate <- file.path(allDir, fileRate)
