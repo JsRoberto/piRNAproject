@@ -318,8 +318,6 @@ piRNAcalc <- function(vcf_file, gff_file) {
         }
       }
       
-      saveMutRate(vcfTable, "all", "mutRate.rds")
-      
       pirnaObject <- "pirnaGDF" %s+% chrom %s+% ".rds"
       
       pirnaGDF <- readRDS(file.path(pirnaDir, pirnaObject))
@@ -331,6 +329,8 @@ piRNAcalc <- function(vcf_file, gff_file) {
       
       mutData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"], 
                            idcol = "piRNA.Referência")
+      
+      saveMutRate(vcfTable, "all", "mutRate.rds")
       
       saveMutRate(mutData, "piRNA", "mutRate.rds")
     }
