@@ -291,19 +291,17 @@ piRNAcalc <- function(vcf_file, gff_file) {
           nt <- pirnaData[ , sum(Local.Final - `Local.Início`)]
         }
         
-        mutRate <- data[ , tipo := `Mutação.Tipo`]
-        
         mutRate <- data[ , .(
           bases = nt, 
           rate  = mean(c(Total.AF, rep(0, nt - .N))),
           sd    = sd(c(Total.AF, rep(0, nt - .N)))
-        ), by = tipo]
+        ), by = `Mutação.Tipo`]
         
         mutRate[ , se := sd / sqrt(bases)]
         
         mutRate[ , ci := se * qt(conf.interval / 2 + .5, bases - 1)]
         
-        mutRate[ , `:=`(tipo = `Mutação.Tipo`, `Mutação.Tipo` = NULL)]
+        colnames(mutRate)[3] <- "tipo"
         
         allDir <- file.path(gitHubDir, "piRNAall")
         dir.create(allDir, showWarnings = FALSE)
