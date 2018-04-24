@@ -285,7 +285,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
       ##   conf.interval: the percent range of the confidence interval (default is 95%)
       saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
         if (region == "all") {
-          nt <- mutaData[ , diff(range(`Mutação.Local`))]
+          nt <- mutData[ , diff(range(`Mutação.Local`))]
         }
         if (region == "piRNA") {
           nt <- pirnaData[ , sum(Local.Final - `Local.Início`)]
