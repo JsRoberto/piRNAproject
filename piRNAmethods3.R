@@ -31,9 +31,6 @@ if(!suppressMessages(require(reshape2))) {
 if(!suppressMessages(require(readr))) {
   install.packages("readr")
 }
-if(!suppressMessages(require(plyr))) {
-  install.packages("plyr")
-}
 if(!suppressMessages(require(data.table))) {
   install.packages("data.table")
 }
@@ -284,13 +281,12 @@ piRNAcalc <- function(vcf_file, gff_file) {
       ##   na.rm: a boolean that indicates whether to ignore NA's
       ##   conf.interval: the percent range of the confidence interval (default is 95%)
       saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
-        if (region == "all") {
-          nt <- mutData[ , diff(range(`Mutação.Local`))]
+        if (region == "chrom.all") {
+          nt <- mutData[ , diff(range(`Mutação.Local`)) + 1]
+        } else {
+          nt <- pirnaData[ , sum(Local.Final - `Local.Início` + 1)]
         }
-        if (region == "piRNA") {
-          nt <- pirnaData[ , sum(Local.Final - `Local.Início`)]
-        }
-        
+       
         mutRate <- data[ , .(
           bases = nt, 
           rate  = mean(c(Total.AF, rep(0, nt - .N))),
@@ -314,7 +310,6 @@ piRNAcalc <- function(vcf_file, gff_file) {
           tableRate <- rbind(tableRate, cbind(
             chrom = chrom, region = region, mutRate
           ))
-          tableRate <- tableRate[order(chrom, region)]
           saveRDS(tableRate, file = pathFileRate)
         }
       }
@@ -331,9 +326,9 @@ piRNAcalc <- function(vcf_file, gff_file) {
       mutData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"], 
                            idcol = "piRNA.Referência")
       
-      saveMutRate(vcfTable, "all", "mutRate.rds")
+      saveMutRate(vcfTable, "chrom.all", "mutRate.rds")
       
-      saveMutRate(mutData, "piRNA", "mutRate.rds")
+      saveMutRate(mutData, "piRNA.all", "mutRate.rds")
     }
   )
   ###################################################################
