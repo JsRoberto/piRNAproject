@@ -1158,23 +1158,23 @@ piRNAgraphics1 <- function(CHROM) {
   
   ####################
   
-  # params     <- list(
-  #   pirnaDir    = "/data/projects/metagenomaCG/jose/piRNAproject/" %s+%
-  #     "piRNAproject/piRNA" %s+% CHROM,
-  #   gitHubDir   = "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject",
-  #   pirnaObject = "pirnaGDF" %s+% CHROM %s+% ".rds",
-  #   fileRout    = "piRNAcalc_" %s+% CHROM %s+% ".Rout",
-  #   chrom       = CHROM
-  # )
-  
-  params <- list(
-    pirnaDir    = "C:/Rdir/" %s+%
+  params     <- list(
+    pirnaDir    = "/data/projects/metagenomaCG/jose/piRNAproject/" %s+%
       "piRNAproject/piRNA" %s+% CHROM,
-    gitHubDir   = "C:/Rdir/piRNAproject",
+    gitHubDir   = "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject",
     pirnaObject = "pirnaGDF" %s+% CHROM %s+% ".rds",
     fileRout    = "piRNAcalc_" %s+% CHROM %s+% ".Rout",
     chrom       = CHROM
   )
+  
+  # params <- list(
+  #   pirnaDir    = "C:/Rdir/" %s+%
+  #     "piRNAproject/piRNA" %s+% CHROM,
+  #   gitHubDir   = "C:/Rdir/piRNAproject",
+  #   pirnaObject = "pirnaGDF" %s+% CHROM %s+% ".rds",
+  #   fileRout    = "piRNAcalc_" %s+% CHROM %s+% ".Rout",
+  #   chrom       = CHROM
+  # )
   fig.opts <- list(
     path = file.path(pirnaDir, "figures"), res = 300, 
     unit = "in", width = 7, height = 5
