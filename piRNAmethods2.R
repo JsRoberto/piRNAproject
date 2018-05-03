@@ -1,7 +1,7 @@
 ################################################################################
 # Projeto piRNA - Funções para identificação de mutações em piRNAs
 
-.libPaths("C:/Rdir/library_R-3.4.0")
+#.libPaths("C:/Rdir/library_R-3.4.0")
 #.libPaths("/home/lghm/R/x86_64-pc-linux-gnu-library/3.4/")
 
 if(!suppressMessages(require(knitr))) {
@@ -1158,23 +1158,23 @@ piRNAgraphics1 <- function(CHROM) {
   
   ####################
   
-  # params     <- list(
-  #   pirnaDir    = "/data/projects/metagenomaCG/jose/piRNAproject/" %s+%
-  #     "piRNAproject/piRNA" %s+% CHROM,
-  #   gitHubDir   = "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject",
-  #   pirnaObject = "pirnaGDF" %s+% CHROM %s+% ".rds",
-  #   fileRout    = "piRNAcalc_" %s+% CHROM %s+% ".Rout",
-  #   chrom       = CHROM
-  # )
-  
-  params <- list(
-    pirnaDir    = "C:/Rdir/" %s+%
+  params     <- list(
+    pirnaDir    = "/data/projects/metagenomaCG/jose/piRNAproject/" %s+%
       "piRNAproject/piRNA" %s+% CHROM,
-    gitHubDir   = "C:/Rdir/piRNAproject",
+    gitHubDir   = "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject",
     pirnaObject = "pirnaGDF" %s+% CHROM %s+% ".rds",
     fileRout    = "piRNAcalc_" %s+% CHROM %s+% ".Rout",
     chrom       = CHROM
   )
+  
+  # params <- list(
+  #   pirnaDir    = "C:/Rdir/" %s+%
+  #     "piRNAproject/piRNA" %s+% CHROM,
+  #   gitHubDir   = "C:/Rdir/piRNAproject",
+  #   pirnaObject = "pirnaGDF" %s+% CHROM %s+% ".rds",
+  #   fileRout    = "piRNAcalc_" %s+% CHROM %s+% ".Rout",
+  #   chrom       = CHROM
+  # )
   fig.opts <- list(
     path = file.path(params$pirnaDir, "figures"), res = 300, 
     unit = "in", width = 7, height = 5, type = 'cairo'
