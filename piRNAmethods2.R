@@ -1074,6 +1074,7 @@ piRNAgraphics1 <- function(CHROM) {
   suppressPackageStartupMessages(require(foreach))
   suppressPackageStartupMessages(require(doSNOW))
   suppressPackageStartupMessages(require(tictoc))
+  suppressPackageStartupMessages(require(ggplot2))
   
   #########################
   options(bitmapType = 'cairo')
