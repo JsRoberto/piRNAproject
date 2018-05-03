@@ -1307,19 +1307,41 @@ piRNAgraphics1 <- function(CHROM) {
     scale_color_pirna("cool") +
     scale_fill_pirna("cool")
   
-  savePNG(plotID = "plot1", pirnaMAP = "all", plotEXP = plot1)
+  # savePNG(plotID = "plot1", pirnaMAP = "all", plotEXP = plot1)
   
-  savePNG(plotID = "plot1", pirnaMAP = "uni+multi", plotEXP = {
-    plot1 + facet_grid( .~piRNA.Mapeamento) +
-      labs(title = 'Classificação de piRNAs no cromossomo ' %s+% 
-             stri_extract_all(params$chrom, regex='[1-9]+|[XY]+|all'),
-           subtitle = 'piRNAs mutados vs não mutados (Total de piRNAs = ' %s+%
-             nrow(pirnaData[piRNA.Mapeamento == "Único"]) %s+% 
-             ' de poisição única e ' %s+% 
-             nrow(pirnaData[piRNA.Mapeamento == "Múltiplo"]) %s+%
-             ' de posição múltipla)', 
-           x = '', y = 'Quantidade de\npiRNAs')
-  })
+  png(filename = file.path(fig.opts$path, "plot1" %s+% "_" %s+% 
+                             params$chrom %s+% "_" %s+% "all" %s+% ".png"),
+      width = fig.opts$width, height = fig.opts$height, 
+      units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
+  plot1
+  dev.off()
+  
+  # savePNG(plotID = "plot1", pirnaMAP = "uni+multi", plotEXP = {
+  #   plot1 + facet_grid( .~piRNA.Mapeamento) +
+  #     labs(title = 'Classificação de piRNAs no cromossomo ' %s+% 
+  #            stri_extract_all(params$chrom, regex='[1-9]+|[XY]+|all'),
+  #          subtitle = 'piRNAs mutados vs não mutados (Total de piRNAs = ' %s+%
+  #            nrow(pirnaData[piRNA.Mapeamento == "Único"]) %s+% 
+  #            ' de poisição única e ' %s+% 
+  #            nrow(pirnaData[piRNA.Mapeamento == "Múltiplo"]) %s+%
+  #            ' de posição múltipla)', 
+  #          x = '', y = 'Quantidade de\npiRNAs')
+  # })
+  
+  png(filename = file.path(fig.opts$path, "plot1" %s+% "_" %s+% 
+                             params$chrom %s+% "_" %s+% "uni+multi" %s+% ".png"),
+      width = fig.opts$width, height = fig.opts$height, 
+      units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
+  plot1 + facet_grid( .~piRNA.Mapeamento) +
+    labs(title = 'Classificação de piRNAs no cromossomo ' %s+% 
+           stri_extract_all(params$chrom, regex='[1-9]+|[XY]+|all'),
+         subtitle = 'piRNAs mutados vs não mutados (Total de piRNAs = ' %s+%
+           nrow(pirnaData[piRNA.Mapeamento == "Único"]) %s+% 
+           ' de poisição única e ' %s+% 
+           nrow(pirnaData[piRNA.Mapeamento == "Múltiplo"]) %s+%
+           ' de posição múltipla)', 
+         x = '', y = 'Quantidade de\npiRNAs')
+  dev.off()
   
   plot2 <- ggplot(data = mutData,
                   aes(fill = ifelse(`Mutação.ID` == '.', 'Sem RS', 'Com RS'),
@@ -1337,71 +1359,98 @@ piRNAgraphics1 <- function(CHROM) {
     scale_color_pirna("cool") +
     scale_fill_pirna("cool")
   
+  # savePNG(plotID = "plot2", pirnaMAP = "uni+multi", plotEXP = {
+  #   plot2 + facet_grid( .~piRNA.Mapeamento) +
+  #     labs(title = 'Classificação de mutações em piRNAs no cromossomo ' %s+% 
+  #            stri_extract_all(params$chrom, regex = '[1-9]+|[XY]+|all'),
+  #          subtitle = 'Mutações SNP vs INDEL (Total de mutações = ' %s+%
+  #            nrow(mutData[pirnaDataAux[ , piRNA.Mapeamento == "Único"]]) %s+% 
+  #            ' em piRNAs de poisição única e ' %s+% 
+  #            nrow(mutData[pirnaDataAux[ , piRNA.Mapeamento == "Múltiplo"]]) %s+%
+  #            ' em piRNAs de posição múltipla)', fill = 'Identificador dbSNP',
+  #          x = '', y = 'Quantidade de\nmutações')
+  # })
   
+  png(filename = file.path(fig.opts$path, "plot2" %s+% "_" %s+% 
+                             params$chrom %s+% "_" %s+% "all" %s+% 
+                             ".png"),
+      width = fig.opts$width, height = fig.opts$height, 
+      units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
+  plot2
+  dev.off()
   
-  savePNG(plotID = "plot2", pirnaMAP = "uni+multi", plotEXP = {
-    plot2 + facet_grid( .~piRNA.Mapeamento) +
-      labs(title = 'Classificação de mutações em piRNAs no cromossomo ' %s+% 
-             stri_extract_all(params$chrom, regex = '[1-9]+|[XY]+|all'),
-           subtitle = 'Mutações SNP vs INDEL (Total de mutações = ' %s+%
-             nrow(mutData[pirnaDataAux[ , piRNA.Mapeamento == "Único"]]) %s+% 
-             ' em piRNAs de poisição única e ' %s+% 
-             nrow(mutData[pirnaDataAux[ , piRNA.Mapeamento == "Múltiplo"]]) %s+%
-             ' em piRNAs de posição múltipla)', fill = 'Identificador dbSNP',
-           x = '', y = 'Quantidade de\nmutações')
-  })
+  png(filename = file.path(fig.opts$path, "plot2" %s+% "_" %s+% 
+                             params$chrom %s+% "_" %s+% "uni+multi" %s+% 
+                             ".png"),
+      width = fig.opts$width, height = fig.opts$height, 
+      units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
+  plot2 + facet_grid( .~piRNA.Mapeamento) +
+    labs(title = 'Classificação de mutações em piRNAs no cromossomo ' %s+% 
+           stri_extract_all(params$chrom, regex = '[1-9]+|[XY]+|all'),
+         subtitle = 'Mutações SNP vs INDEL (Total de mutações = ' %s+%
+           nrow(mutData[pirnaDataAux[ , piRNA.Mapeamento == "Único"]]) %s+% 
+           ' em piRNAs de poisição única e ' %s+% 
+           nrow(mutData[pirnaDataAux[ , piRNA.Mapeamento == "Múltiplo"]]) %s+%
+           ' em piRNAs de posição múltipla)', fill = 'Identificador dbSNP',
+         x = '', y = 'Quantidade de\nmutações')
+  dev.off()
+  
   
   for (mapPirna in c("piRNAall", "piRNAuni", "piRNAmulti")) {
-    # savePNG(plotID = "plot3", pirnaMAP = mapPirna, plotEXP = {
-      par(mfrow = c(1,2))
-      for (nameMut in c("INDEL", "SNP")) {
-        if (sum(sapply(vennMUTdata[[mapPirna]][[nameMut]], length)) == 0) {
-          venn(length(vennMUTdata[[mapPirna]][[nameMut]]),
-               snames = names(vennMUTdata[[mapPirna]][[nameMut]]),
-               zcolor = "lightgray", col = "lightgray",
-               cexsn = 0.75, cexil = 0.75, opacity = 1)
-          text(x = c(500, 500), y = c(525, 475), 
-               labels = c("Não há mutações", "nas populações"))
-        } else {
-          venn(vennMUTdata[[mapPirna]][[nameMut]], cexsn = 0.75, cexil = 0.75, 
-               opacity = 0.6, zcolor = pirna_palettes$mixed, 
-               col = pirna_palettes$mixed)
-        }
-        if (nameMut == "INDEL") {
-          text(
-            x      = c(0, 0), cex = c(1.1, 0.8), 
-            y      = c(1100, 1025), pos = c(4, 4),
-            labels = c("Distribuição de mutações em piRNAs",
-                       "Diagrama de Venn para quantidade de mutações por")
-          )
-        }
-        if (nameMut == "SNP") {
-          text(
-            x      = c(355 + 11, 170 - 4), cex = c(1.1, 0.8), 
-            y      = c(1100, 1025), pos = c(2, 2),
-            labels = c("no cromossomo " %s+% stri_extract_all(
-              params$chrom, regex = '[1-9]+|[XY]+|all'), "população")
-          )
-        }
-        if (mapPirna == "piRNAall") {
-          nmut <- mutData[ , sum(`Mutação.Tipo` == nameMut)]
-        }
-        if (mapPirna == "piRNAmulti") {
-          nmut <- mutData[piRNA.Mapeamento == "Múltiplo",
-                          sum(`Mutação.Tipo` == nameMut)]
-        }
-        if (mapPirna == "piRNAuni") {
-          nmut <- mutData[piRNA.Mapeamento == "Único", 
-                          sum(`Mutação.Tipo` == nameMut)]
-        } 
-        text(x = 500, y = 10, cex = 1.1, pos = 1,
-             labels = nameMut %s+% "(n=" %s+% nmut %s+% ")")
-        segments(0, 0, 0, 1000, col = "white", lty = 1, lwd = 1)
-        segments(0, 1000, 1000, 1000, col = "white", lty = 1, lwd = 1)
-        segments(1000, 1000, 1000, 0, col = "white", lty = 1, lwd = 1)
-        segments(1000, 0, 0, 0, col = "white", lty = 1, lwd = 1)
+    png(filename = file.path(fig.opts$path, "plot3" %s+% "_" %s+% 
+                               params$chrom %s+% "_" %s+% mapPirna %s+% 
+                               ".png"),
+        width = fig.opts$width, height = fig.opts$height,
+        units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
+    par(mfrow = c(1,2))
+    for (nameMut in c("INDEL", "SNP")) {
+      if (sum(sapply(vennMUTdata[[mapPirna]][[nameMut]], length)) == 0) {
+        venn(length(vennMUTdata[[mapPirna]][[nameMut]]),
+             snames = names(vennMUTdata[[mapPirna]][[nameMut]]),
+             zcolor = "lightgray", col = "lightgray",
+             cexsn = 0.75, cexil = 0.75, opacity = 1)
+        text(x = c(500, 500), y = c(525, 475), 
+             labels = c("Não há mutações", "nas populações"))
+      } else {
+        venn(vennMUTdata[[mapPirna]][[nameMut]], cexsn = 0.75, cexil = 0.75, 
+             opacity = 0.6, zcolor = pirna_palettes$mixed, 
+             col = pirna_palettes$mixed)
       }
-    # })
+      if (nameMut == "INDEL") {
+        text(
+          x      = c(0, 0), cex = c(1.1, 0.8), 
+          y      = c(1100, 1025), pos = c(4, 4),
+          labels = c("Distribuição de mutações em piRNAs",
+                     "Diagrama de Venn para quantidade de mutações por")
+        )
+      }
+      if (nameMut == "SNP") {
+        text(
+          x      = c(355 + 11, 170 - 4), cex = c(1.1, 0.8), 
+          y      = c(1100, 1025), pos = c(2, 2),
+          labels = c("no cromossomo " %s+% stri_extract_all(
+            params$chrom, regex = '[1-9]+|[XY]+|all'), "população")
+        )
+      }
+      if (mapPirna == "piRNAall") {
+        nmut <- mutData[ , sum(`Mutação.Tipo` == nameMut)]
+      }
+      if (mapPirna == "piRNAmulti") {
+        nmut <- mutData[piRNA.Mapeamento == "Múltiplo",
+                        sum(`Mutação.Tipo` == nameMut)]
+      }
+      if (mapPirna == "piRNAuni") {
+        nmut <- mutData[piRNA.Mapeamento == "Único", 
+                        sum(`Mutação.Tipo` == nameMut)]
+      } 
+      text(x = 500, y = 10, cex = 1.1, pos = 1,
+           labels = nameMut %s+% "(n=" %s+% nmut %s+% ")")
+      segments(0, 0, 0, 1000, col = "white", lty = 1, lwd = 1)
+      segments(0, 1000, 1000, 1000, col = "white", lty = 1, lwd = 1)
+      segments(1000, 1000, 1000, 0, col = "white", lty = 1, lwd = 1)
+      segments(1000, 0, 0, 0, col = "white", lty = 1, lwd = 1)
+    }
+    dev.off()
   }
   
   fun_rescale <- function(y) {as.numeric(y) ^ {log10(0.5) / log10(0.05)}}
@@ -1424,57 +1473,64 @@ piRNAgraphics1 <- function(CHROM) {
     scale_color_pirna("mixed") +
     scale_fill_pirna("mixed")
   
-  savePNG(plotID = "plot4", pirnaMAP = "all", plotEXP = {
-    x.annotate     <- 1:5
-    label.fun <- function(x) {
-      meltMUTdata[AF.Tipo == "AF > 0"][
-        order(Mut.TipoAll, variable), .N, by = .(Mut.TipoAll, variable)
-      ]$N[c(x, x + 5)]
-    }
-    label.annotate <- list(
-      label.fun(x.annotate[1]), label.fun(x.annotate[2]),
-      label.fun(x.annotate[3]), label.fun(x.annotate[4]),
-      label.fun(x.annotate[5])
-    )
-    add_annotate4.1 <- function(x, label) {
-      ggplot2::annotate("text", size = 3, x = x, 
-                        y = fun_rescale(0.01 / 100),
-                        label = 'n=' %s+% label)
-    }
-    plot4 + facet_grid(.~Mut.TipoAll) +
-      add_annotate4.1(x.annotate[1], label.annotate[[1]]) +
-      add_annotate4.1(x.annotate[2], label.annotate[[2]]) +
-      add_annotate4.1(x.annotate[3], label.annotate[[3]]) +
-      add_annotate4.1(x.annotate[4], label.annotate[[4]]) +
-      add_annotate4.1(x.annotate[5], label.annotate[[5]])
-      
-  })
+  png(filename = file.path(fig.opts$path, "plot4" %s+% "_" %s+% 
+                             params$chrom %s+% "_" %s+% "all" %s+% 
+                             ".png"),
+      width = fig.opts$width, height = fig.opts$height, 
+      units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
+  x.annotate     <- 1:5
+  label.fun <- function(x) {
+    meltMUTdata[AF.Tipo == "AF > 0"][
+      order(Mut.TipoAll, variable), .N, by = .(Mut.TipoAll, variable)
+    ]$N[c(x, x + 5)]
+  }
+  label.annotate <- list(
+    label.fun(x.annotate[1]), label.fun(x.annotate[2]),
+    label.fun(x.annotate[3]), label.fun(x.annotate[4]),
+    label.fun(x.annotate[5])
+  )
+  add_annotate4.1 <- function(x, label) {
+    ggplot2::annotate("text", size = 3, x = x, 
+                      y = fun_rescale(0.01 / 100),
+                      label = 'n=' %s+% label)
+  }
+  plot4 + facet_grid(.~Mut.TipoAll) +
+    add_annotate4.1(x.annotate[1], label.annotate[[1]]) +
+    add_annotate4.1(x.annotate[2], label.annotate[[2]]) +
+    add_annotate4.1(x.annotate[3], label.annotate[[3]]) +
+    add_annotate4.1(x.annotate[4], label.annotate[[4]]) +
+    add_annotate4.1(x.annotate[5], label.annotate[[5]])
+  dev.off()
   
-  savePNG(plotID = "plot4", pirnaMAP = "uni+multi", plotEXP = {
-    x.annotate <- 1:5
-    label.fun <- function(x) {
-      meltMUTdata[AF.Tipo == "AF > 0"][
-        order(Mut.TipoByMap, piRNA.Mapeamento, variable), .N,
-        by = .(variable, piRNA.Mapeamento, Mut.TipoByMap)
-      ]$N[c(x, x + 10, x + 5, x + 15)]
-    }
-    label.annotate <- list(
-      label.fun(x.annotate[1]), label.fun(x.annotate[2]),
-      label.fun(x.annotate[3]), label.fun(x.annotate[4]),
-      label.fun(x.annotate[5])
-    )
-    add_annotate4.2 <- function(x, label) {
-      ggplot2::annotate("text", size = 3, x = x, 
-                        y = fun_rescale(0.01 / 100),
-                        label = 'n=' %s+% label)
-    }
-    plot4 + facet_grid(piRNA.Mapeamento~Mut.TipoByMap) +
-      add_annotate4.2(x.annotate[1], label.annotate[[1]]) +
-      add_annotate4.2(x.annotate[2], label.annotate[[2]]) +
-      add_annotate4.2(x.annotate[3], label.annotate[[3]]) +
-      add_annotate4.2(x.annotate[4], label.annotate[[4]]) +
-      add_annotate4.2(x.annotate[5], label.annotate[[5]])
-  })
+  png(filename = file.path(fig.opts$path, "plot4" %s+% "_" %s+% 
+                             params$chrom %s+% "_" %s+% "uni+multi" %s+% 
+                             ".png"),
+      width = fig.opts$width, height = fig.opts$height, 
+      units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
+  x.annotate <- 1:5
+  label.fun <- function(x) {
+    meltMUTdata[AF.Tipo == "AF > 0"][
+      order(Mut.TipoByMap, piRNA.Mapeamento, variable), .N,
+      by = .(variable, piRNA.Mapeamento, Mut.TipoByMap)
+    ]$N[c(x, x + 10, x + 5, x + 15)]
+  }
+  label.annotate <- list(
+    label.fun(x.annotate[1]), label.fun(x.annotate[2]),
+    label.fun(x.annotate[3]), label.fun(x.annotate[4]),
+    label.fun(x.annotate[5])
+  )
+  add_annotate4.2 <- function(x, label) {
+    ggplot2::annotate("text", size = 3, x = x, 
+                      y = fun_rescale(0.01 / 100),
+                      label = 'n=' %s+% label)
+  }
+  plot4 + facet_grid(piRNA.Mapeamento~Mut.TipoByMap) +
+    add_annotate4.2(x.annotate[1], label.annotate[[1]]) +
+    add_annotate4.2(x.annotate[2], label.annotate[[2]]) +
+    add_annotate4.2(x.annotate[3], label.annotate[[3]]) +
+    add_annotate4.2(x.annotate[4], label.annotate[[4]]) +
+    add_annotate4.2(x.annotate[5], label.annotate[[5]])
+  dev.off()
 }
 
 piRNAgraphics <- function(CHROM) {
