@@ -49,12 +49,12 @@ if(!suppressMessages(require(venn))) {
 if(!suppressMessages(require(ggplot2))) {
   install.packages("ggplot2")
 }
-if(!suppressMessages(require(plotly))) {
-  install.packages("plotly")
-}
-if(!suppressMessages(require(webshot))) {
-  install.packages("webshot")
-}
+# if(!suppressMessages(require(plotly))) {
+#   install.packages("plotly")
+# }
+# if(!suppressMessages(require(webshot))) {
+#   install.packages("webshot")
+# }
 
 # A função piRNAcalc tem dois objetivos:
 # (1) Realizar o pré-processamento dos arquivos VCF e GFF -> Obtenção dos 
