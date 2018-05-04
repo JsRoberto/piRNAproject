@@ -1310,10 +1310,10 @@ piRNAgraphics1 <- function(CHROM) {
   
   # savePNG(plotID = "plot1", pirnaMAP = "all", plotEXP = plot1)
   
-  png(filename = file.path(fig.opts$path, "plot1" %s+% "_" %s+% 
-                             params$chrom %s+% "_" %s+% "all" %s+% ".png"),
-      width = fig.opts$width, height = fig.opts$height, 
-      units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
+  tiff(filename = file.path(fig.opts$path, "plot1" %s+% "_" %s+% 
+                              params$chrom %s+% "_" %s+% "all" %s+% ".tiff"),
+       width = fig.opts$width, height = fig.opts$height, 
+       units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
   plot1
   dev.off()
   
@@ -1329,10 +1329,10 @@ piRNAgraphics1 <- function(CHROM) {
   #          x = '', y = 'Quantidade de\npiRNAs')
   # })
   
-  png(filename = file.path(fig.opts$path, "plot1" %s+% "_" %s+% 
-                             params$chrom %s+% "_" %s+% "uni+multi" %s+% ".png"),
-      width = fig.opts$width, height = fig.opts$height, 
-      units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
+  tiff(filename = file.path(fig.opts$path, "plot1" %s+% "_" %s+% 
+                              params$chrom %s+% "_" %s+% "uni+multi" %s+% ".tiff"),
+       width = fig.opts$width, height = fig.opts$height, 
+       units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
   plot1 + facet_grid( .~piRNA.Mapeamento) +
     labs(title = 'Classificação de piRNAs no cromossomo ' %s+% 
            stri_extract_all(params$chrom, regex='[1-9]+|[XY]+|all'),
@@ -1372,17 +1372,17 @@ piRNAgraphics1 <- function(CHROM) {
   #          x = '', y = 'Quantidade de\nmutações')
   # })
   
-  png(filename = file.path(fig.opts$path, "plot2" %s+% "_" %s+% 
-                             params$chrom %s+% "_" %s+% "all" %s+% 
-                             ".png"),
+  tiff(filename = file.path(fig.opts$path, "plot2" %s+% "_" %s+% 
+                              params$chrom %s+% "_" %s+% "all" %s+% 
+                              ".tiff"),
       width = fig.opts$width, height = fig.opts$height, 
       units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
   plot2
   dev.off()
   
-  png(filename = file.path(fig.opts$path, "plot2" %s+% "_" %s+% 
+  tiff(filename = file.path(fig.opts$path, "plot2" %s+% "_" %s+% 
                              params$chrom %s+% "_" %s+% "uni+multi" %s+% 
-                             ".png"),
+                             ".tiff"),
       width = fig.opts$width, height = fig.opts$height, 
       units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
   plot2 + facet_grid( .~piRNA.Mapeamento) +
@@ -1398,9 +1398,9 @@ piRNAgraphics1 <- function(CHROM) {
   
   
   for (mapPirna in c("piRNAall", "piRNAuni", "piRNAmulti")) {
-    png(filename = file.path(fig.opts$path, "plot3" %s+% "_" %s+% 
+    tiff(filename = file.path(fig.opts$path, "plot3" %s+% "_" %s+% 
                                params$chrom %s+% "_" %s+% mapPirna %s+% 
-                               ".png"),
+                               ".tiff"),
         width = fig.opts$width, height = fig.opts$height,
         units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
     par(mfrow = c(1,2))
@@ -1474,9 +1474,9 @@ piRNAgraphics1 <- function(CHROM) {
     scale_color_pirna("mixed") +
     scale_fill_pirna("mixed")
   
-  png(filename = file.path(fig.opts$path, "plot4" %s+% "_" %s+% 
+  tiff(filename = file.path(fig.opts$path, "plot4" %s+% "_" %s+% 
                              params$chrom %s+% "_" %s+% "all" %s+% 
-                             ".png"),
+                             ".tiff"),
       width = fig.opts$width, height = fig.opts$height, 
       units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
   x.annotate     <- 1:5
@@ -1503,9 +1503,9 @@ piRNAgraphics1 <- function(CHROM) {
     add_annotate4.1(x.annotate[5], label.annotate[[5]])
   dev.off()
   
-  png(filename = file.path(fig.opts$path, "plot4" %s+% "_" %s+% 
+  tiff(filename = file.path(fig.opts$path, "plot4" %s+% "_" %s+% 
                              params$chrom %s+% "_" %s+% "uni+multi" %s+% 
-                             ".png"),
+                             ".tiff"),
       width = fig.opts$width, height = fig.opts$height, 
       units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
   x.annotate <- 1:5
