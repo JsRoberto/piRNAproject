@@ -1077,7 +1077,7 @@ piRNAgraphics1 <- function(CHROM) {
   suppressPackageStartupMessages(require(ggplot2))
   
   #########################
-  options(bitmapType = 'cairo')
+  #options(bitmapType = 'cairo')
   
   theme_set(theme_minimal())
   
