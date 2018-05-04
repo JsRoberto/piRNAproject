@@ -399,7 +399,7 @@ plot1 <- ggplot(data = pirnaData, aes(x = piRNA.Tipo, fill = piRNA.Tipo)) +
 
 tiff(filename = file.path(fig.opts$path, "plot1" %s+% "_" %s+% 
                             params$chrom %s+% "_" %s+% "all" %s+% ".tiff"),
-     width = fig.opts$width, height = fig.opts$height, 
+     width = fig.opts$width, height = fig.opts$height, res = fig.opts$res,
      units = fig.opts$unit, type = fig.opts$type)
 plot1
 dev.off()
@@ -416,9 +416,9 @@ dev.off()
 #          x = '', y = 'Quantidade de\npiRNAs')
 # })
 
-png(filename = file.path(fig.opts$path, "plot1" %s+% "_" %s+% 
-                           params$chrom %s+% "_" %s+% "uni+multi" %s+% ".png"),
-    width = fig.opts$width, height = fig.opts$height, 
+tiff(filename = file.path(fig.opts$path, "plot1" %s+% "_" %s+% 
+                           params$chrom %s+% "_" %s+% "uni+multi" %s+% ".tiff"),
+    width = fig.opts$width, height = fig.opts$height,  res = fig.opts$res,
     units = fig.opts$unit, type = fig.opts$type)
 plot1 + facet_grid( .~piRNA.Mapeamento) +
   labs(title = 'Classificação de piRNAs no cromossomo ' %s+% 
@@ -459,17 +459,17 @@ plot2 <- ggplot(data = mutData,
 #          x = '', y = 'Quantidade de\nmutações')
 # })
 
-png(filename = file.path(fig.opts$path, "plot2" %s+% "_" %s+% 
+tiff(filename = file.path(fig.opts$path, "plot2" %s+% "_" %s+% 
                            params$chrom %s+% "_" %s+% "all" %s+% 
-                           ".png"),
+                           ".tiff"),
     width = fig.opts$width, height = fig.opts$height, 
     units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
 plot2
 dev.off()
 
-png(filename = file.path(fig.opts$path, "plot2" %s+% "_" %s+% 
+tiff(filename = file.path(fig.opts$path, "plot2" %s+% "_" %s+% 
                            params$chrom %s+% "_" %s+% "uni+multi" %s+% 
-                           ".png"),
+                           ".tiff"),
     width = fig.opts$width, height = fig.opts$height, 
     units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
 plot2 + facet_grid( .~piRNA.Mapeamento) +
@@ -485,9 +485,9 @@ dev.off()
 
 
 for (mapPirna in c("piRNAall", "piRNAuni", "piRNAmulti")) {
-  png(filename = file.path(fig.opts$path, "plot3" %s+% "_" %s+% 
+  tiff(filename = file.path(fig.opts$path, "plot3" %s+% "_" %s+% 
                              params$chrom %s+% "_" %s+% mapPirna %s+% 
-                             ".png"),
+                             ".tiff"),
       width = fig.opts$width, height = fig.opts$height,
       units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
   par(mfrow = c(1,2))
@@ -561,9 +561,9 @@ plot4 <- ggplot(data = meltMUTdata[AF.Tipo == "AF > 0"],
   scale_color_pirna("mixed") +
   scale_fill_pirna("mixed")
 
-png(filename = file.path(fig.opts$path, "plot4" %s+% "_" %s+% 
+tiff(filename = file.path(fig.opts$path, "plot4" %s+% "_" %s+% 
                            params$chrom %s+% "_" %s+% "all" %s+% 
-                           ".png"),
+                           ".tiff"),
     width = fig.opts$width, height = fig.opts$height, 
     units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
 x.annotate     <- 1:5
@@ -590,9 +590,9 @@ plot4 + facet_grid(.~Mut.TipoAll) +
   add_annotate4.1(x.annotate[5], label.annotate[[5]])
 dev.off()
 
-png(filename = file.path(fig.opts$path, "plot4" %s+% "_" %s+% 
+tiff(filename = file.path(fig.opts$path, "plot4" %s+% "_" %s+% 
                            params$chrom %s+% "_" %s+% "uni+multi" %s+% 
-                           ".png"),
+                           ".tiff"),
     width = fig.opts$width, height = fig.opts$height, 
     units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
 x.annotate <- 1:5
