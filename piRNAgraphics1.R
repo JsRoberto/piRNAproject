@@ -1,3 +1,171 @@
+suppressPackageStartupMessages(require(stringi))
+suppressPackageStartupMessages(require(stringr))
+suppressPackageStartupMessages(require(pbapply))
+suppressPackageStartupMessages(require(magrittr))
+suppressPackageStartupMessages(require(limSolve))
+suppressPackageStartupMessages(require(data.table))
+suppressPackageStartupMessages(require(readr))
+suppressPackageStartupMessages(require(foreach))
+suppressPackageStartupMessages(require(doSNOW))
+suppressPackageStartupMessages(require(tictoc))
+suppressPackageStartupMessages(require(ggplot2))
+
+piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1, 
+                        MUT.map   = c("all", "uni", "multi"),
+                        MUT.only  = c("all", "yes", "no"),
+                        MUT.type  = c("all", "indel", "subst"),
+                        ID.choice = c("all", "yes", "no")) {
+  suppressPackageStartupMessages(require(stringi))
+  suppressPackageStartupMessages(require(stringr))
+  suppressPackageStartupMessages(require(pbapply))
+  suppressPackageStartupMessages(require(magrittr))
+  suppressPackageStartupMessages(require(limSolve))
+  suppressPackageStartupMessages(require(data.table))
+  suppressPackageStartupMessages(require(readr))
+  suppressPackageStartupMessages(require(foreach))
+  suppressPackageStartupMessages(require(doSNOW))
+  suppressPackageStartupMessages(require(tictoc))
+  
+  gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
+  #gitHubDir <- "C:/Rdir/piRNAproject"
+  pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% CHROM)
+  
+  rbcombine <- 
+    function(..., idcol = NULL) data.table::rbindlist(list(...), idcol = idcol)
+  
+  source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
+  
+  pirnaObj <- file.path(pirnaDir, "pirnaGDF" %s+% CHROM %s+% ".rds")
+  
+  newPirnaGDF <- readRDS(pirnaObj)
+  
+  allnewPirnaGDF <- function(newPirnaGDF, region) {
+    namesMutData <- c("Mutação.Cromossomo", "Mutação.Local", "Mutação.ID",
+                      "Alelo.Referência", "Alelo.Alternativo", 
+                      "Mutação.Tipo", "Total.AC", "Total.AF", 
+                      "Africano.AC", "Africano.AF",
+                      "Americano.AC", "Americano.AF", 
+                      "Leste Asiático.AC", "Leste Asiático.AF", 
+                      "Europeu.AC", "Europeu.AF",
+                      "Sul Asiático.AC", "Sul Asiático.AF")
+    namesPirnaData <- c("piRNA.Cromossomo", "piRNA.Nome", 
+                        "Local.Início", "Local.Final", 
+                        "Mutações.Total", "Mutações.SNP", "Mutações.INDEL")
+    
+    tt1 <- newPirnaGDF["adjRegion:" %s+% region, "pirnaDataMut"]
+    tt2 <- newPirnaGDF["adjRegion:" %s+% region, "pirnaDataNonMut"]
+    
+    names(tt1) <- names(tt2) <- namesPirnaData
+    
+    tt1 <- tt1[order(`Local.Início`)]
+    tt2 <- tt2[order(`Local.Início`)]
+    
+    tt <- rbcombine(tt1, tt2)
+    
+    tt[ , `:=`(
+      piRNA.Mapeamento = ifelse(
+        test = foreach(uni = unique(tt$piRNA.Nome), .combine = `|`) %:%
+          when(sum(piRNA.Nome == uni) <= 3) %do% {piRNA.Nome == uni},
+        yes = "Único", no = "Múltiplo" 
+      )
+    )]
+    
+    tt <- subset(tt, subset = TRUE, select = c(
+      namesPirnaData[1:2], "piRNA.Mapeamento", namesPirnaData[3:7]
+    ))
+    
+    if (MUT.map[1] == "uni") {
+      tt <- tt[piRNA.Mapeamento == "Único"]
+    }
+    
+    if (MUT.map[1] == "multi") {
+      tt <- tt[piRNA.Mapeamento == "Múltiplo"]
+    }
+    
+    if (MUT.only[1] == "no") {
+      tt <- tt[`Mutações.Total` == 0]
+      
+      if (CHROM != "all") {
+        tt <- tt[chrom == CHROM]
+      }
+      
+      return(list(pirnaData = tt))
+    }
+    
+    mm <- newPirnaGDF["adjRegion:" %s+% region, "mutData"]
+    names(mm) <- "Região " %s+% region %s+% "::" %s+% 
+      tt1[ , stri_join(sep = "..", piRNA.Cromossomo, piRNA.Nome, 
+                       `Local.Início`, Local.Final)]
+    mm <- lapply(mm, function(m) {names(m) <- namesMutData; return(m)})
+    ttt <- tt[`Mutações.Total` != 0]
+    
+    if (MUT.only[1] == "yes") {
+      tt <- ttt
+    }
+    
+    if (MUT.type[1] == "indel") {
+      mm <- lapply(mm, function(m) m[`Mutação.Tipo` == "INDEL"])
+    }
+    
+    if (MUT.type[1] == "subst") {
+      mm <- lapply(mm, function(m) m[`Mutação.Tipo` == "SNP"])
+    }
+    
+    if (ID.choice[1] == "yes") {
+      mm <- lapply(mm, function(m) m[`Mutação.ID` != "."])
+    }
+    
+    if (ID.choice[1] == "no") {
+      mm <- lapply(mm, function(m) m[`Mutação.ID` == "."])
+    }
+    
+    mm <- lapply(mm, function(m) m[Total.AF >= AF.min & Total.AF <= AF.max])
+    
+    mm <- lapply(mm, function(m) {
+      if(nrow(m) == 0) {
+        maux <- data.table(NA, NA, NA, NA, NA, NA, NA, NA, NA, 
+                           NA, NA, NA, NA, NA, NA, NA, NA, NA)
+        names(maux) <- names(m)
+        return(maux)
+      } else {
+        return(m)
+      }
+    })
+    
+    mmm <- rbindlist(mm, idcol = "ID")
+    
+    mmm <- mmm[ , .(total = .N, 
+                    snp   = sum(`Mutação.Tipo` == "SNP"), 
+                    indel = sum(`Mutação.Tipo` == "INDEL")), by = ID]
+    #Errado!
+    ttt <- ttt[mmm[ , !is.na(total)]]
+    mm  <- mm[mmm[ , !is.na(total)]]
+    mmm <- mmm[!is.na(total)]
+    
+    ttt <- ttt[ , `:=`(
+      `Mutações.Total` = mmm[ , total] %s+% " (" %s+% `Mutações.Total` %s+% ")",
+      `Mutações.SNP`   = mmm[ , snp]   %s+% " (" %s+% `Mutações.SNP`   %s+% ")",
+      `Mutações.INDEL` = mmm[ , indel] %s+% " (" %s+% `Mutações.INDEL` %s+% ")"
+    )]
+    
+    ttt2 <- tt[`Mutações.Total` == 0]
+    
+    finalResult <- list(pirnaData = rbcombine(ttt, ttt2), mutData = mm)
+    
+    return(finalResult)
+  }
+  
+  regions <- c("-1000", "5'", "piRNA", "3'", "+1000")
+  
+  subPirnaGDF <- foreach(region = regions, .combine = list, 
+                         .multicombine = TRUE, .maxcombine = 5) %do%
+    allnewPirnaGDF(newPirnaGDF, region)
+  
+  names(subPirnaGDF) <- regions
+  
+  return(subPirnaGDF)
+}
+
 theme_set(theme_minimal())
 
 pirna_colors <- c(
