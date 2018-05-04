@@ -1,7 +1,7 @@
 ################################################################################
 # Projeto piRNA - Funções para identificação de mutações em piRNAs
 
-.libPaths("C:/Rdir/library_R-3.4.0")
+#.libPaths("C:/Rdir/library_R-3.4.0")
 #.libPaths("/home/lghm/R/x86_64-pc-linux-gnu-library/3.4/")
 
 if(!suppressMessages(require(knitr))) {
