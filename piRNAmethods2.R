@@ -706,7 +706,7 @@ piRNAc <- function(CHROM) {
   
   pirnaObj <- file.path(pirnaDir, "pirnaGDF" %s+% CHROM %s+% ".rds")
   
-  if (CHROM == "all" & !file.exists(pirnaObj)) {
+  if (CHROM == "all") {
     
     regions <- c("-1000", "5'", "piRNA", "3'", "+1000")
     
@@ -959,7 +959,7 @@ piRNAall <- function() {
     
     pirnaObj <- file.path(pirnaDir, "pirnaGDF" %s+% CHROM %s+% ".rds")
     
-    if (CHROM == "all" & !file.exists(pirnaObj)) {
+    if (CHROM == "all") {
       
       regions <- c("-1000", "5'", "piRNA", "3'", "+1000")
       
