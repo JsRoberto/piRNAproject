@@ -772,36 +772,26 @@ piRNAc <- function(CHROM) {
       dataAux2 <- foreach(
         chrom = 1:24, .combine = fun.combine,
         .multicombine = TRUE, .maxcombine = 24) %do% {
-          gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-          source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
           auxPirnaGDF[[chrom]][paste0("adjRegion:", region), dataInfoPirna]
         }
       region <- "piRNA"
       dataAux3 <- foreach(
         chrom = 1:24, .combine = fun.combine,
         .multicombine = TRUE, .maxcombine = 24) %do% {
-          gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-          source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
           auxPirnaGDF[[chrom]][paste0("adjRegion:", region), dataInfoPirna]
         }
       region <- "3'"
       dataAux4 <- foreach(
         chrom = 1:24, .combine = fun.combine,
         .multicombine = TRUE, .maxcombine = 24) %dopar% {
-          gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-          source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
           auxPirnaGDF[[chrom]][paste0("adjRegion:", region), dataInfoPirna]
         }
       region <- "+1000"
       dataAux5 <- foreach(
         chrom = 1:24, .combine = fun.combine,
         .multicombine = TRUE, .maxcombine = 24) %dopar% {
-          gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-          source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
           auxPirnaGDF[[chrom]][paste0("adjRegion:", region), dataInfoPirna]
         }
-      close(progressBarAux)
-      stopCluster(cl)
       dataAux <- list(
         `-1000` = dataAux1,
         `5'` = dataAux2,
