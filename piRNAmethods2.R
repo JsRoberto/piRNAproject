@@ -694,8 +694,8 @@ piRNAc <- function(CHROM) {
   suppressPackageStartupMessages(require(doSNOW))
   suppressPackageStartupMessages(require(tictoc))
   
-  #gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-  gitHubDir <- "C:/Rdir/piRNAproject"
+  gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
+  #gitHubDir <- "C:/Rdir/piRNAproject"
   source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
   
   pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% CHROM)
