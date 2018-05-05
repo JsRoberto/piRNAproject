@@ -706,8 +706,8 @@ piRNAall <- function() {
     suppressPackageStartupMessages(require(doSNOW))
     suppressPackageStartupMessages(require(tictoc))
     
-    gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-    #gitHubDir <- "C:/Rdir/piRNAproject"
+    #gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
+    gitHubDir <- "C:/Rdir/piRNAproject"
     source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
     
     pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% CHROM)
@@ -723,28 +723,31 @@ piRNAall <- function() {
       regions <- c("-1000", "5'", "piRNA", "3'", "+1000")
       
       auxPirnaGDF <- 
-        foreach(chrom = "chr" %s+% c(1:22, "X", "Y"), .combine = list) %do% {
+        foreach(chrom = "chr" %s+% c(1:22, "X", "Y"), .combine = list,
+                .multicombine = TRUE, .maxcombine = 24) %do% {
           auxPirnaDir <- file.path(gitHubDir, "piRNA" %s+% chrom)
           auxPirnaObj <- file.path(auxPirnaDir, "pirnaGDF" %s+% chrom %s+% ".rds")
           readRDS(auxPirnaObj)
         }
       
       piRNAaggregate <- function(auxPirnaGDF, dataInfoPirna, fun.combine) {
-        foreach(region = regions, .combine = list) %:% 
-          foreach(chrom = 1:24, .combine = fun.combine) %do% 
+        foreach(region = regions, .combine = list,
+                .multicombine = TRUE, .maxcombine = 5) %:% 
+          foreach(chrom = 1:24, .combine = fun.combine,
+                  .multicombine = TRUE, .maxcombine = 24) %do% 
           auxPirnaGDF[[chrom]]["adjRegion:" %s+% region, dataInfoPirna]
       }
       
       pirnaDataNonMut <- piRNAaggregate(auxPirnaGDF, "pirnaDataNonMut", rbcombine)
       pirnaDataMut    <- piRNAaggregate(auxPirnaGDF, "pirnaDataMut", rbcombine)
-      mutData         <- piRNAaggregate(auxPirnaGDF, "mutData", list)
+      mutData         <- piRNAaggregate(auxPirnaGDF, "mutData", c)
       
       names(mutData) <- names(pirnaDataMut) <- names(pirnaDataNonMut) <- regions
       
       foreach(region = regions) %do% 
         assign(
           x     = "adjRegion:" %s+% region, 
-          envir = environment(fun = piRNAaggregate),
+          envir = environment(fun = piRNAc),
           value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
                             pirnaDataMut    = pirnaDataMut[[region]], 
                             mutData         = mutData[[region]])
@@ -766,12 +769,41 @@ piRNAall <- function() {
     
     PirnaGDF <- readRDS(pirnaObj)
     
+    namesMutData <- c("Mutação.Cromossomo", "Mutação.Local", "Mutação.ID",
+                      "Alelo.Referência", "Alelo.Alternativo", 
+                      "Mutação.Tipo", "Total.AC", "Total.AF", 
+                      "Africano.AC", "Africano.AF",
+                      "Americano.AC", "Americano.AF", 
+                      "Leste Asiático.AC", "Leste Asiático.AF", 
+                      "Europeu.AC", "Europeu.AF",
+                      "Sul Asiático.AC", "Sul Asiático.AF")
+    namesPirnaData <- c("piRNA.Cromossomo", "piRNA.Nome", 
+                        "Local.Início", "Local.Final", 
+                        "Mutações.Total", "Mutações.SNP", "Mutações.INDEL")
+    
+    pirnaDataNonMut1 <- PirnaGDF["adjRegion:-1000", "pirnaDataNonMut"]
+    pirnaDataNonMut2 <- PirnaGDF["adjRegion:5'", "pirnaDataNonMut"]
+    pirnaDataNonMut3 <- PirnaGDF["adjRegion:piRNA", "pirnaDataNonMut"]
+    pirnaDataNonMut4 <- PirnaGDF["adjRegion:3'", "pirnaDataNonMut"]
+    pirnaDataNonMut5 <- PirnaGDF["adjRegion:+1000", "pirnaDataNonMut"]
+    pirnaDataMut1    <- PirnaGDF["adjRegion:-1000", "pirnaDataMut"]
+    pirnaDataMut2    <- PirnaGDF["adjRegion:5'", "pirnaDataMut"]
+    pirnaDataMut3    <- PirnaGDF["adjRegion:piRNA", "pirnaDataMut"]
+    pirnaDataMut4    <- PirnaGDF["adjRegion:3'", "pirnaDataMut"]
+    pirnaDataMut5    <- PirnaGDF["adjRegion:+1000", "pirnaDataMut"]
+    
+    names(pirnaDataNonMut1) <- names(pirnaDataNonMut2) <- 
+      names(pirnaDataNonMut3) <- names(pirnaDataNonMut4) <- 
+      names(pirnaDataNonMut5) <- names(pirnaDataMut1) <- 
+      names(pirnaDataMut2) <- names(pirnaDataMut3) <- names(pirnaDataMut4) <-
+      names(pirnaDataMut5) <- namesPirnaData
+    
     newPirnaGDF <- PirnaGDF(
       generalInfo       = PirnaGDF["generalInfo"],
       `adjRegion:-1000` = InfoPirna(
-        pirnaDataNonMut = PirnaGDF["adjRegion:-1000", "pirnaDataNonMut"][order(`Local.Início`)],
+        pirnaDataNonMut = pirnaDataNonMut1[order(`Local.Início`)],
         pirnaDataMut    = pirnaDataMutAux <- 
-          PirnaGDF["adjRegion:-1000", "pirnaDataMut"][order(`Local.Início`)], 
+          pirnaDataMut1[order(`Local.Início`)], 
         mutData         = {
           mutDataAux <- PirnaGDF["adjRegion:-1000", "mutData"]
           names(mutDataAux) <- "Região -1000::" %s+% 
@@ -783,9 +815,9 @@ piRNAall <- function() {
         }
       ),
       `adjRegion:5'` = InfoPirna(
-        pirnaDataNonMut = PirnaGDF["adjRegion:5'", "pirnaDataNonMut"][order(`Local.Início`)],
+        pirnaDataNonMut = pirnaDataNonMut2[order(`Local.Início`)],
         pirnaDataMut    = pirnaDataMutAux <- 
-          PirnaGDF["adjRegion:5'", "pirnaDataMut"][order(`Local.Início`)], 
+          pirnaDataMut2[order(`Local.Início`)], 
         mutData         = {
           mutDataAux <- PirnaGDF["adjRegion:5'", "mutData"]
           names(mutDataAux) <- "Região 5'::" %s+% 
@@ -797,9 +829,9 @@ piRNAall <- function() {
         }
       ),
       `adjRegion:piRNA` = InfoPirna(
-        pirnaDataNonMut = PirnaGDF["adjRegion:piRNA", "pirnaDataNonMut"][order(`Local.Início`)],
+        pirnaDataNonMut = pirnaDataNonMut3[order(`Local.Início`)],
         pirnaDataMut    = pirnaDataMutAux <- 
-          PirnaGDF["adjRegion:piRNA", "pirnaDataMut"][order(`Local.Início`)], 
+          pirnaDataMut3[order(`Local.Início`)], 
         mutData         = {
           mutDataAux <- PirnaGDF["adjRegion:piRNA", "mutData"]
           names(mutDataAux) <- "Região piRNA::" %s+% 
@@ -811,9 +843,9 @@ piRNAall <- function() {
         }
       ),
       `adjRegion:3'` = InfoPirna(
-        pirnaDataNonMut = PirnaGDF["adjRegion:3'", "pirnaDataNonMut"][order(`Local.Início`)],
+        pirnaDataNonMut = pirnaDataNonMut4[order(`Local.Início`)],
         pirnaDataMut    = pirnaDataMutAux <- 
-          PirnaGDF["adjRegion:3'", "pirnaDataMut"][order(`Local.Início`)], 
+          pirnaDataMut4[order(`Local.Início`)], 
         mutData         = {
           mutDataAux <- PirnaGDF["adjRegion:3'", "mutData"]
           names(mutDataAux) <- "Região 3'::" %s+% 
@@ -825,9 +857,9 @@ piRNAall <- function() {
         }
       ),
       `adjRegion:+1000` = InfoPirna(
-        pirnaDataNonMut = PirnaGDF["adjRegion:+1000", "pirnaDataNonMut"][order(`Local.Início`)],
+        pirnaDataNonMut = pirnaDataNonMut5[order(`Local.Início`)],
         pirnaDataMut    = pirnaDataMutAux <- 
-          PirnaGDF["adjRegion:+1000", "pirnaDataMut"][order(`Local.Início`)], 
+          pirnaDataMut5[order(`Local.Início`)], 
         mutData         = {
           mutDataAux <- PirnaGDF["adjRegion:+1000", "mutData"]
           names(mutDataAux) <- "Região +1000::" %s+% 
@@ -903,7 +935,7 @@ piRNAall <- function() {
     }
   }
   
-  foreach(chrom = c("chr" %s+% c(1:22, "X", "Y")), "all") %do% piRNAc(chrom)
+  foreach(chrom = c("chr" %s+% c(1:22, "X", "Y"), "all")) %do% piRNAc(chrom)
    
 }
 
@@ -1635,6 +1667,9 @@ piRNAgraphics2 <- function(CHROM) {
   suppressPackageStartupMessages(require(doSNOW))
   suppressPackageStartupMessages(require(tictoc))
   suppressPackageStartupMessages(require(venn))
+  suppressPackageStartupMessages(require(ggplot2))
+  suppressPackageStartupMessages(require(plotly))
+  suppressPackageStartupMessages(require(webshot))
   
   #########################
   #options(bitmapType = 'cairo')
@@ -1741,9 +1776,10 @@ piRNAgraphics2 <- function(CHROM) {
     unit = "in", width = 7, height = 7, type = 'cairo'
   )
   
+  dir.create(params$pirnaDir, showWarnings = FALSE)
   dir.create(fig.opts$path, showWarnings = FALSE)
   
-  rbcombine <- function(..., idcol = NULL) 
+  rbcombine <- function(..., idcol = NULL)
     data.table::rbindlist(list(...), idcol = idcol)
   
   for (pirna.map in c("all", "multi", "uni")) {
@@ -1968,54 +2004,56 @@ piRNAgraphics2 <- function(CHROM) {
     export(p2, file = file.path(fig.opts$path, "plot6_" %s+% params$chrom %s+% 
                                   "_" %s+% pirna.map %s+%  ".png"))
     #
-    if (CHROM == "all") {
-      mutRateFinal <- readRDS(file.path(params$pirnaDir, "mutRate.rds")) 
-      addTrace3    <- function(p, mut.region, mut.type, color,
-                               chr.exclusive = c(paste0("chr", c(1:22, "X", "Y")), "all")) {
-        plotly::add_trace(
-          p, data = mutRateFinal[params$chrom %in% chr.exclusive & 
-                                   region == mut.region & tipo == mut.type],
-          x = ~substr(params$chrom, 4, 5), y = ~rate, 
-          type = 'scatter', mode = 'markers',
-          marker = list(color = pirna_colors[color]),
-          error_y = ~list(value = ci),
-          name = paste(mut.region, '&', mut.type), 
-          text = ~paste(
-            'Cromossomo:', params$chrom, '\nTaxa de Mutação:',
-            formatC(rate, format = "e", digits = 2), "±",
-            formatC(ci, format = "e", digits = 2)
-          ),
-          hoverinfo = 'text')
-      }
-      addLayout3   <- function(p, categoryarray = c(1:22, "X", "Y", "all")) {
-        plotly::layout(
-          p, title    = '<b> Taxas de Mutações por Cromossomo <b>',
-          xaxis       = list(title = 'Cromossomo', categoryorder = "array",
-                             categoryarray = categoryarray),
-          yaxis       = list(title = 'Taxa de Mutação (por nucleotídeo)'),
-          legend      = list(x = 1, y = 0.5),
-          annotations = list(yref = 'paper', xref = "paper",
-                             align = 'left', y = 1, x = 1.1, showarrow = F,
-                             text = "Região & \n Tipo de Mutação")
-        )
-      }
-      
-      p3.1 <- plot_ly() %>% addTrace3("chrom.all", "SNP", "blue") %>% 
-        addTrace3("piRNA.all", "SNP", "green") %>% 
-        addTrace3("piRNA.multi", "SNP", "yellow") %>%
-        addTrace3("piRNA.uni", "SNP", "orange") %>% addLayout3()
-      
-      p3.2 <- plot_ly() %>% addTrace3("chrom.all", "INDEL", "blue") %>% 
-        addTrace3("piRNA.all", "INDEL", "green") %>% 
-        addTrace3("piRNA.multi", "INDEL", "yellow") %>%
-        addTrace3("piRNA.uni", "INDEL", "orange") %>% addLayout3()
-      
-      export(p3.1, file = file.path(fig.opts$path, "plot7.1_" %s+% params$chrom %s+% 
-                                      "_" %s+% ".png"))
-      export(p3.2, file = file.path(fig.opts$path, "plot7.2_" %s+% params$chrom %s+% 
-                                      "_" %s+% ".png"))
-      
+    
+  }
+  
+  if (CHROM == "all") {
+    mutRateFinal <- readRDS(file.path(params$pirnaDir, "mutRate.rds")) 
+    addTrace3    <- function(p, mut.region, mut.type, color,
+                             chr.exclusive = c(paste0("chr", c(1:22, "X", "Y")), "all")) {
+      plotly::add_trace(
+        p, data = mutRateFinal[params$chrom %in% chr.exclusive & 
+                                 region == mut.region & tipo == mut.type],
+        x = ~substr(params$chrom, 4, 5), y = ~rate, 
+        type = 'scatter', mode = 'markers',
+        marker = list(color = pirna_colors[color]),
+        error_y = ~list(value = ci),
+        name = paste(mut.region, '&', mut.type), 
+        text = ~paste(
+          'Cromossomo:', params$chrom, '\nTaxa de Mutação:',
+          formatC(rate, format = "e", digits = 2), "±",
+          formatC(ci, format = "e", digits = 2)
+        ),
+        hoverinfo = 'text')
     }
+    addLayout3   <- function(p, categoryarray = c(1:22, "X", "Y", "all")) {
+      plotly::layout(
+        p, title    = '<b> Taxas de Mutações por Cromossomo <b>',
+        xaxis       = list(title = 'Cromossomo', categoryorder = "array",
+                           categoryarray = categoryarray),
+        yaxis       = list(title = 'Taxa de Mutação (por nucleotídeo)'),
+        legend      = list(x = 1, y = 0.5),
+        annotations = list(yref = 'paper', xref = "paper",
+                           align = 'left', y = 1, x = 1.1, showarrow = F,
+                           text = "Região & \n Tipo de Mutação")
+      )
+    }
+    
+    p3.1 <- plot_ly() %>% addTrace3("chrom.all", "SNP", "blue") %>% 
+      addTrace3("piRNA.all", "SNP", "green") %>% 
+      addTrace3("piRNA.multi", "SNP", "yellow") %>%
+      addTrace3("piRNA.uni", "SNP", "orange") %>% addLayout3()
+    
+    p3.2 <- plot_ly() %>% addTrace3("chrom.all", "INDEL", "blue") %>% 
+      addTrace3("piRNA.all", "INDEL", "green") %>% 
+      addTrace3("piRNA.multi", "INDEL", "yellow") %>%
+      addTrace3("piRNA.uni", "INDEL", "orange") %>% addLayout3()
+    
+    export(p3.1, file = file.path(fig.opts$path, "plot7.1_" %s+% params$chrom %s+% 
+                                    "_" %s+% ".png"))
+    export(p3.2, file = file.path(fig.opts$path, "plot7.2_" %s+% params$chrom %s+% 
+                                    "_" %s+% ".png"))
+    
   }
 }
 
