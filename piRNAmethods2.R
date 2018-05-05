@@ -883,14 +883,50 @@ piRNAc <- function(CHROM) {
       `+1000` = dataAux5
     )
     
-    foreach(region = regions) %do% 
-      assign(
-        x     = "adjRegion:" %s+% region, 
-        envir = environment(fun = piRNAc),
-        value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-                          pirnaDataMut    = pirnaDataMut[[region]], 
-                          mutData         = mutData[[region]])
-      )
+    region <- "-1000" 
+    assign(
+      x     = paste0("adjRegion:", region), 
+      envir = .GlobalEnv,
+      value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
+                        pirnaDataMut    = pirnaDataMut[[region]], 
+                        mutData         = mutData[[region]])
+    )
+    
+    region <- "5'" 
+    assign(
+      x     = paste0("adjRegion:", region), 
+      envir = .GlobalEnv,
+      value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
+                        pirnaDataMut    = pirnaDataMut[[region]], 
+                        mutData         = mutData[[region]])
+    )
+    
+    region <- "piRNA" 
+    assign(
+      x     = paste0("adjRegion:", region), 
+      envir = .GlobalEnv,
+      value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
+                        pirnaDataMut    = pirnaDataMut[[region]], 
+                        mutData         = mutData[[region]])
+    )
+    
+    region <- "3'" 
+    assign(
+      x     = paste0("adjRegion:", region), 
+      envir = .GlobalEnv,
+      value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
+                        pirnaDataMut    = pirnaDataMut[[region]], 
+                        mutData         = mutData[[region]])
+    )
+    
+    region <- "+1000" 
+    assign(
+      x     = paste0("adjRegion:", region), 
+      envir = .GlobalEnv,
+      value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
+                        pirnaDataMut    = pirnaDataMut[[region]], 
+                        mutData         = mutData[[region]])
+    )
     
     generalInfo <- "INFORMAÇÕES SOBRE TODOS OS CROMOSSOMOS"
     
