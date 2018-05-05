@@ -732,10 +732,25 @@ piRNAc <- function(CHROM) {
               }
     
     close(progressBar1)
+    stopCluster(cl)
     
     piRNAaggregate <- function(messageInfo, auxPirnaGDF, 
                                dataInfoPirna, fun.combine) {
+      suppressPackageStartupMessages(require(stringi))
+      suppressPackageStartupMessages(require(stringr))
+      suppressPackageStartupMessages(require(pbapply))
+      suppressPackageStartupMessages(require(magrittr))
+      suppressPackageStartupMessages(require(limSolve))
+      suppressPackageStartupMessages(require(data.table))
+      suppressPackageStartupMessages(require(readr))
+      suppressPackageStartupMessages(require(foreach))
+      suppressPackageStartupMessages(require(doSNOW))
+      suppressPackageStartupMessages(require(tictoc))
+      
       cat(messageInfo)
+      numberOfCluster <- parallel::detectCores() / 2
+      cl <- makeCluster(numberOfCluster)
+      registerDoSNOW(cl)
       progressBarAux <- txtProgressBar(
         min = 0, max = 24 * 5, char = "=", style = 3
       )
@@ -749,6 +764,7 @@ piRNAc <- function(CHROM) {
                 .multicombine = TRUE, .maxcombine = 24) %dopar% 
         auxPirnaGDF[[chrom]]["adjRegion:" %s+% region, dataInfoPirna]
       close(progressBarAux)
+      stopCluster(cl)
     }
      
     cat("\n   [PARTE II  - Objeto newPirnaGDF]\n")
