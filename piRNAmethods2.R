@@ -762,7 +762,7 @@ piRNAc <- function(CHROM) {
         foreach(chrom = 1:24, .combine = fun.combine, 
                 .options.snow = optionsAux,
                 .multicombine = TRUE, .maxcombine = 24) %dopar% 
-        auxPirnaGDF[[chrom]]["adjRegion:" %s+% region, dataInfoPirna]
+        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), dataInfoPirna]
       close(progressBarAux)
       stopCluster(cl)
       return(dataAux)
