@@ -939,117 +939,8 @@ piRNAc <- function(CHROM) {
       `adjRegion:+1000` = `adjRegion:-1000`
     )
     
-    saveRDS(newPirnaGDF, file.path(pirnaDir, "pirnaGDFall.rds"))
-  }
-  
-  PirnaGDF <- readRDS(pirnaObj)
-  
-  namesMutData <- c("Mutação.Cromossomo", "Mutação.Local", "Mutação.ID",
-                    "Alelo.Referência", "Alelo.Alternativo", 
-                    "Mutação.Tipo", "Total.AC", "Total.AF", 
-                    "Africano.AC", "Africano.AF",
-                    "Americano.AC", "Americano.AF", 
-                    "Leste Asiático.AC", "Leste Asiático.AF", 
-                    "Europeu.AC", "Europeu.AF",
-                    "Sul Asiático.AC", "Sul Asiático.AF")
-  namesPirnaData <- c("piRNA.Cromossomo", "piRNA.Nome", 
-                      "Local.Início", "Local.Final", 
-                      "Mutações.Total", "Mutações.SNP", "Mutações.INDEL")
-  
-  pirnaDataNonMut1 <- PirnaGDF["adjRegion:-1000", "pirnaDataNonMut"]
-  pirnaDataNonMut2 <- PirnaGDF["adjRegion:5'", "pirnaDataNonMut"]
-  pirnaDataNonMut3 <- PirnaGDF["adjRegion:piRNA", "pirnaDataNonMut"]
-  pirnaDataNonMut4 <- PirnaGDF["adjRegion:3'", "pirnaDataNonMut"]
-  pirnaDataNonMut5 <- PirnaGDF["adjRegion:+1000", "pirnaDataNonMut"]
-  pirnaDataMut1    <- PirnaGDF["adjRegion:-1000", "pirnaDataMut"]
-  pirnaDataMut2    <- PirnaGDF["adjRegion:5'", "pirnaDataMut"]
-  pirnaDataMut3    <- PirnaGDF["adjRegion:piRNA", "pirnaDataMut"]
-  pirnaDataMut4    <- PirnaGDF["adjRegion:3'", "pirnaDataMut"]
-  pirnaDataMut5    <- PirnaGDF["adjRegion:+1000", "pirnaDataMut"]
-  
-  names(pirnaDataNonMut1) <- names(pirnaDataNonMut2) <- 
-    names(pirnaDataNonMut3) <- names(pirnaDataNonMut4) <- 
-    names(pirnaDataNonMut5) <- names(pirnaDataMut1) <- 
-    names(pirnaDataMut2) <- names(pirnaDataMut3) <- names(pirnaDataMut4) <-
-    names(pirnaDataMut5) <- namesPirnaData
-  
-  newPirnaGDF <- PirnaGDF(
-    generalInfo       = PirnaGDF["generalInfo"],
-    `adjRegion:-1000` = InfoPirna(
-      pirnaDataNonMut = pirnaDataNonMut1[order(`Local.Início`)],
-      pirnaDataMut    = pirnaDataMutAux <- 
-        pirnaDataMut1[order(`Local.Início`)], 
-      mutData         = {
-        mutDataAux <- PirnaGDF["adjRegion:-1000", "mutData"]
-        names(mutDataAux) <- "Região -1000::" %s+% 
-          pirnaDataMutAux[ , piRNA.Cromossomo] %s+% ".." %s+% 
-          pirnaDataMutAux[ , piRNA.Nome] %s+% ".." %s+%
-          pirnaDataMutAux[ , `Local.Início`] %s+% ".." %s+%
-          pirnaDataMutAux[ , Local.Final]
-        mutDataAux
-      }
-    ),
-    `adjRegion:5'` = InfoPirna(
-      pirnaDataNonMut = pirnaDataNonMut2[order(`Local.Início`)],
-      pirnaDataMut    = pirnaDataMutAux <- 
-        pirnaDataMut2[order(`Local.Início`)], 
-      mutData         = {
-        mutDataAux <- PirnaGDF["adjRegion:5'", "mutData"]
-        names(mutDataAux) <- "Região 5'::" %s+% 
-          pirnaDataMutAux[ , piRNA.Cromossomo] %s+% ".." %s+% 
-          pirnaDataMutAux[ , piRNA.Nome] %s+% ".." %s+%
-          pirnaDataMutAux[ , `Local.Início`] %s+% ".." %s+%
-          pirnaDataMutAux[ , Local.Final]
-        mutDataAux
-      }
-    ),
-    `adjRegion:piRNA` = InfoPirna(
-      pirnaDataNonMut = pirnaDataNonMut3[order(`Local.Início`)],
-      pirnaDataMut    = pirnaDataMutAux <- 
-        pirnaDataMut3[order(`Local.Início`)], 
-      mutData         = {
-        mutDataAux <- PirnaGDF["adjRegion:piRNA", "mutData"]
-        names(mutDataAux) <- "Região piRNA::" %s+% 
-          pirnaDataMutAux[ , piRNA.Cromossomo] %s+% ".." %s+% 
-          pirnaDataMutAux[ , piRNA.Nome] %s+% ".." %s+%
-          pirnaDataMutAux[ , `Local.Início`] %s+% ".." %s+%
-          pirnaDataMutAux[ , Local.Final]
-        mutDataAux
-      }
-    ),
-    `adjRegion:3'` = InfoPirna(
-      pirnaDataNonMut = pirnaDataNonMut4[order(`Local.Início`)],
-      pirnaDataMut    = pirnaDataMutAux <- 
-        pirnaDataMut4[order(`Local.Início`)], 
-      mutData         = {
-        mutDataAux <- PirnaGDF["adjRegion:3'", "mutData"]
-        names(mutDataAux) <- "Região 3'::" %s+% 
-          pirnaDataMutAux[ , piRNA.Cromossomo] %s+% ".." %s+% 
-          pirnaDataMutAux[ , piRNA.Nome] %s+% ".." %s+%
-          pirnaDataMutAux[ , `Local.Início`] %s+% ".." %s+%
-          pirnaDataMutAux[ , Local.Final]
-        mutDataAux
-      }
-    ),
-    `adjRegion:+1000` = InfoPirna(
-      pirnaDataNonMut = pirnaDataNonMut5[order(`Local.Início`)],
-      pirnaDataMut    = pirnaDataMutAux <- 
-        pirnaDataMut5[order(`Local.Início`)], 
-      mutData         = {
-        mutDataAux <- PirnaGDF["adjRegion:+1000", "mutData"]
-        names(mutDataAux) <- "Região +1000::" %s+% 
-          pirnaDataMutAux[ , piRNA.Cromossomo] %s+% ".." %s+% 
-          pirnaDataMutAux[ , piRNA.Nome] %s+% ".." %s+%
-          pirnaDataMutAux[ , `Local.Início`] %s+% ".." %s+%
-          pirnaDataMutAux[ , Local.Final]
-        mutDataAux
-      }
-    )
-  )
-  
-  saveRDS(newPirnaGDF, file = pirnaObj)
-  
-  if (CHROM == "all") {
+    saveRDS(newPirnaGDF, file = pirnaObj)
+    
     saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
       if (region == "chrom.all") {
         nt <- mutData[ , diff(range(`Mutação.Local`)) + 1]
@@ -1084,15 +975,20 @@ piRNAc <- function(CHROM) {
       }
     }
     
-    foreach(chrom = "chr" %s+% c(1:22, "X", "Y")) %:% 
+    cat("\n   Atualizando o arquivo mutRate.rds\n")
+    pb    <- txtProgressBar(min = 0, max = 24 * 3, initial = 0) 
+    stepi <- 0
+    foreach(chrom = paste0("chr", c(1:22, "X", "Y"))) %:% 
       foreach(mut.map = c("all", "multi", "uni")) %do% {
+        stepi        <- stepi + 1
         dataAux      <- piRNAsubset(chrom, MUT.map = mut.map)
         mutDataAux   <- dataAux[["piRNA"]][["mutData"]]  
         pirnaDataAux <- dataAux[["piRNA"]][["pirnaData"]]
-        saveMutRate(mutDataAux, "piRNA." %s+% mut.map, "mutRate.rds")
+        saveMutRate(mutDataAux, paste0("piRNA.", mut.map), "mutRate.rds")
+        setTxtProgressBar(pb, stepi)
       }
     
-    mutRateFinal <- readRDS(file.path(params$pirnaDir, "mutRate.rds"))
+    mutRateFinal <- readRDS(file.path(pirnaDir, "mutRate.rds"))
     mutRateAux   <- mutRateFinal[ , .(
       bases = sum(bases),
       rate  = sum(bases * rate) / sum(bases),
@@ -1106,7 +1002,7 @@ piRNAc <- function(CHROM) {
                  tipo = "INDEL", bases = 0, rate = 0, sd = 0, se = 0, ci = 0),
       cbind(data.table(chrom = "all"), mutRateAux)
     )
-    saveRDS(mutRateFinal, file = file.path(params$pirnaDir, "mutRate.rds"))
+    saveRDS(mutRateFinal, file = file.path(pirnaDir, "mutRate.rds"))
   }
 }
 
