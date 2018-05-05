@@ -757,7 +757,7 @@ piRNAc <- function(CHROM) {
       optionsAux <- list(progress = function(rows) {
         setTxtProgressBar(progressBarAux, rows)
       })
-      foreach(region = regions, .combine = list,
+      dataAux <- foreach(region = regions, .combine = list,
               .multicombine = TRUE, .maxcombine = 5) %:% 
         foreach(chrom = 1:24, .combine = fun.combine, 
                 .options.snow = optionsAux,
@@ -765,6 +765,7 @@ piRNAc <- function(CHROM) {
         auxPirnaGDF[[chrom]]["adjRegion:" %s+% region, dataInfoPirna]
       close(progressBarAux)
       stopCluster(cl)
+      return(dataAux)
     }
      
     cat("\n   [PARTE II  - Objeto newPirnaGDF]\n")
