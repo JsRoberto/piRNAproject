@@ -725,10 +725,9 @@ piRNAc <- function(CHROM) {
     auxPirnaGDF <- 
       foreach(chrom = "chr" %s+% c(1:22, "X", "Y"), .options.snow = options1,
               .combine = list, .multicombine = TRUE, .maxcombine = 24) %dopar% {
-                suppressPackageStartupMessages(require(stringi))
-                auxPirnaDir <- file.path(gitHubDir, "piRNA" %s+% chrom)
-                auxPirnaObj <- file.path(auxPirnaDir, "pirnaGDF" %s+% chrom %s+%
-                                           ".rds")
+                auxPirnaDir <- file.path(gitHubDir, paste0("piRNA", chrom))
+                auxPirnaObj <- file.path(auxPirnaDir, paste0("pirnaGDF", chrom,
+                                                             ".rds"))
                 return(readRDS(auxPirnaObj))
               }
     
