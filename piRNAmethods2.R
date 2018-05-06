@@ -55,17 +55,17 @@ if(!suppressMessages(require(ggplot2))) {
 # if(!suppressMessages(require(webshot))) {
 #   install.packages("webshot")
 # }
-
-suppressPackageStartupMessages(require(stringi))
-suppressPackageStartupMessages(require(stringr))
-suppressPackageStartupMessages(require(pbapply))
-suppressPackageStartupMessages(require(magrittr))
-suppressPackageStartupMessages(require(limSolve))
-suppressPackageStartupMessages(require(data.table))
-suppressPackageStartupMessages(require(readr))
-suppressPackageStartupMessages(require(foreach))
-suppressPackageStartupMessages(require(doSNOW))
-suppressPackageStartupMessages(require(tictoc))
+# 
+# suppressPackageStartupMessages(require(stringi))
+# suppressPackageStartupMessages(require(stringr))
+# suppressPackageStartupMessages(require(pbapply))
+# suppressPackageStartupMessages(require(magrittr))
+# suppressPackageStartupMessages(require(limSolve))
+# suppressPackageStartupMessages(require(data.table))
+# suppressPackageStartupMessages(require(readr))
+# suppressPackageStartupMessages(require(foreach))
+# suppressPackageStartupMessages(require(doSNOW))
+# suppressPackageStartupMessages(require(tictoc))
 
 piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1, 
                         MUT.map   = c("all", "uni", "multi"),
@@ -225,76 +225,76 @@ piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1,
   return(subPirnaGDF)
 }
 
-gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-#gitHubDir <- "C:/Rdir/piRNAproject"
-source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
-
-pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% CHROM)
-dir.create(pirnaDir, showWarnings = FALSE)
-
-rbcombine <- function(..., idcol = NULL) 
-  data.table::rbindlist(list(...), idcol = idcol)
-
-saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
-  if (region == "chrom.all") {
-    nt <- mutData[ , diff(range(`Mutação.Local`)) + 1]
-  } else {
-    nt <- pirnaDataAux[ , sum(Local.Final - `Local.Início` + 1)]
-  }
-  
-  mutRate <- data[ , .(
-    bases = nt, 
-    rate  = mean(c(Total.AF, rep(0, nt - .N))),
-    sd    = sd(c(Total.AF, rep(0, nt - .N)))
-  ), by = .(tipo = `Mutação.Tipo`)]
-  
-  mutRate[ , se := sd / sqrt(bases)]
-  
-  mutRate[ , ci := se * qt(conf.interval / 2 + .5, bases - 1)]
-  
-  allDir <- file.path(gitHubDir, "piRNAall")
-  dir.create(allDir, showWarnings = FALSE)
-  pathFileRate <- file.path(allDir, fileRate)
-  if (!file.exists(pathFileRate)) {
-    tableRate <- cbind(chrom = chrom, region = region, mutRate)
-    saveRDS(tableRate, file = pathFileRate)
-  } else {
-    tableRate <- readRDS(pathFileRate)
-    tableRate <- rbind(tableRate, cbind(
-      chrom = chrom, region = region, mutRate
-    ))
-    saveRDS(tableRate, file = pathFileRate)
-  }
-}
-
-cat("\n   Atualizando o arquivo mutRate.rds\n")
-pb    <- txtProgressBar(min = 0, max = 24 * 3, initial = 0) 
-stepi <- 0
-foreach(mut.map = c("all", "multi", "uni")) %do% {
-  stepi        <- stepi + 1
-  dataAux      <- piRNAsubset("all", MUT.map = mut.map)
-  mutDataAux   <- dataAux[["piRNA"]][["mutData"]]  
-  pirnaDataAux <- dataAux[["piRNA"]][["pirnaData"]]
-  saveMutRate(mutDataAux, paste0("piRNA.", mut.map), "mutRate.rds")
-  setTxtProgressBar(pb, stepi)
-}
-
-cat("\n   Aaaeeeehhh, tá quase acabando essa POOOOORRA!!!!\n")
-mutRateFinal <- readRDS(file.path(pirnaDir, "mutRate.rds"))
-mutRateAux   <- mutRateFinal[ , .(
-  bases = sum(bases),
-  rate  = sum(bases * rate) / sum(bases),
-  sd    = sum(bases * sd)   / sum(bases),
-  se    = sum(bases * se)   / sum(bases), 
-  ci    = sum(bases * ci)   / sum(bases)
-), by = .(region, tipo)][order(region, tipo)]
-mutRateFinal <- rbind(
-  mutRateFinal,
-  data.table(chrom = "chrY", region = paste0("piRNA.", c("all", "multi", "uni")),
-             tipo = "INDEL", bases = 0, rate = 0, sd = 0, se = 0, ci = 0),
-  cbind(data.table(chrom = "all"), mutRateAux)
-)
-saveRDS(mutRateFinal, file = file.path(pirnaDir, "mutRate.rds"))
+# gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
+# #gitHubDir <- "C:/Rdir/piRNAproject"
+# source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
+# 
+# pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% CHROM)
+# dir.create(pirnaDir, showWarnings = FALSE)
+# 
+# rbcombine <- function(..., idcol = NULL) 
+#   data.table::rbindlist(list(...), idcol = idcol)
+# 
+# saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
+#   if (region == "chrom.all") {
+#     nt <- mutData[ , diff(range(`Mutação.Local`)) + 1]
+#   } else {
+#     nt <- pirnaDataAux[ , sum(Local.Final - `Local.Início` + 1)]
+#   }
+#   
+#   mutRate <- data[ , .(
+#     bases = nt, 
+#     rate  = mean(c(Total.AF, rep(0, nt - .N))),
+#     sd    = sd(c(Total.AF, rep(0, nt - .N)))
+#   ), by = .(tipo = `Mutação.Tipo`)]
+#   
+#   mutRate[ , se := sd / sqrt(bases)]
+#   
+#   mutRate[ , ci := se * qt(conf.interval / 2 + .5, bases - 1)]
+#   
+#   allDir <- file.path(gitHubDir, "piRNAall")
+#   dir.create(allDir, showWarnings = FALSE)
+#   pathFileRate <- file.path(allDir, fileRate)
+#   if (!file.exists(pathFileRate)) {
+#     tableRate <- cbind(chrom = chrom, region = region, mutRate)
+#     saveRDS(tableRate, file = pathFileRate)
+#   } else {
+#     tableRate <- readRDS(pathFileRate)
+#     tableRate <- rbind(tableRate, cbind(
+#       chrom = chrom, region = region, mutRate
+#     ))
+#     saveRDS(tableRate, file = pathFileRate)
+#   }
+# }
+# 
+# cat("\n   Atualizando o arquivo mutRate.rds\n")
+# pb    <- txtProgressBar(min = 0, max = 24 * 3, initial = 0) 
+# stepi <- 0
+# foreach(mut.map = c("all", "multi", "uni")) %do% {
+#   stepi        <- stepi + 1
+#   dataAux      <- piRNAsubset("all", MUT.map = mut.map)
+#   mutDataAux   <- dataAux[["piRNA"]][["mutData"]]  
+#   pirnaDataAux <- dataAux[["piRNA"]][["pirnaData"]]
+#   saveMutRate(mutDataAux, paste0("piRNA.", mut.map), "mutRate.rds")
+#   setTxtProgressBar(pb, stepi)
+# }
+# 
+# cat("\n   Aaaeeeehhh, tá quase acabando essa POOOOORRA!!!!\n")
+# mutRateFinal <- readRDS(file.path(pirnaDir, "mutRate.rds"))
+# mutRateAux   <- mutRateFinal[ , .(
+#   bases = sum(bases),
+#   rate  = sum(bases * rate) / sum(bases),
+#   sd    = sum(bases * sd)   / sum(bases),
+#   se    = sum(bases * se)   / sum(bases), 
+#   ci    = sum(bases * ci)   / sum(bases)
+# ), by = .(region, tipo)][order(region, tipo)]
+# mutRateFinal <- rbind(
+#   mutRateFinal,
+#   data.table(chrom = "chrY", region = paste0("piRNA.", c("all", "multi", "uni")),
+#              tipo = "INDEL", bases = 0, rate = 0, sd = 0, se = 0, ci = 0),
+#   cbind(data.table(chrom = "all"), mutRateAux)
+# )
+# saveRDS(mutRateFinal, file = file.path(pirnaDir, "mutRate.rds"))
 
 # A função piRNAcalc tem dois objetivos:
 # (1) Realizar o pré-processamento dos arquivos VCF e GFF -> Obtenção dos 
