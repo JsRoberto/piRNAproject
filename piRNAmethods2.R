@@ -56,6 +56,89 @@ if(!suppressMessages(require(ggplot2))) {
 #   install.packages("webshot")
 # }
 
+suppressPackageStartupMessages(require(stringi))
+suppressPackageStartupMessages(require(stringr))
+suppressPackageStartupMessages(require(pbapply))
+suppressPackageStartupMessages(require(magrittr))
+suppressPackageStartupMessages(require(limSolve))
+suppressPackageStartupMessages(require(data.table))
+suppressPackageStartupMessages(require(readr))
+suppressPackageStartupMessages(require(foreach))
+suppressPackageStartupMessages(require(doSNOW))
+suppressPackageStartupMessages(require(tictoc))
+
+gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
+#gitHubDir <- "C:/Rdir/piRNAproject"
+source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
+
+pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% CHROM)
+dir.create(pirnaDir, showWarnings = FALSE)
+
+rbcombine <- function(..., idcol = NULL) 
+  data.table::rbindlist(list(...), idcol = idcol)
+
+saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
+  if (region == "chrom.all") {
+    nt <- mutData[ , diff(range(`Mutação.Local`)) + 1]
+  } else {
+    nt <- pirnaDataAux[ , sum(Local.Final - `Local.Início` + 1)]
+  }
+  
+  mutRate <- data[ , .(
+    bases = nt, 
+    rate  = mean(c(Total.AF, rep(0, nt - .N))),
+    sd    = sd(c(Total.AF, rep(0, nt - .N)))
+  ), by = .(tipo = `Mutação.Tipo`)]
+  
+  mutRate[ , se := sd / sqrt(bases)]
+  
+  mutRate[ , ci := se * qt(conf.interval / 2 + .5, bases - 1)]
+  
+  allDir <- file.path(gitHubDir, "piRNAall")
+  dir.create(allDir, showWarnings = FALSE)
+  pathFileRate <- file.path(allDir, fileRate)
+  if (!file.exists(pathFileRate)) {
+    tableRate <- cbind(chrom = chrom, region = region, mutRate)
+    saveRDS(tableRate, file = pathFileRate)
+  } else {
+    tableRate <- readRDS(pathFileRate)
+    tableRate <- rbind(tableRate, cbind(
+      chrom = chrom, region = region, mutRate
+    ))
+    saveRDS(tableRate, file = pathFileRate)
+  }
+}
+
+cat("\n   Atualizando o arquivo mutRate.rds\n")
+pb    <- txtProgressBar(min = 0, max = 24 * 3, initial = 0) 
+stepi <- 0
+foreach(chrom = paste0("chr", c(1:22, "X", "Y"))) %:% 
+  foreach(mut.map = c("all", "multi", "uni")) %do% {
+    stepi        <- stepi + 1
+    dataAux      <- piRNAsubset(chrom, MUT.map = mut.map)
+    mutDataAux   <- dataAux[["piRNA"]][["mutData"]]  
+    pirnaDataAux <- dataAux[["piRNA"]][["pirnaData"]]
+    saveMutRate(mutDataAux, paste0("piRNA.", mut.map), "mutRate.rds")
+    setTxtProgressBar(pb, stepi)
+  }
+
+cat("\n   Aaaeeeehhh, tá quase acabando essa POOOOORRA!!!!\n")
+mutRateFinal <- readRDS(file.path(pirnaDir, "mutRate.rds"))
+mutRateAux   <- mutRateFinal[ , .(
+  bases = sum(bases),
+  rate  = sum(bases * rate) / sum(bases),
+  sd    = sum(bases * sd)   / sum(bases),
+  se    = sum(bases * se)   / sum(bases), 
+  ci    = sum(bases * ci)   / sum(bases)
+), by = .(region, tipo)][order(region, tipo)]
+mutRateFinal <- rbind(
+  mutRateFinal,
+  data.table(chrom = "chrY", region = paste0("piRNA.", c("all", "multi", "uni")),
+             tipo = "INDEL", bases = 0, rate = 0, sd = 0, se = 0, ci = 0),
+  cbind(data.table(chrom = "all"), mutRateAux)
+)
+saveRDS(mutRateFinal, file = file.path(pirnaDir, "mutRate.rds"))
+
 # A função piRNAcalc tem dois objetivos:
 # (1) Realizar o pré-processamento dos arquivos VCF e GFF -> Obtenção dos 
 # arquivos, limpeza dos dados e tratamento das linhas com múltiplas mutações
@@ -708,238 +791,238 @@ piRNAc <- function(CHROM) {
   
   if (CHROM == "all") {
     
-    regions <- c("-1000", "5'", "piRNA", "3'", "+1000")
-    
-    numberOfCluster <- parallel::detectCores() / 2
-    cl <- makeCluster(numberOfCluster)
-    registerDoSNOW(cl)
-    
-    cat("\n   [PARTE I  - Objeto auxPirnaGDF]\n")
-    progressBar1 <- txtProgressBar(
-      min = 0, max = 24, char = "=", style = 3
-    )
-    options1 <- list(progress = function(rows) {
-      setTxtProgressBar(progressBar1, rows)
-    })
-    
-    auxPirnaGDF <- 
-      foreach(chrom = paste0("chr", c(1:22, "X", "Y")), .options.snow = options1,
-              .combine = list, .multicombine = TRUE, .maxcombine = 24) %dopar% {
-                auxPirnaDir <- file.path(gitHubDir, paste0("piRNA", chrom))
-                auxPirnaObj <- file.path(auxPirnaDir, paste0("pirnaGDF", chrom,
-                                                             ".rds"))
-                return(readRDS(auxPirnaObj))
-              }
-    
-    close(progressBar1)
-    stopCluster(cl)
-    
-    cat("\n   [PARTE II  - Objeto newPirnaGDF]\n")
-    
-    cat("   Carregando pirnaDataNonMut\n")
+    # regions <- c("-1000", "5'", "piRNA", "3'", "+1000")
+    # 
     # numberOfCluster <- parallel::detectCores() / 2
     # cl <- makeCluster(numberOfCluster)
     # registerDoSNOW(cl)
-    # progressBarAux <- txtProgressBar(
+    # 
+    # cat("\n   [PARTE I  - Objeto auxPirnaGDF]\n")
+    # progressBar1 <- txtProgressBar(
     #   min = 0, max = 24, char = "=", style = 3
     # )
-    # optionsAux <- list(progress = function(rows) {
-    #   setTxtProgressBar(progressBarAux, rows)
+    # options1 <- list(progress = function(rows) {
+    #   setTxtProgressBar(progressBar1, rows)
     # })
-    region <- "-1000"
-    dataAux1 <- foreach(
-      chrom = 1:24, .combine = rbcombine, 
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
-      }
-    
-    region <- "5'"
-    dataAux2 <- foreach(
-      chrom = 1:24, .combine = rbcombine,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
-      }
-    region <- "piRNA"
-    dataAux3 <- foreach(
-      chrom = 1:24, .combine = rbcombine,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
-      }
-    region <- "3'"
-    dataAux4 <- foreach(
-      chrom = 1:24, .combine = rbcombine,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
-      }
-    region <- "+1000"
-    dataAux5 <- foreach(
-      chrom = 1:24, .combine = rbcombine,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
-      }
-    pirnaDataNonMut <- list(
-      `-1000` = dataAux1,
-      `5'` = dataAux2,
-      `piRNA` = dataAux3,
-      `3'` = dataAux4,
-      `+1000` = dataAux5
-    )
-    
-    cat("   Carregando pirnaDataMut\n")
-    # numberOfCluster <- parallel::detectCores() / 2
-    # cl <- makeCluster(numberOfCluster)
-    # registerDoSNOW(cl)
-    # progressBarAux <- txtProgressBar(
-    #   min = 0, max = 24, char = "=", style = 3
+    # 
+    # auxPirnaGDF <- 
+    #   foreach(chrom = paste0("chr", c(1:22, "X", "Y")), .options.snow = options1,
+    #           .combine = list, .multicombine = TRUE, .maxcombine = 24) %dopar% {
+    #             auxPirnaDir <- file.path(gitHubDir, paste0("piRNA", chrom))
+    #             auxPirnaObj <- file.path(auxPirnaDir, paste0("pirnaGDF", chrom,
+    #                                                          ".rds"))
+    #             return(readRDS(auxPirnaObj))
+    #           }
+    # 
+    # close(progressBar1)
+    # stopCluster(cl)
+    # 
+    # cat("\n   [PARTE II  - Objeto newPirnaGDF]\n")
+    # 
+    # cat("   Carregando pirnaDataNonMut\n")
+    # # numberOfCluster <- parallel::detectCores() / 2
+    # # cl <- makeCluster(numberOfCluster)
+    # # registerDoSNOW(cl)
+    # # progressBarAux <- txtProgressBar(
+    # #   min = 0, max = 24, char = "=", style = 3
+    # # )
+    # # optionsAux <- list(progress = function(rows) {
+    # #   setTxtProgressBar(progressBarAux, rows)
+    # # })
+    # region <- "-1000"
+    # dataAux1 <- foreach(
+    #   chrom = 1:24, .combine = rbcombine, 
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
+    #   }
+    # 
+    # region <- "5'"
+    # dataAux2 <- foreach(
+    #   chrom = 1:24, .combine = rbcombine,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
+    #   }
+    # region <- "piRNA"
+    # dataAux3 <- foreach(
+    #   chrom = 1:24, .combine = rbcombine,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
+    #   }
+    # region <- "3'"
+    # dataAux4 <- foreach(
+    #   chrom = 1:24, .combine = rbcombine,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
+    #   }
+    # region <- "+1000"
+    # dataAux5 <- foreach(
+    #   chrom = 1:24, .combine = rbcombine,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
+    #   }
+    # pirnaDataNonMut <- list(
+    #   `-1000` = dataAux1,
+    #   `5'` = dataAux2,
+    #   `piRNA` = dataAux3,
+    #   `3'` = dataAux4,
+    #   `+1000` = dataAux5
     # )
-    # optionsAux <- list(progress = function(rows) {
-    #   setTxtProgressBar(progressBarAux, rows)
-    # })
-    region <- "-1000"
-    dataAux1 <- foreach(
-      chrom = 1:24, .combine = rbcombine, 
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
-      }
-    
-    region <- "5'"
-    dataAux2 <- foreach(
-      chrom = 1:24, .combine = rbcombine,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
-      }
-    region <- "piRNA"
-    dataAux3 <- foreach(
-      chrom = 1:24, .combine = rbcombine,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
-      }
-    region <- "3'"
-    dataAux4 <- foreach(
-      chrom = 1:24, .combine = rbcombine,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
-      }
-    region <- "+1000"
-    dataAux5 <- foreach(
-      chrom = 1:24, .combine = rbcombine,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
-      }
-    pirnaDataMut <- list(
-      `-1000` = dataAux1,
-      `5'` = dataAux2,
-      `piRNA` = dataAux3,
-      `3'` = dataAux4,
-      `+1000` = dataAux5
-    )
-    
-    cat("   Carregando mutData\n")
-    # numberOfCluster <- parallel::detectCores() / 2
-    # cl <- makeCluster(numberOfCluster)
-    # registerDoSNOW(cl)
-    # progressBarAux <- txtProgressBar(
-    #   min = 0, max = 24, char = "=", style = 3
+    # 
+    # cat("   Carregando pirnaDataMut\n")
+    # # numberOfCluster <- parallel::detectCores() / 2
+    # # cl <- makeCluster(numberOfCluster)
+    # # registerDoSNOW(cl)
+    # # progressBarAux <- txtProgressBar(
+    # #   min = 0, max = 24, char = "=", style = 3
+    # # )
+    # # optionsAux <- list(progress = function(rows) {
+    # #   setTxtProgressBar(progressBarAux, rows)
+    # # })
+    # region <- "-1000"
+    # dataAux1 <- foreach(
+    #   chrom = 1:24, .combine = rbcombine, 
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
+    #   }
+    # 
+    # region <- "5'"
+    # dataAux2 <- foreach(
+    #   chrom = 1:24, .combine = rbcombine,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
+    #   }
+    # region <- "piRNA"
+    # dataAux3 <- foreach(
+    #   chrom = 1:24, .combine = rbcombine,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
+    #   }
+    # region <- "3'"
+    # dataAux4 <- foreach(
+    #   chrom = 1:24, .combine = rbcombine,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
+    #   }
+    # region <- "+1000"
+    # dataAux5 <- foreach(
+    #   chrom = 1:24, .combine = rbcombine,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
+    #   }
+    # pirnaDataMut <- list(
+    #   `-1000` = dataAux1,
+    #   `5'` = dataAux2,
+    #   `piRNA` = dataAux3,
+    #   `3'` = dataAux4,
+    #   `+1000` = dataAux5
     # )
-    # optionsAux <- list(progress = function(rows) {
-    #   setTxtProgressBar(progressBarAux, rows)
-    # })
-    region <- "-1000"
-    dataAux1 <- foreach(
-      chrom = 1:24, .combine = c, 
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
-      }
-    
-    region <- "5'"
-    dataAux2 <- foreach(
-      chrom = 1:24, .combine = c,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
-      }
-    region <- "piRNA"
-    dataAux3 <- foreach(
-      chrom = 1:24, .combine = c,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
-      }
-    region <- "3'"
-    dataAux4 <- foreach(
-      chrom = 1:24, .combine = c,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
-      }
-    region <- "+1000"
-    dataAux5 <- foreach(
-      chrom = 1:24, .combine = c,
-      .multicombine = TRUE, .maxcombine = 24) %do% {
-        auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
-      }
-    mutData <- list(
-      `-1000` = dataAux1,
-      `5'` = dataAux2,
-      `piRNA` = dataAux3,
-      `3'` = dataAux4,
-      `+1000` = dataAux5
-    )
-    
-    region <- "-1000" 
-    assign(
-      x     = paste0("adjRegion:", region), 
-      envir = .GlobalEnv,
-      value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-                        pirnaDataMut    = pirnaDataMut[[region]], 
-                        mutData         = mutData[[region]])
-    )
-    
-    region <- "5'" 
-    assign(
-      x     = paste0("adjRegion:", region), 
-      envir = .GlobalEnv,
-      value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-                        pirnaDataMut    = pirnaDataMut[[region]], 
-                        mutData         = mutData[[region]])
-    )
-    
-    region <- "piRNA" 
-    assign(
-      x     = paste0("adjRegion:", region), 
-      envir = .GlobalEnv,
-      value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-                        pirnaDataMut    = pirnaDataMut[[region]], 
-                        mutData         = mutData[[region]])
-    )
-    
-    region <- "3'" 
-    assign(
-      x     = paste0("adjRegion:", region), 
-      envir = .GlobalEnv,
-      value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-                        pirnaDataMut    = pirnaDataMut[[region]], 
-                        mutData         = mutData[[region]])
-    )
-    
-    region <- "+1000" 
-    assign(
-      x     = paste0("adjRegion:", region), 
-      envir = .GlobalEnv,
-      value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-                        pirnaDataMut    = pirnaDataMut[[region]], 
-                        mutData         = mutData[[region]])
-    )
-    
-    generalInfo <- "INFORMAÇÕES SOBRE TODOS OS CROMOSSOMOS"
-    
-    newPirnaGDF <- PirnaGDF(
-      generalInfo       = generalInfo,
-      `adjRegion:-1000` = `adjRegion:-1000`,
-      `adjRegion:5'`    = `adjRegion:5'`,
-      `adjRegion:piRNA` = `adjRegion:piRNA`,
-      `adjRegion:3'`    = `adjRegion:3'`,
-      `adjRegion:+1000` = `adjRegion:-1000`
-    )
-    
-    saveRDS(newPirnaGDF, file = pirnaObj)
+    # 
+    # cat("   Carregando mutData\n")
+    # # numberOfCluster <- parallel::detectCores() / 2
+    # # cl <- makeCluster(numberOfCluster)
+    # # registerDoSNOW(cl)
+    # # progressBarAux <- txtProgressBar(
+    # #   min = 0, max = 24, char = "=", style = 3
+    # # )
+    # # optionsAux <- list(progress = function(rows) {
+    # #   setTxtProgressBar(progressBarAux, rows)
+    # # })
+    # region <- "-1000"
+    # dataAux1 <- foreach(
+    #   chrom = 1:24, .combine = c, 
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
+    #   }
+    # 
+    # region <- "5'"
+    # dataAux2 <- foreach(
+    #   chrom = 1:24, .combine = c,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
+    #   }
+    # region <- "piRNA"
+    # dataAux3 <- foreach(
+    #   chrom = 1:24, .combine = c,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
+    #   }
+    # region <- "3'"
+    # dataAux4 <- foreach(
+    #   chrom = 1:24, .combine = c,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
+    #   }
+    # region <- "+1000"
+    # dataAux5 <- foreach(
+    #   chrom = 1:24, .combine = c,
+    #   .multicombine = TRUE, .maxcombine = 24) %do% {
+    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
+    #   }
+    # mutData <- list(
+    #   `-1000` = dataAux1,
+    #   `5'` = dataAux2,
+    #   `piRNA` = dataAux3,
+    #   `3'` = dataAux4,
+    #   `+1000` = dataAux5
+    # )
+    # 
+    # region <- "-1000" 
+    # assign(
+    #   x     = paste0("adjRegion:", region), 
+    #   envir = .GlobalEnv,
+    #   value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
+    #                     pirnaDataMut    = pirnaDataMut[[region]], 
+    #                     mutData         = mutData[[region]])
+    # )
+    # 
+    # region <- "5'" 
+    # assign(
+    #   x     = paste0("adjRegion:", region), 
+    #   envir = .GlobalEnv,
+    #   value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
+    #                     pirnaDataMut    = pirnaDataMut[[region]], 
+    #                     mutData         = mutData[[region]])
+    # )
+    # 
+    # region <- "piRNA" 
+    # assign(
+    #   x     = paste0("adjRegion:", region), 
+    #   envir = .GlobalEnv,
+    #   value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
+    #                     pirnaDataMut    = pirnaDataMut[[region]], 
+    #                     mutData         = mutData[[region]])
+    # )
+    # 
+    # region <- "3'" 
+    # assign(
+    #   x     = paste0("adjRegion:", region), 
+    #   envir = .GlobalEnv,
+    #   value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
+    #                     pirnaDataMut    = pirnaDataMut[[region]], 
+    #                     mutData         = mutData[[region]])
+    # )
+    # 
+    # region <- "+1000" 
+    # assign(
+    #   x     = paste0("adjRegion:", region), 
+    #   envir = .GlobalEnv,
+    #   value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
+    #                     pirnaDataMut    = pirnaDataMut[[region]], 
+    #                     mutData         = mutData[[region]])
+    # )
+    # 
+    # generalInfo <- "INFORMAÇÕES SOBRE TODOS OS CROMOSSOMOS"
+    # 
+    # newPirnaGDF <- PirnaGDF(
+    #   generalInfo       = generalInfo,
+    #   `adjRegion:-1000` = `adjRegion:-1000`,
+    #   `adjRegion:5'`    = `adjRegion:5'`,
+    #   `adjRegion:piRNA` = `adjRegion:piRNA`,
+    #   `adjRegion:3'`    = `adjRegion:3'`,
+    #   `adjRegion:+1000` = `adjRegion:-1000`
+    # )
+    # 
+    # saveRDS(newPirnaGDF, file = pirnaObj)
     
     saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
       if (region == "chrom.all") {
