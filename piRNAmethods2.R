@@ -83,8 +83,8 @@ piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1,
   suppressPackageStartupMessages(require(doSNOW))
   suppressPackageStartupMessages(require(tictoc))
   
-  #gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-  gitHubDir <- "C:/Rdir/piRNAproject"
+  gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
+  #gitHubDir <- "C:/Rdir/piRNAproject"
   pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% CHROM)
   
   rbcombine <- 
