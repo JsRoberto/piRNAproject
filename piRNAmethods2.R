@@ -83,8 +83,8 @@ piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1,
   suppressPackageStartupMessages(require(doSNOW))
   suppressPackageStartupMessages(require(tictoc))
   
-  gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-  #gitHubDir <- "C:/Rdir/piRNAproject"
+  #gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
+  gitHubDir <- "C:/Rdir/piRNAproject"
   pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% CHROM)
   
   rbcombine <- 
@@ -114,8 +114,8 @@ piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1,
     
     names(tt1) <- names(tt2) <- namesPirnaData
     
-    tt1 <- tt1[order(`Local.Início`)]
-    tt2 <- tt2[order(`Local.Início`)]
+    # tt1 <- tt1[order(`Local.Início`)]
+    # tt2 <- tt2[order(`Local.Início`)]
     
     tt <- rbcombine(tt1, tt2)
     
@@ -131,14 +131,6 @@ piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1,
       namesPirnaData[1:2], "piRNA.Mapeamento", namesPirnaData[3:7]
     ))
     
-    if (MUT.map[1] == "uni") {
-      tt <- tt[piRNA.Mapeamento == "Único"]
-    }
-    
-    if (MUT.map[1] == "multi") {
-      tt <- tt[piRNA.Mapeamento == "Múltiplo"]
-    }
-    
     if (MUT.only[1] == "no") {
       tt <- tt[`Mutações.Total` == 0]
       
@@ -149,15 +141,25 @@ piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1,
       return(list(pirnaData = tt))
     }
     
-    mm <- newPirnaGDF["adjRegion:" %s+% region, "mutData"]
-    names(mm) <- "Região " %s+% region %s+% "::" %s+% 
-      tt1[ , stri_join(sep = "..", piRNA.Cromossomo, piRNA.Nome, 
-                       `Local.Início`, Local.Final)]
-    mm <- lapply(mm, function(m) {names(m) <- namesMutData; return(m)})
-    ttt <- tt[`Mutações.Total` != 0]
+    tt1 <- tt[`Mutações.Total` != 0]
+    tt2 <- tt[`Mutações.Total` == 0]
     
-    if (MUT.only[1] == "yes") {
-      tt <- ttt
+    mm <- newPirnaGDF["adjRegion:" %s+% region, "mutData"]
+    # names(mm) <- "Região " %s+% region %s+% "::" %s+% 
+    #   tt1[ , stri_join(sep = "..", piRNA.Cromossomo, piRNA.Nome, 
+    #                    `Local.Início`, Local.Final)]
+    mm <- lapply(mm, function(m) {names(m) <- namesMutData; return(m)})
+    
+    if (MUT.map[1] == "uni") {
+      mm <- mm[tt1[, piRNA.Mapeamento == "Único"]]
+      tt1 <- tt1[piRNA.Mapeamento == "Único"]
+      tt2 <- tt2[piRNA.Mapeamento == "Único"]
+    }
+    
+    if (MUT.map[1] == "multi") {
+      mm <- mm[tt1[, piRNA.Mapeamento == "Múltiplo"]]
+      tt1 <- tt1[piRNA.Mapeamento == "Múltiplo"]
+      tt2 <- tt2[piRNA.Mapeamento == "Múltiplo"]
     }
     
     if (MUT.type[1] == "indel") {
@@ -178,36 +180,36 @@ piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1,
     
     mm <- lapply(mm, function(m) m[Total.AF >= AF.min & Total.AF <= AF.max])
     
-    mm <- lapply(mm, function(m) {
-      if(nrow(m) == 0) {
-        maux <- data.table(NA, NA, NA, NA, NA, NA, NA, NA, NA, 
-                           NA, NA, NA, NA, NA, NA, NA, NA, NA)
-        names(maux) <- names(m)
-        return(maux)
-      } else {
-        return(m)
-      }
-    })
+    mmID <- unlist(sapply(mm, function(m) nrow(m)))
     
     mmm <- rbindlist(mm, idcol = "ID")
     
     mmm <- mmm[ , .(total = .N, 
                     snp   = sum(`Mutação.Tipo` == "SNP"), 
                     indel = sum(`Mutação.Tipo` == "INDEL")), by = ID]
-    #Errado!
-    ttt <- ttt[mmm[ , !is.na(total)]]
-    mm  <- mm[mmm[ , !is.na(total)]]
-    mmm <- mmm[!is.na(total)]
+
+    ttt1 <- tt1[mmID != 0]
+    mm  <- mm[mmID != 0]
     
-    ttt <- ttt[ , `:=`(
+    ttt1 <- ttt1[ , `:=`(
       `Mutações.Total` = mmm[ , total] %s+% " (" %s+% `Mutações.Total` %s+% ")",
       `Mutações.SNP`   = mmm[ , snp]   %s+% " (" %s+% `Mutações.SNP`   %s+% ")",
       `Mutações.INDEL` = mmm[ , indel] %s+% " (" %s+% `Mutações.INDEL` %s+% ")"
     )]
     
-    ttt2 <- tt[`Mutações.Total` == 0]
+    ttt2 <- rbind(tt2, tt1[mmID == 0])[order(`Local.Início`)]
     
-    finalResult <- list(pirnaData = rbcombine(ttt, ttt2), mutData = mm)
+    #
+    if (MUT.only[1] == "yes") {
+      ttt <- ttt1
+    } 
+    
+    if (MUT.only[1] == "all") {
+      ttt <- rbcombine(ttt1, ttt2)[order(`Local.Início`)]
+    }
+    #
+    
+    finalResult <- list(pirnaData = ttt, mutData = mm)
     
     return(finalResult)
   }
@@ -268,15 +270,14 @@ saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
 cat("\n   Atualizando o arquivo mutRate.rds\n")
 pb    <- txtProgressBar(min = 0, max = 24 * 3, initial = 0) 
 stepi <- 0
-foreach(chrom = paste0("chr", c(1:22, "X", "Y"))) %:% 
-  foreach(mut.map = c("all", "multi", "uni")) %do% {
-    stepi        <- stepi + 1
-    dataAux      <- piRNAsubset(chrom, MUT.map = mut.map)
-    mutDataAux   <- dataAux[["piRNA"]][["mutData"]]  
-    pirnaDataAux <- dataAux[["piRNA"]][["pirnaData"]]
-    saveMutRate(mutDataAux, paste0("piRNA.", mut.map), "mutRate.rds")
-    setTxtProgressBar(pb, stepi)
-  }
+foreach(mut.map = c("all", "multi", "uni")) %do% {
+  stepi        <- stepi + 1
+  dataAux      <- piRNAsubset("all", MUT.map = mut.map)
+  mutDataAux   <- dataAux[["piRNA"]][["mutData"]]  
+  pirnaDataAux <- dataAux[["piRNA"]][["pirnaData"]]
+  saveMutRate(mutDataAux, paste0("piRNA.", mut.map), "mutRate.rds")
+  setTxtProgressBar(pb, stepi)
+}
 
 cat("\n   Aaaeeeehhh, tá quase acabando essa POOOOORRA!!!!\n")
 mutRateFinal <- readRDS(file.path(pirnaDir, "mutRate.rds"))
@@ -2337,14 +2338,14 @@ piRNAgraphics2 <- function(CHROM) {
   dir.create(params$pirnaDir, showWarnings = FALSE)
   dir.create(fig.opts$path, showWarnings = FALSE)
   
-  rbcombine <- function(..., idcol = NULL)
-    data.table::rbindlist(list(...), idcol = idcol)
+  rbcombine <- function(..., idcol = NULL) {
+    data.table::rbindlist(list(...), idcol = idcol)}
   
   for (pirna.map in c("all", "multi", "uni")) {
-    allnewPirnaGDF <- piRNAsubset(CHROM, MUT.map = pirna.map)
+    allnewnewPirnaGDF <- piRNAsubset(CHROM, MUT.map = pirna.map)
     
-    mutDataObtain <- function(allnewPirnaGDF, region) {
-      mutData   <- allnewPirnaGDF[[region]][["mutData"]]
+    mutDataObtain <- function(allnewnewPirnaGDF, region) {
+      mutData   <- allnewnewPirnaGDF[[region]][["mutData"]]
       
       mutData   <- rbindlist(mutData, idcol = "piRNA.Referência")
       
@@ -2387,7 +2388,7 @@ piRNAgraphics2 <- function(CHROM) {
     regions    <- c("-1000", "5'", "piRNA", "3'", "+1000")
     mutDataALL <- foreach(region = regions, .combine = list, 
                           .multicombine = TRUE, .maxcombine = 5) %do%
-      mutDataObtain(allnewPirnaGDF, region)
+      mutDataObtain(allnewnewPirnaGDF, region)
     names(mutDataALL) <- regions
     mutDataALL <- rbindlist(mutDataALL, idcol = "Região.Referência")
     
@@ -2409,9 +2410,9 @@ piRNAgraphics2 <- function(CHROM) {
     mutDataFinal <- data.table(mutDataFinal, keep.rownames = TRUE)
     
     #
-    pirnaDataObtain <- function(allnewPirnaGDF, region) {
-      pirnaData <- allnewPirnaGDF[[region]][["pirnaData"]]
-      mutData   <- allnewPirnaGDF[[region]][["mutData"]]
+    pirnaDataObtain <- function(allnewnewPirnaGDF, region) {
+      pirnaData <- allnewnewPirnaGDF[[region]][["pirnaData"]]
+      mutData   <- allnewnewPirnaGDF[[region]][["mutData"]]
       
       mutData   <- mutData[pirnaData[`Mutações.Total` != 0,
                                      stri_detect_fixed(piRNA.Nome, "+", negate = TRUE)
@@ -2475,7 +2476,7 @@ piRNAgraphics2 <- function(CHROM) {
       return(pirnaData1)
     }
     
-    pirnaDataFinal  <- pirnaDataObtain(allnewPirnaGDF, "piRNA")
+    pirnaDataFinal  <- pirnaDataObtain(allnewnewPirnaGDF, "piRNA")
     
     #Graficos Finais
     
@@ -2565,54 +2566,54 @@ piRNAgraphics2 <- function(CHROM) {
     
   }
   
-  if (CHROM == "all") {
-    mutRateFinal <- readRDS(file.path(params$pirnaDir, "mutRate.rds")) 
-    addTrace3    <- function(p, mut.region, mut.type, color,
-                             chr.exclusive = c(paste0("chr", c(1:22, "X", "Y")), "all")) {
-      plotly::add_trace(
-        p, data = mutRateFinal[params$chrom %in% chr.exclusive & 
-                                 region == mut.region & tipo == mut.type],
-        x = ~substr(params$chrom, 4, 5), y = ~rate, 
-        type = 'scatter', mode = 'markers',
-        marker = list(color = pirna_colors[color]),
-        error_y = ~list(value = ci),
-        name = paste(mut.region, '&', mut.type), 
-        text = ~paste(
-          'Cromossomo:', params$chrom, '\nTaxa de Mutação:',
-          formatC(rate, format = "e", digits = 2), "±",
-          formatC(ci, format = "e", digits = 2)
-        ),
-        hoverinfo = 'text')
-    }
-    addLayout3   <- function(p, categoryarray = c(1:22, "X", "Y", "all")) {
-      plotly::layout(
-        p, title    = '<b> Taxas de Mutações por Cromossomo <b>',
-        xaxis       = list(title = 'Cromossomo', categoryorder = "array",
-                           categoryarray = categoryarray),
-        yaxis       = list(title = 'Taxa de Mutação (por nucleotídeo)'),
-        legend      = list(x = 1, y = 0.5),
-        annotations = list(yref = 'paper', xref = "paper",
-                           align = 'left', y = 1, x = 1.1, showarrow = F,
-                           text = "Região & \n Tipo de Mutação")
-      )
-    }
-    
-    p3.1 <- plot_ly() %>% addTrace3("chrom.all", "SNP", "blue") %>% 
-      addTrace3("piRNA.all", "SNP", "green") %>% 
-      addTrace3("piRNA.multi", "SNP", "yellow") %>%
-      addTrace3("piRNA.uni", "SNP", "orange") %>% addLayout3()
-    
-    p3.2 <- plot_ly() %>% addTrace3("chrom.all", "INDEL", "blue") %>% 
-      addTrace3("piRNA.all", "INDEL", "green") %>% 
-      addTrace3("piRNA.multi", "INDEL", "yellow") %>%
-      addTrace3("piRNA.uni", "INDEL", "orange") %>% addLayout3()
-    
-    export(p3.1, file = file.path(fig.opts$path, "plot7.1_" %s+% params$chrom %s+% 
-                                    "_" %s+% ".png"))
-    export(p3.2, file = file.path(fig.opts$path, "plot7.2_" %s+% params$chrom %s+% 
-                                    "_" %s+% ".png"))
-    
-  }
+  # if (CHROM == "all") {
+  #   mutRateFinal <- readRDS(file.path(params$pirnaDir, "mutRate.rds")) 
+  #   addTrace3    <- function(p, mut.region, mut.type, color,
+  #                            chr.exclusive = c(paste0("chr", c(1:22, "X", "Y")), "all")) {
+  #     plotly::add_trace(
+  #       p, data = mutRateFinal[params$chrom %in% chr.exclusive & 
+  #                                region == mut.region & tipo == mut.type],
+  #       x = ~substr(params$chrom, 4, 5), y = ~rate, 
+  #       type = 'scatter', mode = 'markers',
+  #       marker = list(color = pirna_colors[color]),
+  #       error_y = ~list(value = ci),
+  #       name = paste(mut.region, '&', mut.type), 
+  #       text = ~paste(
+  #         'Cromossomo:', params$chrom, '\nTaxa de Mutação:',
+  #         formatC(rate, format = "e", digits = 2), "±",
+  #         formatC(ci, format = "e", digits = 2)
+  #       ),
+  #       hoverinfo = 'text')
+  #   }
+  #   addLayout3   <- function(p, categoryarray = c(1:22, "X", "Y", "all")) {
+  #     plotly::layout(
+  #       p, title    = '<b> Taxas de Mutações por Cromossomo <b>',
+  #       xaxis       = list(title = 'Cromossomo', categoryorder = "array",
+  #                          categoryarray = categoryarray),
+  #       yaxis       = list(title = 'Taxa de Mutação (por nucleotídeo)'),
+  #       legend      = list(x = 1, y = 0.5),
+  #       annotations = list(yref = 'paper', xref = "paper",
+  #                          align = 'left', y = 1, x = 1.1, showarrow = F,
+  #                          text = "Região & \n Tipo de Mutação")
+  #     )
+  #   }
+  #   
+  #   p3.1 <- plot_ly() %>% addTrace3("chrom.all", "SNP", "blue") %>% 
+  #     addTrace3("piRNA.all", "SNP", "green") %>% 
+  #     addTrace3("piRNA.multi", "SNP", "yellow") %>%
+  #     addTrace3("piRNA.uni", "SNP", "orange") %>% addLayout3()
+  #   
+  #   p3.2 <- plot_ly() %>% addTrace3("chrom.all", "INDEL", "blue") %>% 
+  #     addTrace3("piRNA.all", "INDEL", "green") %>% 
+  #     addTrace3("piRNA.multi", "INDEL", "yellow") %>%
+  #     addTrace3("piRNA.uni", "INDEL", "orange") %>% addLayout3()
+  #   
+  #   export(p3.1, file = file.path(fig.opts$path, "plot7.1_" %s+% params$chrom %s+% 
+  #                                   "_" %s+% ".png"))
+  #   export(p3.2, file = file.path(fig.opts$path, "plot7.2_" %s+% params$chrom %s+% 
+  #                                   "_" %s+% ".png"))
+  #   
+  # }
 }
 
 piRNAgraphics <- function(CHROM) {
