@@ -356,10 +356,6 @@ piRNAcalc <- function(vcf_file, gff_file) {
       "#' \n#' #### Tempos de execução para tratamento do arquivo VCF:",
       "   Lendo arquivo VCF", sep = "\n")
   
-  # numberOfCluster <- parallel::detectCores() / 2
-  # cl <- makeCluster(numberOfCluster)
-  # registerDoSNOW(cl)
-  
   pboptions(type = "timer", style = 3, char = "=")
   
   catExeTime(
@@ -862,6 +858,9 @@ piRNAcalc <- function(vcf_file, gff_file) {
     `adjRegion:3'`    = `adjRegion:3'`,
     `adjRegion:+1000` = `adjRegion:-1000`
   )
+  
+  pirnaObject <- "pirnaGDF" %s+% chrom %s+% ".rds"
+  saveRDS(pirnaGDF, file = file.path(pirnaDir, pirnaObject))
   
   toc()
   sink(split = TRUE)
