@@ -467,11 +467,11 @@ piRNAcalc <- function(vcf_file, gff_file) {
         vcfTable[ , stri_count(REF,  regex = "[ACGT]") !=
                     stri_count(ALT, regex = "[ACGT]")]
       vcfTable[ , TYPE := factor(ifelse(indelSearch, "INDEL", "SNP"))]
-      vcfTable <- subset(vcfTableAux, subset = TRUE, 
-                         select = c(names(vcfTableAux)[1:5],
-                                    names(vcfTableAux)[18],
-                                    names(vcfTableAux)[6:7],
-                                    sort(names(vcfTableAux)[8:17])))
+      vcfTable <- subset(vcfTable, subset = TRUE, 
+                         select = c(names(vcfTable)[1:5],
+                                    names(vcfTable)[18],
+                                    names(vcfTable)[6:7],
+                                    sort(names(vcfTable)[8:17])))
       names(vcfTable) <- c("Mutação.Cromossomo", "Mutação.Local", "Mutação.ID",
                            "Alelo.Referência", "Alelo.Alternativo", 
                            "Mutação.Tipo", "Total.AC", "Total.AF", 
