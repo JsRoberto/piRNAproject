@@ -464,10 +464,8 @@ piRNAcalc <- function(vcf_file, gff_file) {
                     stri_count(ALT, regex = "[ACGT]")]
       vcfTable[ , TYPE := factor(ifelse(indelSearch, "INDEL", "SNP"))]
       vcfTable <- subset(vcfTable, subset = TRUE, 
-                         select = c(names(vcfTable)[1:5],
-                                    names(vcfTable)[18],
-                                    names(vcfTable)[6:7],
-                                    sort(names(vcfTable)[8:17])))
+                         select = c(1:5, 18, 6:7, 14, 9, 13, 8, 17, 
+                                    12, 15, 10, 16, 11))
       names(vcfTable) <- c("Mutação.Cromossomo", "Mutação.Local", "Mutação.ID",
                            "Alelo.Referência", "Alelo.Alternativo", 
                            "Mutação.Tipo", "Total.AC", "Total.AF", 
@@ -2510,7 +2508,7 @@ piRNAgraphics2 <- function(CHROM) {
       mutData   <- allnewnewPirnaGDF[[region]][["mutData"]]
 
       mutData   <- mutData[pirnaData[
-        `Mutações.Total` != 0,stri_detect_fixed(piRNA.Nome, "+", negate = TRUE)
+        `Mutações.Total` != 0, stri_detect_fixed(piRNA.Nome, "+", negate = TRUE)
       ]]
 
       names(mutData) <- seq(length(mutData))
