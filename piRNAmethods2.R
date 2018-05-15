@@ -514,70 +514,70 @@ piRNAcalc <- function(vcf_file, gff_file) {
     }
   )
   
-  catExeTime(
-    expressionTime = "Cálculo das taxas de mutacão",
-    expressionR    = {
-      ## Gives count, mean, standard deviation, standard error of the mean, and confidence interval (default 95%).
-      ##   data: a data frame.
-      ##   measurevar: the name of a column that contains the variable to be summariezed
-      ##   groupvars: a vector containing names of columns that contain grouping variables
-      ##   na.rm: a boolean that indicates whether to ignore NA's
-      ##   conf.interval: the percent range of the confidence interval (default is 95%)
-      saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
-        if (region == "chrom.all") {
-          nt <- mutData[ , diff(range(`Mutação.Local`)) + 1]
-        } else {
-          nt <- pirnaData[ , sum(Local.Final - `Local.Início` + 1)]
-        }
-        
-        if (chrom != "chrY") {
-          Total.AF <- 2 * Total.AF
-        }
-        
-        mutRate <- data[ , .(
-          bases = nt, 
-          rate  = mean(c(Total.AF, rep(0, nt - .N))),
-          sd    = sd(c(Total.AF, rep(0, nt - .N)))
-        ), by = `Mutação.Tipo`]
-        
-        mutRate[ , se := sd / sqrt(bases)]
-        
-        mutRate[ , ci := se * qt(conf.interval / 2 + .5, bases - 1)]
-        
-        colnames(mutRate)[1] <- "tipo"
-        
-        allDir <- file.path(gitHubDir, "piRNAall")
-        dir.create(allDir, showWarnings = FALSE)
-        pathFileRate <- file.path(allDir, fileRate)
-        if (!file.exists(pathFileRate)) {
-          tableRate <- cbind(chrom = chrom, region = region, mutRate)
-          saveRDS(tableRate, file = pathFileRate)
-        } else {
-          tableRate <- readRDS(pathFileRate)
-          tableRate <- rbind(tableRate, cbind(
-            chrom = chrom, region = region, mutRate
-          ))
-          saveRDS(tableRate, file = pathFileRate)
-        }
-      }
-      
-      pirnaObject <- "pirnaGDF" %s+% chrom %s+% ".rds"
-      
-      pirnaGDF <- readRDS(file.path(pirnaDir, pirnaObject))
-      
-      pirnaData <- rbindlist(list(
-        pirnaGDF["adjRegion:piRNA", "pirnaDataMut"],
-        pirnaGDF["adjRegion:piRNA", "pirnaDataNonMut"]
-      ))
-      
-      mutData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"], 
-                           idcol = "piRNA.Referência")
-      
-      saveMutRate(vcfTable, "chrom.all", "mutRate.rds")
-      
-      saveMutRate(mutData, "piRNA.all", "mutRate.rds")
-    }
-  )
+  # catExeTime(
+  #   expressionTime = "Cálculo das taxas de mutacão",
+  #   expressionR    = {
+  #     ## Gives count, mean, standard deviation, standard error of the mean, and confidence interval (default 95%).
+  #     ##   data: a data frame.
+  #     ##   measurevar: the name of a column that contains the variable to be summariezed
+  #     ##   groupvars: a vector containing names of columns that contain grouping variables
+  #     ##   na.rm: a boolean that indicates whether to ignore NA's
+  #     ##   conf.interval: the percent range of the confidence interval (default is 95%)
+  #     saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
+  #       if (region == "chrom.all") {
+  #         nt <- mutData[ , diff(range(`Mutação.Local`)) + 1]
+  #       } else {
+  #         nt <- pirnaData[ , sum(Local.Final - `Local.Início` + 1)]
+  #       }
+  #       
+  #       if (chrom != "chrY") {
+  #         Total.AF <- 2 * Total.AF
+  #       }
+  #       
+  #       mutRate <- data[ , .(
+  #         bases = nt, 
+  #         rate  = mean(c(Total.AF, rep(0, nt - .N))),
+  #         sd    = sd(c(Total.AF, rep(0, nt - .N)))
+  #       ), by = `Mutação.Tipo`]
+  #       
+  #       mutRate[ , se := sd / sqrt(bases)]
+  #       
+  #       mutRate[ , ci := se * qt(conf.interval / 2 + .5, bases - 1)]
+  #       
+  #       colnames(mutRate)[1] <- "tipo"
+  #       
+  #       allDir <- file.path(gitHubDir, "piRNAall")
+  #       dir.create(allDir, showWarnings = FALSE)
+  #       pathFileRate <- file.path(allDir, fileRate)
+  #       if (!file.exists(pathFileRate)) {
+  #         tableRate <- cbind(chrom = chrom, region = region, mutRate)
+  #         saveRDS(tableRate, file = pathFileRate)
+  #       } else {
+  #         tableRate <- readRDS(pathFileRate)
+  #         tableRate <- rbind(tableRate, cbind(
+  #           chrom = chrom, region = region, mutRate
+  #         ))
+  #         saveRDS(tableRate, file = pathFileRate)
+  #       }
+  #     }
+  #     
+  #     pirnaObject <- "pirnaGDF" %s+% chrom %s+% ".rds"
+  #     
+  #     pirnaGDF <- readRDS(file.path(pirnaDir, pirnaObject))
+  #     
+  #     pirnaData <- rbindlist(list(
+  #       pirnaGDF["adjRegion:piRNA", "pirnaDataMut"],
+  #       pirnaGDF["adjRegion:piRNA", "pirnaDataNonMut"]
+  #     ))
+  #     
+  #     mutData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"], 
+  #                          idcol = "piRNA.Referência")
+  #     
+  #     saveMutRate(vcfTable, "chrom.all", "mutRate.rds")
+  #     
+  #     saveMutRate(mutData, "piRNA.all", "mutRate.rds")
+  #   }
+  # )
   
   ###################################################################
   # Quantificação de mutações em piRNA 
