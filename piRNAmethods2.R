@@ -597,13 +597,13 @@ piRNAcalc <- function(vcf_file, gff_file) {
       vcfTableAux[ , stri_count(`Alelo.Referência`,  regex = "[ACGT]") !=
                      stri_count(`Alelo.Alternativo`, regex = "[ACGT]")]
     
-    vcfTableAux[ , `Mutação.Tipo` := 
-                   factor(ifelse(indelSearch, "INDEL", "SNP"))]
+    # vcfTableAux[ , `Mutação.Tipo` := 
+    #                factor(ifelse(indelSearch, "INDEL", "SNP"))]
     
-    vcfTableAux <- subset(vcfTableAux, subset = TRUE, 
-                          select = c(names(vcfTableAux)[1:5],
-                                     names(vcfTableAux)[18],
-                                     names(vcfTableAux)[6:17]))
+    # vcfTableAux <- subset(vcfTableAux, subset = TRUE, 
+    #                       select = c(names(vcfTableAux)[1:5],
+    #                                  names(vcfTableAux)[18],
+    #                                  names(vcfTableAux)[6:17]))
     
     # if (region == "piRNA") {
     #   # snpRate <- vcfTableAux[!indelSearch]
