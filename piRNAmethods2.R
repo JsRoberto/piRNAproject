@@ -1080,14 +1080,13 @@ piRNAcalc2 <- function(vcf_file, exon_file) {
     expressionTime = "Atualização do objeto exonRegion" %s+%
       region,
     expressionR    = {
-      cat("   Atualizando o objeto `InfoPirna` para a região " %s+%
-            region %s+% "\n")
+      cat("   Atualizando o objeto exonRegion \n")
       
       numberOfCluster <- parallel::detectCores() / 2
       cl <- makeCluster(numberOfCluster)
       registerDoSNOW(cl)
       
-      cat("\n   [PARTE I  - Objetos 'pirnaDataNonMut' e 'pirnaDataMut']\n")
+      cat("\n   [PARTE I  - Objetos 'exonDataNonMut' e 'exonDataMut']\n")
       progressBar1 <- txtProgressBar(
         min = 0, max = nrow(exonTable), char = "=", style = 3
       )
@@ -1103,11 +1102,11 @@ piRNAcalc2 <- function(vcf_file, exon_file) {
       close(progressBar1)
       
       exonData <- data.table(exonData, key = c(
-        "piRNA.Cromossomo", "piRNA.Nome", "Local.Início", "Local.Final"
+        "seqid", "seqdef", "start", "end"
       ))
       exonDataNonMut <- 
-        exonData[`Mutações.Total` == 0][order(`Local.Início`)]
-      exonDataMut <- exonData[`Mutações.Total` != 0][order(`Local.Início`)]
+        exonData[`Mutações.Total` == 0][order(start)]
+      exonDataMut <- exonData[`Mutações.Total` != 0][order(end)]
       
       cat("\n   [PARTE II - Objeto 'mutData']\n")
       progressBar2 <- txtProgressBar(
@@ -1127,18 +1126,15 @@ piRNAcalc2 <- function(vcf_file, exon_file) {
         eachPirnaVCF(rows)
       names(mutData) <- "Região EXON::" %s+% 
         exonDataMut[ , stri_join(sep = "..",
-                                 piRNA.Cromossomo, piRNA.Nome, `Local.Início`, `Local.Final`
+                                 pseqid, seqdef, start, end
         )]
       
       close(progressBar2)
       stopCluster(cl)
-      assign(
-        x     = "exonRegion", 
-        envir = environment(fun = countProperly),
-        value = list(exonDataNonMut = exonDataNonMut,
-                     exonDataMut    = exonDataMut,
-                     mutData        = mutData)
-      )
+      exonRegion <- list(exonDataNonMut = exonDataNonMut,
+                         exonDataMut    = exonDataMut,
+                         mutData        = mutData)
+      
     }
   )
   
