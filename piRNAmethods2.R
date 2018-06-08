@@ -1077,8 +1077,7 @@ piRNAcalc2 <- function(vcf_file, exon_file) {
   
   cat("\n#' \n#' #### Processamento para as regiões de EXON")        
   catExeTime(
-    expressionTime = "Atualização do objeto exonRegion" %s+%
-      region,
+    expressionTime = "Atualização do objeto exonRegion",
     expressionR    = {
       cat("   Atualizando o objeto exonRegion \n")
       
