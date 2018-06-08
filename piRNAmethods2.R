@@ -1077,9 +1077,9 @@ piRNAcalc2 <- function(vcf_file, exon_file) {
   
   cat("\n#' \n#' #### Processamento para as regiões de EXON")        
   catExeTime(
-    expressionTime = "Atualização do objeto exonRegion",
+    expressionTime = "Atualização do objeto exonGDF",
     expressionR    = {
-      cat("   Atualizando o objeto exonRegion \n")
+      cat("\n   Atualizando o objeto exonGDF \n")
       
       numberOfCluster <- parallel::detectCores() / 2
       cl <- makeCluster(numberOfCluster)
@@ -1129,12 +1129,15 @@ piRNAcalc2 <- function(vcf_file, exon_file) {
       
       close(progressBar2)
       stopCluster(cl)
-      exonRegion <- list(exonDataNonMut = exonDataNonMut,
+      exonGDF <- list(exonDataNonMut = exonDataNonMut,
                          exonDataMut    = exonDataMut,
                          mutData        = mutData)
       
     }
   )
+  
+  exonObject <- "exonGDF" %s+% chrom %s+% ".rds"
+  saveRDS(exonGDF, file = file.path(pirnaDir, exonObject))
   
   catExeTime(
     expressionTime = "Cálculo das taxas de mutacão na região exônica",
@@ -1211,8 +1214,7 @@ piRNAcalc2 <- function(vcf_file, exon_file) {
     }
   )
   
-  pirnaObject <- "exonGDF" %s+% chrom %s+% ".rds"
-  saveRDS(pirnaGDF, file = file.path(pirnaDir, pirnaObject))
+  
   
   toc()
   sink(split = TRUE)
