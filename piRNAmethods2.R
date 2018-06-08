@@ -1101,7 +1101,7 @@ piRNAcalc2 <- function(vcf_file, exon_file) {
       close(progressBar1)
       
       exonData <- data.table(exonData, key = c(
-        "seqid", "seqdef", "start", "end"
+        "seqid", "seqtype", "seqdef", "start", "end"
       ))
       exonDataNonMut <- 
         exonData[`Mutações.Total` == 0][order(start)]
@@ -1124,8 +1124,7 @@ piRNAcalc2 <- function(vcf_file, exon_file) {
         ) %dopar%
         eachPirnaVCF(rows)
       names(mutData) <- "Região EXON::" %s+% 
-        exonDataMut[ , stri_join(sep = "..",
-                                 pseqid, seqdef, start, end
+        exonDataMut[ , stri_join(sep = "..", seqid, seqtype, seqdef, start, end
         )]
       
       close(progressBar2)
