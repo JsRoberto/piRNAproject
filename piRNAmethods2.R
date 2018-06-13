@@ -1160,7 +1160,7 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
         eachMIRNA(rows)
       close(progressBar1)
       
-      mirnaData <- data.table(exonData, key = c(
+      mirnaData <- data.table(mirnaData, key = c(
         "seqid", "seqtype", "seqdef", "start", "end"
       ))
       mirnaDataNonMut <- 
