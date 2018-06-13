@@ -1281,10 +1281,14 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
         pirnaGDF["adjRegion:piRNA", "pirnaDataNonMut"]
       ))
       
-      mutExonData  <- rbindlist(exonGDF[[3]], 
-                                idcol = "exon.Referência")
-      utMirnaData  <- rbindlist(mirnaGDF[[3]], 
-                                idcol = "miRNA.Referência")
+      mutExonData  <- rbindlist(exonGDF[[3]], idcol = "exon.Referência")
+      
+      if (length(mirnaGDF[[3]]) == 1) {
+        mutMirnaData <- mirnaGDF[[3]][[1]]
+      } else {
+        mutMirnaData <- rbindlist(mirnaGDF[[3]], idcol = "miRNA.Referência")
+      }
+      
       mutPirnaData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"],
                                 idcol = "piRNA.Referência")
       
