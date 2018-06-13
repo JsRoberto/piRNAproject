@@ -1237,7 +1237,7 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
         }
         
         mutRate <- data[ , .(
-          bases = nt, 
+          bases = ifelse(nt == 1, 0, nt), 
           rate  = mean(c(Total.AF, rep(0, nt - .N))),
           sd    = sd(c(Total.AF, rep(0, nt - .N)))
         ), by = `Mutação.Tipo`]
@@ -1282,8 +1282,13 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
       
       mutExonData  <- rbindlist(exonGDF[[3]], 
                                 idcol = "exon.Referência")
-      mutMirnaData  <- rbindlist(mirnaGDF[[3]], 
-                                idcol = "miRNA.Referência")
+      if (length(mirnaGDF[[3]]) == 1) {
+        mutMirnaData <- unlist(mirnaGDF[[3]])
+      } else {
+        mutMirnaData  <- rbindlist(mirnaGDF[[3]], 
+                                   idcol = "miRNA.Referência")
+      }
+      
       mutPirnaData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"],
                                 idcol = "piRNA.Referência")
       
