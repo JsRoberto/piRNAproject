@@ -1170,9 +1170,9 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
       cat("\n   [PARTE II - Objeto 'mutData']\n")
       if (nrow(mirnaDataMut) == 0) {
         cat("\n Não ha mutações no cromossomo " %s+% chrom)
-        mutData       <- c(0, 0, 0, 0, 0, 0,
-                           0, 0, 0, 0, 0, 0,
-                           0, 0, 0, 0, 0, 0)
+        mutData       <- data.frame(0, 0, 0, 0, 0, 0,
+                                    0, 0, 0, 0, 0, 0,
+                                    0, 0, 0, 0, 0, 0)
         names(mutData) <- colnames(vcfTableAux)
         mutData <- list(mutData)
       } else {
