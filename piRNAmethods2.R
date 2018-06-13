@@ -1238,7 +1238,7 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
         }
         
         mutRate <- data[ , .(
-          bases = ifelse(nt == 1, 0, nt), 
+          bases = nt, 
           rate  = mean(c(Total.AF, rep(0, nt - .N))),
           sd    = sd(c(Total.AF, rep(0, nt - .N)))
         ), by = `Mutação.Tipo`]
