@@ -1170,9 +1170,10 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
       cat("\n   [PARTE II - Objeto 'mutData']\n")
       if (nrow(mirnaDataMut) == 0) {
         cat("\n Não ha mutações no cromossomo " %s+% chrom)
-        mutData       <- data.frame(0, 0, 0, 0, 0, 0,
-                                    0, 0, 0, 0, 0, 0,
-                                    0, 0, 0, 0, 0, 0)
+        mutData       <- data.frame(c(0, 0), c(0, 0), c(0, 0), c(0, 0), c(0, 0),
+                                    c("SNP", "INDEL"), c(0, 0), c(0, 0), c(0, 0),
+                                    c(0, 0), c(0, 0), c(0, 0), c(0, 0), c(0, 0),
+                                    c(0, 0), c(0, 0))
         names(mutData) <- colnames(vcfTableAux)
         mutData <- list(mutData)
       } else {
@@ -1211,7 +1212,7 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
   
   
   catExeTime(
-    expressionTime = "Cálculo das taxas de mutacão",
+    expressionTime = "Cálculo das taxas de mutação",
     expressionR    = {
       ## Gives count, mean, standard deviation, standard error of the mean, and confidence interval (default 95%).
       ##   data: a data frame.
@@ -1296,7 +1297,7 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
       
       saveMutRate(mutExonData, "exons", "mutRate.rds")
       
-      saveMutRate(vcfTable[`Mutação.Local` %in% mutExonData[ , `Mutação.Local`]], 
+      saveMutRate(vcfTable[! `Mutação.Local` %in% mutExonData[ , `Mutação.Local`]], 
                   "non exons", "mutRate.rds")
       
       saveMutRate(mutMirnaData, "mirnas", "mutRate.rds")
