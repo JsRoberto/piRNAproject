@@ -1296,7 +1296,7 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
       
       saveMutRate(mutExonData, "exons", "mutRate.rds")
       
-      saveMutRate(vcfTable[`Mutação.Local` != mutExonData[ , `Mutação.Local`]], 
+      saveMutRate(vcfTable[`Mutação.Local` %in% mutExonData[ , `Mutação.Local`]], 
                   "non exons", "mutRate.rds")
       
       saveMutRate(mutMirnaData, "mirnas", "mutRate.rds")
