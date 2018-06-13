@@ -1170,10 +1170,11 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
       cat("\n   [PARTE II - Objeto 'mutData']\n")
       if (nrow(mirnaDataMut) == 0) {
         cat("\n Não ha mutações no cromossomo " %s+% chrom)
-        mutData       <- list(0, 0, 0, 0, 0, 0,
-                              0, 0, 0, 0, 0, 0,
-                              0, 0, 0, 0, 0, 0)
+        mutData       <- c(0, 0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0)
         names(mutData) <- colnames(vcfTableAux)
+        mutData <- list(mutData)
       } else {
         progressBar2 <- txtProgressBar(
           min = 0, max = nrow(mirnaDataMut), char = "=", style = 3
