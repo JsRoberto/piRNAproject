@@ -1173,7 +1173,7 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
         mutData       <- data.frame(c(0, 0), c(0, 0), c(0, 0), c(0, 0), c(0, 0),
                                     c("SNP", "INDEL"), c(0, 0), c(0, 0), c(0, 0),
                                     c(0, 0), c(0, 0), c(0, 0), c(0, 0), c(0, 0),
-                                    c(0, 0), c(0, 0))
+                                    c(0, 0), c(0, 0), c(0, 0), c(0, 0))
         names(mutData) <- colnames(vcfTableAux)
         mutData <- list(mutData)
       } else {
