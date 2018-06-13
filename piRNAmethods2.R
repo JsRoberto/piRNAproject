@@ -1168,36 +1168,45 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
       mirnaDataMut <- mirnaData[`Mutações.Total` != 0][order(end)]
       
       cat("\n   [PARTE II - Objeto 'mutData']\n")
-      progressBar2 <- txtProgressBar(
-        min = 0, max = nrow(mirnaDataMut), char = "=", style = 3
-      )
-      options2 <- list(progress = function(rows) {
-        setTxtProgressBar(progressBar2, rows)
-      })
-      mutData <- 
-        foreach(rows = seq(nrow(mirnaTable)), .options.snow = options2,
-                .combine = list, .multicombine = TRUE,
-                .maxcombine = nrow(mirnaDataMut)) %:%
-        when(vcfTableAux[ , sum(
-          as.numeric(`Mutação.Local`) >= regionStart[rows] &
-            as.numeric(`Mutação.Local`) <= regionEnd[rows]) != 0]
-        ) %dopar%
-        eachPirnaVCF(rows)
-      names(mutData) <- "Região miRNA::" %s+% 
-        mirnaDataMut[ , stri_join(sep = "..", seqid, seqtype, seqdef, start, end
-        )]
+      if (nrow(mirnaDataMut) == 0) {
+        cat("Não ha mutações no cromossomo " %s+% chrom)
+        mutData       <- list(0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0,
+                              0, 0, 0, 0, 0, 0)
+        name(mutData) <- vcfTableAux
+      } else {
+        progressBar2 <- txtProgressBar(
+          min = 0, max = nrow(mirnaDataMut), char = "=", style = 3
+        )
+        options2 <- list(progress = function(rows) {
+          setTxtProgressBar(progressBar2, rows)
+        })
+        mutData <- 
+          foreach(rows = seq(nrow(mirnaTable)), .options.snow = options2,
+                  .combine = list, .multicombine = TRUE,
+                  .maxcombine = nrow(mirnaDataMut)) %:%
+          when(vcfTableAux[ , sum(
+            as.numeric(`Mutação.Local`) >= regionStart[rows] &
+              as.numeric(`Mutação.Local`) <= regionEnd[rows]) != 0]
+          ) %dopar%
+          eachPirnaVCF(rows)
+        names(mutData) <- "Região miRNA::" %s+% 
+          mirnaDataMut[ , stri_join(sep = "..", seqid, seqtype, seqdef, start, end
+          )]
+        
+        close(progressBar2)
+      }
       
-      close(progressBar2)
       stopCluster(cl)
-      exonGDF <- list(mirnaDataNonMut = mirnaDataNonMut,
-                      mirnaDataMut    = mirnaDataMut,
-                      mutData         = mutData)
+      mirnaGDF <- list(mirnaDataNonMut = mirnaDataNonMut,
+                       mirnaDataMut    = mirnaDataMut,
+                       mutData         = mutData)
       
     }
   )
   
   mirnaObject <- "mirnaGDF" %s+% chrom %s+% ".rds"
-  saveRDS(exonGDF, file = file.path(pirnaDir, mirnaObject))
+  saveRDS(mirnaGDF, file = file.path(pirnaDir, mirnaObject))
   
   
   catExeTime(
