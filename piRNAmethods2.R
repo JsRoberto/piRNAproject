@@ -1077,7 +1077,7 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
         col_names = c("seqid", "seqtype", "start", "end", "sense", "seqdef")
       )
       mirnaTable <- data.table(mirnaTable)
-      mirnaTable <- mirnaTable[seqid == chrom & seqdef == "miRNA"]
+      mirnaTable <- mirnaTable[seqid == chrom & seqtype == "miRNA"]
     } 
   )
   
