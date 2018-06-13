@@ -1073,7 +1073,7 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
     expressionR    = {
       cat("   Lendo o arquivo miRNA\n")
       mirnaTable <- read_delim(
-        mirna_file, delim = "\t", n_max = 3841, col_types = "c-cnn-c-c",
+        mirna_file, delim = "\t", skip = 13, n_max = 3841 - 13, col_types = "c-cnn-c-c",
         col_names = c("seqid", "seqtype", "start", "end", "sense", "seqdef")
       )
       mirnaTable <- data.table(mirnaTable)
