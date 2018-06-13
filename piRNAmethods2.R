@@ -1173,7 +1173,7 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
         mutData       <- list(0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0)
-        names(mutData) <- vcfTableAux
+        names(mutData) <- colnames(vcfTableAux)
       } else {
         progressBar2 <- txtProgressBar(
           min = 0, max = nrow(mirnaDataMut), char = "=", style = 3
@@ -1282,13 +1282,8 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
       
       mutExonData  <- rbindlist(exonGDF[[3]], 
                                 idcol = "exon.Referência")
-      if (length(mirnaGDF[[3]]) == 1) {
-        mutMirnaData <- unlist(mirnaGDF[[3]])
-      } else {
-        mutMirnaData  <- rbindlist(mirnaGDF[[3]], 
-                                   idcol = "miRNA.Referência")
-      }
-      
+      utMirnaData  <- rbindlist(mirnaGDF[[3]], 
+                                idcol = "miRNA.Referência")
       mutPirnaData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"],
                                 idcol = "piRNA.Referência")
       
