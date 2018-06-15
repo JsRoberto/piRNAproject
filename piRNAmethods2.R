@@ -40,9 +40,9 @@ if(!suppressMessages(require(foreach))) {
 if(!suppressMessages(require(doSNOW))) {
   install.packages("doSNOW")
 }
-if(!suppressMessages(require(limSolve))) {
-  install.packages("limSolve")
-}
+# if(!suppressMessages(require(limSolve))) {
+#   install.packages("limSolve")
+# }
 if(!suppressMessages(require(venn))) {
   install.packages("venn")
 }
