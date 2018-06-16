@@ -60,7 +60,6 @@ suppressPackageStartupMessages(require(stringi))
 suppressPackageStartupMessages(require(stringr))
 suppressPackageStartupMessages(require(pbapply))
 suppressPackageStartupMessages(require(magrittr))
-suppressPackageStartupMessages(require(limSolve))
 suppressPackageStartupMessages(require(data.table))
 suppressPackageStartupMessages(require(readr))
 suppressPackageStartupMessages(require(foreach))
@@ -762,7 +761,7 @@ piRNAcalc <- function(vcf_file, gff_file) {
       
 }
 
-piRNAcalc2 <- function(vcf_file, mirna_file) {
+piRNAcalc2 <- function(vcf_file) {
   # Pacotes para execução do código piRNAcalc ----------------------------------
   suppressPackageStartupMessages(require(stringi))
   suppressPackageStartupMessages(require(stringr))
@@ -1067,148 +1066,148 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
   # exonObject <- "exonGDF" %s+% chrom %s+% ".rds"
   # saveRDS(exonGDF, file = file.path(pirnaDir, exonObject))
   
-  cat("#' \n#' #### Tempos de execução para tratamento do arquivo miRNA:\n")
-  catExeTime(
-    expressionTime = "Leitura do arquivo miRNA",
-    expressionR    = {
-      cat("   Lendo o arquivo miRNA\n")
-      mirnaTable <- read_delim(
-        mirna_file, delim = "\t", skip = 13, n_max = 3841 - 13, col_types = "c-cnn-c-c",
-        col_names = c("seqid", "seqtype", "start", "end", "sense", "seqdef")
-      )
-      mirnaTable <- data.table(mirnaTable)
-      mirnaTable <- mirnaTable[seqid == chrom & seqtype == "miRNA"]
-    } 
-  )
-  
-  regionStart <- mirnaTable[ , start]
-  regionEnd   <- mirnaTable[ , end]
-  
-  vcfTableAux <- vcfTable 
-  
-  indelSearch <- 
-    vcfTableAux[ , stri_count(`Alelo.Referência`,  regex = "[ACGT]") !=
-                   stri_count(`Alelo.Alternativo`, regex = "[ACGT]")]
-  
-  eachMIRNA <- function(each) {
-    suppressPackageStartupMessages(require(stringi))
-    suppressPackageStartupMessages(require(stringr))
-    suppressPackageStartupMessages(require(pbapply))
-    suppressPackageStartupMessages(require(readr))
-    suppressPackageStartupMessages(require(data.table))
-    suppressPackageStartupMessages(require(magrittr))
-    suppressPackageStartupMessages(require(limSolve))
-    suppressPackageStartupMessages(require(foreach))
-    suppressPackageStartupMessages(require(tictoc))
-    
-    vcfTableAux2 <- vcfTableAux[
-      as.numeric(`Mutação.Local`) >= regionStart[each] &
-        as.numeric(`Mutação.Local`) <= regionEnd[each]
-      ]
-    
-    mirnaTableAux2 <- mirnaTable[each, ]
-    
-    mirnaTableAux2 <- SJ(mirnaTableAux2, vcfTableAux2[ , .(
-      `Mutações.Total` = length(`Mutação.Local`),
-      `Mutações.SNP`   = sum(`Mutação.Tipo` == "SNP"),
-      `Mutações.INDEL` = sum(`Mutação.Tipo` == "INDEL"))])
-    
-    return(mirnaTableAux2)
-    
-  }
-  
-  eachPirnaVCF <- function(each) {
-    suppressPackageStartupMessages(require(stringi))
-    suppressPackageStartupMessages(require(stringr))
-    suppressPackageStartupMessages(require(pbapply))
-    suppressPackageStartupMessages(require(readr))
-    suppressPackageStartupMessages(require(data.table))
-    suppressPackageStartupMessages(require(magrittr))
-    suppressPackageStartupMessages(require(limSolve))
-    suppressPackageStartupMessages(require(foreach))
-    suppressPackageStartupMessages(require(tictoc))
-    
-    vcfTableAux2 <- vcfTableAux[
-      as.numeric(`Mutação.Local`) >= regionStart[each] &
-        as.numeric(`Mutação.Local`) <= regionEnd[each]]
-    
-    return(vcfTableAux2)
-  }
-  
-  cat("\n#' \n#' #### Processamento para as regiões de miRNAs")        
-  catExeTime(
-    expressionTime = "Atualização do objeto mirnaGDF",
-    expressionR    = {
-      cat("\n   Atualizando o objeto mirnaGDF \n")
-      
-      numberOfCluster <- parallel::detectCores() / 2
-      cl <- makeCluster(numberOfCluster)
-      registerDoSNOW(cl)
-      
-      cat("\n   [PARTE I  - Objetos 'mirnaDataNonMut' e 'mirnaDataMut']\n")
-      progressBar1 <- txtProgressBar(
-        min = 0, max = nrow(mirnaTable), char = "=", style = 3
-      )
-      options1 <- list(progress = function(rows) {
-        setTxtProgressBar(progressBar1, rows)
-      })
-      
-      mirnaData <- 
-        foreach(rows = seq(nrow(mirnaTable)), .options.snow = options1,
-                .combine = rbind, .multicombine = TRUE,
-                .maxcombine = nrow(mirnaTable)) %dopar% 
-        eachMIRNA(rows)
-      close(progressBar1)
-      
-      mirnaData <- data.table(mirnaData, key = c(
-        "seqid", "seqtype", "seqdef", "start", "end"
-      ))
-      mirnaDataNonMut <- 
-        mirnaData[`Mutações.Total` == 0][order(start)]
-      mirnaDataMut <- mirnaData[`Mutações.Total` != 0][order(end)]
-      
-      cat("\n   [PARTE II - Objeto 'mutData']\n")
-      if (nrow(mirnaDataMut) == 0) {
-        cat("\n Não ha mutações no cromossomo " %s+% chrom)
-        mutData <- data.frame(c(0, 0), c(0, 0), c(0, 0), c(0, 0), c(0, 0),
-                              c("SNP", "INDEL"), c(0, 0), c(0, 0), c(0, 0),
-                              c(0, 0), c(0, 0), c(0, 0), c(0, 0), c(0, 0),
-                              c(0, 0), c(0, 0), c(0, 0), c(0, 0))
-        colnames(mutData) <- colnames(vcfTableAux)
-        mutData <- list(mutData)
-      } else {
-        progressBar2 <- txtProgressBar(
-          min = 0, max = nrow(mirnaDataMut), char = "=", style = 3
-        )
-        options2 <- list(progress = function(rows) {
-          setTxtProgressBar(progressBar2, rows)
-        })
-        mutData <- 
-          foreach(rows = seq(nrow(mirnaTable)), .options.snow = options2,
-                  .combine = list, .multicombine = TRUE,
-                  .maxcombine = nrow(mirnaDataMut)) %:%
-          when(vcfTableAux[ , sum(
-            as.numeric(`Mutação.Local`) >= regionStart[rows] &
-              as.numeric(`Mutação.Local`) <= regionEnd[rows]) != 0]
-          ) %dopar%
-          eachPirnaVCF(rows)
-        names(mutData) <- "Região miRNA::" %s+% 
-          mirnaDataMut[ , stri_join(sep = "..", seqid, seqtype, seqdef, start, end
-          )]
-        
-        close(progressBar2)
-      }
-      
-      stopCluster(cl)
-      mirnaGDF <- list(mirnaDataNonMut = mirnaDataNonMut,
-                       mirnaDataMut    = mirnaDataMut,
-                       mutData         = mutData)
-      
-    }
-  )
-  
-  mirnaObject <- "mirnaGDF" %s+% chrom %s+% ".rds"
-  saveRDS(mirnaGDF, file = file.path(pirnaDir, mirnaObject))
+  # cat("#' \n#' #### Tempos de execução para tratamento do arquivo miRNA:\n")
+  # catExeTime(
+  #   expressionTime = "Leitura do arquivo miRNA",
+  #   expressionR    = {
+  #     cat("   Lendo o arquivo miRNA\n")
+  #     mirnaTable <- read_delim(
+  #       mirna_file, delim = "\t", skip = 13, n_max = 3841 - 13, col_types = "c-cnn-c-c",
+  #       col_names = c("seqid", "seqtype", "start", "end", "sense", "seqdef")
+  #     )
+  #     mirnaTable <- data.table(mirnaTable)
+  #     mirnaTable <- mirnaTable[seqid == chrom & seqtype == "miRNA"]
+  #   } 
+  # )
+  # 
+  # regionStart <- mirnaTable[ , start]
+  # regionEnd   <- mirnaTable[ , end]
+  # 
+  # vcfTableAux <- vcfTable 
+  # 
+  # indelSearch <- 
+  #   vcfTableAux[ , stri_count(`Alelo.Referência`,  regex = "[ACGT]") !=
+  #                  stri_count(`Alelo.Alternativo`, regex = "[ACGT]")]
+  # 
+  # eachMIRNA <- function(each) {
+  #   suppressPackageStartupMessages(require(stringi))
+  #   suppressPackageStartupMessages(require(stringr))
+  #   suppressPackageStartupMessages(require(pbapply))
+  #   suppressPackageStartupMessages(require(readr))
+  #   suppressPackageStartupMessages(require(data.table))
+  #   suppressPackageStartupMessages(require(magrittr))
+  #   suppressPackageStartupMessages(require(limSolve))
+  #   suppressPackageStartupMessages(require(foreach))
+  #   suppressPackageStartupMessages(require(tictoc))
+  #   
+  #   vcfTableAux2 <- vcfTableAux[
+  #     as.numeric(`Mutação.Local`) >= regionStart[each] &
+  #       as.numeric(`Mutação.Local`) <= regionEnd[each]
+  #     ]
+  #   
+  #   mirnaTableAux2 <- mirnaTable[each, ]
+  #   
+  #   mirnaTableAux2 <- SJ(mirnaTableAux2, vcfTableAux2[ , .(
+  #     `Mutações.Total` = length(`Mutação.Local`),
+  #     `Mutações.SNP`   = sum(`Mutação.Tipo` == "SNP"),
+  #     `Mutações.INDEL` = sum(`Mutação.Tipo` == "INDEL"))])
+  #   
+  #   return(mirnaTableAux2)
+  #   
+  # }
+  # 
+  # eachPirnaVCF <- function(each) {
+  #   suppressPackageStartupMessages(require(stringi))
+  #   suppressPackageStartupMessages(require(stringr))
+  #   suppressPackageStartupMessages(require(pbapply))
+  #   suppressPackageStartupMessages(require(readr))
+  #   suppressPackageStartupMessages(require(data.table))
+  #   suppressPackageStartupMessages(require(magrittr))
+  #   suppressPackageStartupMessages(require(limSolve))
+  #   suppressPackageStartupMessages(require(foreach))
+  #   suppressPackageStartupMessages(require(tictoc))
+  #   
+  #   vcfTableAux2 <- vcfTableAux[
+  #     as.numeric(`Mutação.Local`) >= regionStart[each] &
+  #       as.numeric(`Mutação.Local`) <= regionEnd[each]]
+  #   
+  #   return(vcfTableAux2)
+  # }
+  # 
+  # cat("\n#' \n#' #### Processamento para as regiões de miRNAs")        
+  # catExeTime(
+  #   expressionTime = "Atualização do objeto mirnaGDF",
+  #   expressionR    = {
+  #     cat("\n   Atualizando o objeto mirnaGDF \n")
+  #     
+  #     numberOfCluster <- parallel::detectCores() / 2
+  #     cl <- makeCluster(numberOfCluster)
+  #     registerDoSNOW(cl)
+  #     
+  #     cat("\n   [PARTE I  - Objetos 'mirnaDataNonMut' e 'mirnaDataMut']\n")
+  #     progressBar1 <- txtProgressBar(
+  #       min = 0, max = nrow(mirnaTable), char = "=", style = 3
+  #     )
+  #     options1 <- list(progress = function(rows) {
+  #       setTxtProgressBar(progressBar1, rows)
+  #     })
+  #     
+  #     mirnaData <- 
+  #       foreach(rows = seq(nrow(mirnaTable)), .options.snow = options1,
+  #               .combine = rbind, .multicombine = TRUE,
+  #               .maxcombine = nrow(mirnaTable)) %dopar% 
+  #       eachMIRNA(rows)
+  #     close(progressBar1)
+  #     
+  #     mirnaData <- data.table(mirnaData, key = c(
+  #       "seqid", "seqtype", "seqdef", "start", "end"
+  #     ))
+  #     mirnaDataNonMut <- 
+  #       mirnaData[`Mutações.Total` == 0][order(start)]
+  #     mirnaDataMut <- mirnaData[`Mutações.Total` != 0][order(end)]
+  #     
+  #     cat("\n   [PARTE II - Objeto 'mutData']\n")
+  #     if (nrow(mirnaDataMut) == 0) {
+  #       cat("\n Não ha mutações no cromossomo " %s+% chrom)
+  #       mutData <- data.frame(c(0, 0), c(0, 0), c(0, 0), c(0, 0), c(0, 0),
+  #                             c("SNP", "INDEL"), c(0, 0), c(0, 0), c(0, 0),
+  #                             c(0, 0), c(0, 0), c(0, 0), c(0, 0), c(0, 0),
+  #                             c(0, 0), c(0, 0), c(0, 0), c(0, 0))
+  #       colnames(mutData) <- colnames(vcfTableAux)
+  #       mutData <- list(mutData)
+  #     } else {
+  #       progressBar2 <- txtProgressBar(
+  #         min = 0, max = nrow(mirnaDataMut), char = "=", style = 3
+  #       )
+  #       options2 <- list(progress = function(rows) {
+  #         setTxtProgressBar(progressBar2, rows)
+  #       })
+  #       mutData <- 
+  #         foreach(rows = seq(nrow(mirnaTable)), .options.snow = options2,
+  #                 .combine = list, .multicombine = TRUE,
+  #                 .maxcombine = nrow(mirnaDataMut)) %:%
+  #         when(vcfTableAux[ , sum(
+  #           as.numeric(`Mutação.Local`) >= regionStart[rows] &
+  #             as.numeric(`Mutação.Local`) <= regionEnd[rows]) != 0]
+  #         ) %dopar%
+  #         eachPirnaVCF(rows)
+  #       names(mutData) <- "Região miRNA::" %s+% 
+  #         mirnaDataMut[ , stri_join(sep = "..", seqid, seqtype, seqdef, start, end
+  #         )]
+  #       
+  #       close(progressBar2)
+  #     }
+  #     
+  #     stopCluster(cl)
+  #     mirnaGDF <- list(mirnaDataNonMut = mirnaDataNonMut,
+  #                      mirnaDataMut    = mirnaDataMut,
+  #                      mutData         = mutData)
+  #     
+  #   }
+  # )
+  # 
+  # mirnaObject <- "mirnaGDF" %s+% chrom %s+% ".rds"
+  # saveRDS(mirnaGDF, file = file.path(pirnaDir, mirnaObject))
   
   
   catExeTime(
@@ -1240,8 +1239,10 @@ piRNAcalc2 <- function(vcf_file, mirna_file) {
         
         mutRate <- data[ , .(
           bases = nt, 
-          rate  = mean(c(Total.AF, rep(0, nt - .N))),
-          sd    = sd(c(Total.AF, rep(0, nt - .N)))
+          rate  = mean(c(ifelse(Total.AF > 0.5, 1 - Total.AF, Total.AF), 
+                         rep(0, nt - .N))),
+          sd    = sd(c(ifelse(Total.AF > 0.5, 1 - Total.AF, Total.AF), 
+                       rep(0, nt - .N)))
         ), by = `Mutação.Tipo`]
         
         mutRate[ , se := sd / sqrt(bases)]
@@ -3007,7 +3008,8 @@ piRNAgraphics2 <- function(CHROM) {
 
     p3.1_ci99 <- plot_ly() %>% addTrace3("exons", "SNP", "blue", "ci99") %>%
       addTrace3("pirnas", "SNP", "green", "ci99") %>%
-      addTrace3("chrom", "SNP", "red", "ci99") %>%
+      addTrace3("mirnas", "SNP", "orange", "ci99") %>%
+      addTrace3("non exons", "SNP", "red", "ci99") %>%
       addLayout3(ci.type = "99%", shape.type = list(
         list(type = "rect",
              fillcolor = "gray", line = list(color = "gray"), opacity = 0.3,
@@ -3017,16 +3019,23 @@ piRNAgraphics2 <- function(CHROM) {
     
     p3.1_ci95 <- plot_ly() %>% addTrace3("exons", "SNP", "blue", "ci95") %>%
       addTrace3("pirnas", "SNP", "green", "ci95") %>%
-      addTrace3("chrom", "SNP", "red", "ci95") %>%
+      addTrace3("mirnas", "SNP", "orange", "ci95") %>%
+      addTrace3("non exons", "SNP", "red", "ci95") %>%
       addLayout3(ci.type = "95%", shape.type = list(
+        list(type = "rect",
+             fillcolor = "blue", line = list(color = "gray"), opacity = 0.25,
+             x0 = 0, x1 = "Y", xref = "x",
+             y0 = 0.00107, y1 = 0.00143, yref = "y"),
         list(type = "rect",
              fillcolor = "gray", line = list(color = "gray"), opacity = 0.3,
              x0 = 0, x1 = "Y", xref = "x",
              y0 = 0.00107, y1 = 0.00143, yref = "y")
       ))
 
-    p3.2_ci99 <- plot_ly() %>% addTrace3("exons", "INDEL", "yellow", "ci99") %>%
-      addTrace3("pirnas", "INDEL", "orange", "ci99") %>%
+    p3.2_ci99 <- plot_ly() %>% addTrace3("exons", "INDEL", "blue", "ci99") %>%
+      addTrace3("pirnas", "INDEL", "green", "ci99") %>%
+      addTrace3("mirnas", "INDEL", "orange", "ci99") %>%
+      addTrace3("non exons", "INDEL", "red", "ci99") %>%
       addLayout3(ci.type = "99%", shape.type = list(
         list(type = "rect",
              fillcolor = "red", line = list(color = "red"), opacity = 0.3,
@@ -3036,7 +3045,8 @@ piRNAgraphics2 <- function(CHROM) {
     
     p3.2_ci95 <- plot_ly() %>% addTrace3("exons", "INDEL", "blue", "ci95") %>%
       addTrace3("pirnas", "INDEL", "green", "ci95") %>%
-      addTrace3("chrom", "INDEL", "red", "ci95") %>%
+      addTrace3("mirnas", "INDEL", "orange", "ci95") %>%
+      addTrace3("non exons", "INDEL", "red", "ci95") %>%
       addLayout3(ci.type = "95%", shape.type = list(
         list(type = "rect",
              fillcolor = "red", line = list(color = "red"), opacity = 0.3,
@@ -3044,42 +3054,15 @@ piRNAgraphics2 <- function(CHROM) {
              y0 = 0.00009, y1 = 0.00013, yref = "y")
       ))
     
-    p3.3_ci99 <- plot_ly() %>% addTrace3("exons", "SNP", "blue", "ci99") %>%
-      addTrace3("pirnas", "SNP", "green", "ci99") %>%
-      addTrace3("exons", "INDEL", "yellow", "ci99") %>%
-      addTrace3("pirnas", "INDEL", "orange", "ci99") %>% 
-      addLayout3(ci.type = "99%", shape.type = list(
-        list(type = "rect",
-             fillcolor = "gray", line = list(color = "gray"), opacity = 0.3,
-             x0 = 0, x1 = "Y", xref = "x",
-             y0 = 0.00107, y1 = 0.00143, yref = "y"),
-        list(type = "rect",
-             fillcolor = "red", line = list(color = "red"), opacity = 0.3,
-             x0 = 0, x1 = "Y", xref = "x",
-             y0 = 0.00009, y1 = 0.00013, yref = "y")
-      ))
-    
-    p3.3_ci95 <- plot_ly() %>% addTrace3("exons", "SNP", "blue", "ci95") %>%
-      addTrace3("pirnas", "SNP", "green", "ci95") %>%
-      addTrace3("exons", "INDEL", "yellow", "ci95") %>%
-      addTrace3("pirnas", "INDEL", "orange", "ci95") %>% 
-      addLayout3(ci.type = "95%", shape.type = list(
-        list(type = "rect",
-             fillcolor = "gray", line = list(color = "gray"), opacity = 0.3,
-             x0 = 0, x1 = "Y", xref = "x",
-             y0 = 0.00107, y1 = 0.00143, yref = "y"),
-        list(type = "rect",
-             fillcolor = "red", line = list(color = "red"), opacity = 0.3,
-             x0 = 0, x1 = "Y", xref = "x",
-             y0 = 0.00009, y1 = 0.00013, yref = "y")
-      ))
-
+    export(p3.1_ci95, file = file.path(fig.opts$path, "plot6.1_ci95_" %s+% 
+                                         params$chrom %s+% "_" %s+% ".png"))
+    export(p3.2_ci95, file = file.path(fig.opts$path, "plot6.2_ci95_" %s+%
+                                         params$chrom %s+% "_" %s+% ".png"))
     export(p3.1_ci99, file = file.path(fig.opts$path, "plot6.1_ci99_" %s+% 
                                          params$chrom %s+% "_" %s+% ".png"))
     export(p3.2_ci99, file = file.path(fig.opts$path, "plot6.2_ci99_" %s+%
                                          params$chrom %s+% "_" %s+% ".png"))
-    export(p3.3_ci99, file = file.path(fig.opts$path, "plot6.3_ci99_" %s+%
-                                         params$chrom %s+% "_" %s+% ".png"))
+    
     #
     savePNG <- function(plotEXP, plotID, pirnaMAP, wi = 1, hi = 1) {
       png(filename = file.path(fig.opts$path, plotID %s+% "_" %s+% 
