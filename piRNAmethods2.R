@@ -1285,12 +1285,6 @@ piRNAcalc2 <- function(vcf_file) {
       
       mutExonData  <- rbindlist(exonGDF[[3]], idcol = "exon.Referência")
       
-      if (length(mirnaGDF[[3]]) == 1) {
-        mutMirnaData <- mirnaGDF[[3]][[1]]
-      } else {
-        mutMirnaData <- rbindlist(mirnaGDF[[3]], idcol = "miRNA.Referência")
-      }
-      
       mutPirnaData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"],
                                 idcol = "piRNA.Referência")
       
@@ -1301,7 +1295,10 @@ piRNAcalc2 <- function(vcf_file) {
       saveMutRate(vcfTable[! `Mutação.Local` %in% mutExonData[ , `Mutação.Local`]], 
                   "non exons", "mutRate.rds")
       
-      saveMutRate(mutMirnaData, "mirnas", "mutRate.rds")
+      if (length(mirnaGDF[[3]]) != 1) {
+        mutMirnaData <- rbindlist(mirnaGDF[[3]], idcol = "miRNA.Referência")
+        saveMutRate(mutMirnaData, "mirnas", "mutRate.rds")
+      }
       
       saveMutRate(mutPirnaData, "pirnas", "mutRate.rds")
       
@@ -2971,7 +2968,7 @@ piRNAgraphics2 <- function(CHROM) {
   }
   
   if (CHROM == "all") {
-    mutRateFinal <- readRDS(file.path(params$gitHubDir, "mutRate.rds"))
+    mutRateFinal <- readRDS(file.path(params$gitHubDir, "mutRate_new.rds"))
     addTrace3    <- function(
       p, mut.region, mut.type, color, ci.type,
       chr.exclusive = c(paste0("chr", c(1:22, "X", "Y")))) {
