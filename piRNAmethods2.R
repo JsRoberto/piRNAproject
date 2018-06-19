@@ -1226,6 +1226,12 @@ piRNAcalc2 <- function(vcf_file) {
         if (region == "pirnas") {
           nt <- pirnaData[ , sum(Local.Final - `Local.Início` + 1)]
         }
+        if (region == "multi pirnas") {
+          nt <- pirnaDataMulti[ , sum(Local.Final - `Local.Início` + 1)]
+        }
+        if (region == "uni pirnas") {
+          nt <- pirnaDataUni[ , sum(Local.Final - `Local.Início` + 1)]
+        }
         if (region == "exons") {
           nt <- exonData[ , sum(end - start + 1)]
         }
@@ -1237,12 +1243,24 @@ piRNAcalc2 <- function(vcf_file) {
           nt <- mirnaData[ , sum(end - start + 1)]
         }
         
+        mtxNT <- function(vec) {
+          vecDef <- vector()
+          vecAux1 <- vecAux2 <- vec
+          for (i in 1:max(vec)) {
+            vecAux1 <- ifelse(vecAux2 != 0, 1, 0)
+            vecAux2 <- vecAux2 - vecAux1
+            vecDef  <- c(vecDef, vecAux1)
+          }
+          return(matrix(vecDef, max(vec), length(vec), byrow = TRUE))
+        }
+        
+        AN <- if (chrom == "Y") 2466 else 5008
         mutRate <- data[ , .(
-          bases = nt, 
-          rate  = mean(c(ifelse(Total.AF > 0.5, 1 - Total.AF, Total.AF), 
-                         rep(0, nt - .N))),
-          sd    = sd(c(ifelse(Total.AF > 0.5, 1 - Total.AF, Total.AF), 
-                       rep(0, nt - .N)))
+          bases = nt * AN, 
+          rate  = mean(mtxNT(c(ifelse(Total.AC > AN / 2, AN - Total.AC, Total.AC), 
+                         rep(0, AN * (nt - .N))))),
+          sd    = sd(mtxNT(c(ifelse(Total.AC > AN / 2, AN - Total.AC, Total.AC), 
+                             rep(0, AN * (nt - .N)))))
         ), by = `Mutação.Tipo`]
         
         mutRate[ , se := sd / sqrt(bases)]
@@ -1275,6 +1293,9 @@ piRNAcalc2 <- function(vcf_file) {
       exonGDF  <- readRDS(file.path(pirnaDir, exonObject))
       mirnaGDF <- readRDS(file.path(pirnaDir, mirnaObject))
       pirnaGDF <- readRDS(file.path(pirnaDir, pirnaObject))
+      pirnaGDFmulti <- piRNAsubset(chrom, MUT.map = "multi")
+      pirnaGDFuni <- piRNAsubset(chrom, MUT.map = "uni")
+      
       
       exonData  <- rbindlist(exonGDF[2:1])
       mirnaData <- rbindlist(mirnaGDF[2:1])
@@ -1282,11 +1303,17 @@ piRNAcalc2 <- function(vcf_file) {
         pirnaGDF["adjRegion:piRNA", "pirnaDataMut"],
         pirnaGDF["adjRegion:piRNA", "pirnaDataNonMut"]
       ))
+      pirnaDataMulti <- pirnaGDFmulti[["piRNA"]][["pirnaData"]]
+      pirnaDataUni   <- pirnaGDFuni[["piRNA"]][["pirnaData"]]
+      
       
       mutExonData  <- rbindlist(exonGDF[[3]], idcol = "exon.Referência")
-      
       mutPirnaData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"],
                                 idcol = "piRNA.Referência")
+      mutPirnaDataMulti <- rbindlist(pirnaDataMulti[["piRNA"]][["mutData"]], 
+                                   idcol = "piRNA.Referência")
+      mutPirnaDataUni <- rbindlist(pirnaDataUni[["piRNA"]][["mutData"]], 
+                                   idcol = "piRNA.Referência")
       
       saveMutRate(vcfTable, "chrom", "mutRate.rds")
       
@@ -1301,6 +1328,10 @@ piRNAcalc2 <- function(vcf_file) {
       }
       
       saveMutRate(mutPirnaData, "pirnas", "mutRate.rds")
+      
+      saveMutRate(mutPirnaDataMulti, "multi pirnas", "mutRate.rds")
+      
+      saveMutRate(mutPirnaDataUni, "uni pirnas", "mutRate.rds")
       
     }
   )
@@ -2988,77 +3019,170 @@ piRNAgraphics2 <- function(CHROM) {
           hoverinfo = 'text'
         )
       }
-    addLayout3   <- function(p, shape.type, ci.type, 
+    addLayout3   <- function(p, shape.type, ci.type, yaxis.type, 
                              categoryarray = c(1:22, "X", "Y")) {
       plotly::layout(
         p, title    = '<b> Taxas de Mutações por Cromossomo <b>',
         shapes      = shape.type,  
         xaxis       = list(title = 'Cromossomo', categoryorder = "array",
                            categoryarray = categoryarray),
-        yaxis       = list(title = 'Taxa de Mutação (mut/nt) CI = ' %s+% ci.type),
+        yaxis       = list(title = 'Taxa de Mutação (mut/nt) CI = ' %s+% ci.type,
+                           type = yaxis.type),
         legend      = list(x = 1, y = 0.5),
         annotations = list(yref = 'paper', xref = "paper",
                            align = 'left', y = 1, x = 1.1, showarrow = F,
                            text = "Região & \n Tipo de Mutação")
       )
     }
+    max2 <- function(vec) {c(max(vec), max(vec[! vec %in% max(vec)]))}
+    min2 <- function(vec) {c(min(vec), min(vec[! vec %in% min(vec)]))}
 
-    p3.1_ci99 <- plot_ly() %>% addTrace3("exons", "SNP", "blue", "ci99") %>%
-      addTrace3("pirnas", "SNP", "green", "ci99") %>%
-      addTrace3("mirnas", "SNP", "orange", "ci99") %>%
-      addTrace3("non exons", "SNP", "red", "ci99") %>%
-      addLayout3(ci.type = "99%", shape.type = list(
-        list(type = "rect",
-             fillcolor = "gray", line = list(color = "gray"), opacity = 0.3,
-             x0 = 0, x1 = "Y", xref = "x",
-             y0 = 0.00107, y1 = 0.00143, yref = "y")
-      ))
-    
     p3.1_ci95 <- plot_ly() %>% addTrace3("exons", "SNP", "blue", "ci95") %>%
-      addTrace3("pirnas", "SNP", "green", "ci95") %>%
-      addTrace3("mirnas", "SNP", "orange", "ci95") %>%
       addTrace3("non exons", "SNP", "red", "ci95") %>%
-      addLayout3(ci.type = "95%", shape.type = list(
+      addTrace3("mirnas", "SNP", "orange", "ci95") %>%
+      addTrace3("pirnas", "SNP", "green", "ci95") %>%
+      addLayout3(ci.type = "95%", yaxis.type = "linear", shape.type = list(
         list(type = "rect",
-             fillcolor = "blue", line = list(color = "gray"), opacity = 0.25,
+             fillcolor = "blue", line = list(color = "blue"), opacity = 0.3,
              x0 = 0, x1 = "Y", xref = "x",
-             y0 = 0.00107, y1 = 0.00143, yref = "y"),
-        list(type = "rect",
-             fillcolor = "gray", line = list(color = "gray"), opacity = 0.3,
-             x0 = 0, x1 = "Y", xref = "x",
-             y0 = 0.00107, y1 = 0.00143, yref = "y")
-      ))
-
-    p3.2_ci99 <- plot_ly() %>% addTrace3("exons", "INDEL", "blue", "ci99") %>%
-      addTrace3("pirnas", "INDEL", "green", "ci99") %>%
-      addTrace3("mirnas", "INDEL", "orange", "ci99") %>%
-      addTrace3("non exons", "INDEL", "red", "ci99") %>%
-      addLayout3(ci.type = "99%", shape.type = list(
+             y0 = mutRateFinal[
+               tipo == "SNP" & region == "exons", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) - (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             y1 = mutRateFinal[
+               tipo == "SNP" & region == "exons", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) + (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             yref = "y"),
         list(type = "rect",
              fillcolor = "red", line = list(color = "red"), opacity = 0.3,
              x0 = 0, x1 = "Y", xref = "x",
-             y0 = 0.00009, y1 = 0.00013, yref = "y")
+             y0 = mutRateFinal[
+               tipo == "SNP" & region == "non exons", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) - (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             y1 = mutRateFinal[
+               tipo == "SNP" & region == "non exons", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) + (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             yref = "y"),
+        list(type = "rect",
+             fillcolor = "orange", line = list(color = "orange"), opacity = 0.3,
+             x0 = 0, x1 = "Y", xref = "x",
+             y0 = mutRateFinal[
+               tipo == "SNP" & region == "mirnas", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) - (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 24 - 1) / 24
+               )], 
+             y1 = mutRateFinal[
+               tipo == "SNP" & region == "mirnas", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) + (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             yref = "y"),
+        list(type = "rect",
+             fillcolor = "green", line = list(color = "green"), opacity = 0.3,
+             x0 = 0, x1 = "Y", xref = "x",
+             y0 = mutRateFinal[
+               tipo == "SNP" & region == "pirnas", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) - (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             y1 = mutRateFinal[
+               tipo == "SNP" & region == "pirnas", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) + (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             yref = "y")
       ))
     
     p3.2_ci95 <- plot_ly() %>% addTrace3("exons", "INDEL", "blue", "ci95") %>%
-      addTrace3("pirnas", "INDEL", "green", "ci95") %>%
-      addTrace3("mirnas", "INDEL", "orange", "ci95") %>%
       addTrace3("non exons", "INDEL", "red", "ci95") %>%
-      addLayout3(ci.type = "95%", shape.type = list(
+      addTrace3("mirnas", "INDEL", "orange", "ci95") %>%
+      addTrace3("pirnas", "INDEL", "green", "ci95") %>%
+      addLayout3(ci.type = "95%", yaxis.type = "linear", shape.type = list(
+        list(type = "rect",
+             fillcolor = "blue", line = list(color = "blue"), opacity = 0.3,
+             x0 = 0, x1 = "Y", xref = "x",
+             y0 = mutRateFinal[
+               tipo == "INDEL" & region == "exons", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) - (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             y1 = mutRateFinal[
+               tipo == "INDEL" & region == "exons", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) + (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             yref = "y"),
         list(type = "rect",
              fillcolor = "red", line = list(color = "red"), opacity = 0.3,
              x0 = 0, x1 = "Y", xref = "x",
-             y0 = 0.00009, y1 = 0.00013, yref = "y")
+             y0 = mutRateFinal[
+               tipo == "INDEL" & region == "non exons", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) - (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             y1 = mutRateFinal[
+               tipo == "INDEL" & region == "non exons", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) + (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             yref = "y"),
+        list(type = "rect",
+             fillcolor = "orange", line = list(color = "orange"), opacity = 0.3,
+             x0 = 0, x1 = "Y", xref = "x",
+             y0 = mutRateFinal[
+               tipo == "INDEL" & region == "mirnas", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) - (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             y1 = mutRateFinal[
+               tipo == "INDEL" & region == "mirnas", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) + (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             yref = "y"),
+        list(type = "rect",
+             fillcolor = "green", line = list(color = "green"), opacity = 0.3,
+             x0 = 0, x1 = "Y", xref = "x",
+             y0 = mutRateFinal[
+               tipo == "INDEL" & region == "pirnas", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) - (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             y1 = mutRateFinal[
+               tipo == "INDEL" & region == "pirnas", 
+               mean(rate[! rate %in% c(min2(rate), max2(rate))]) - (
+                 sd(rate[! rate %in% c(min2(rate), max2(rate))]) * 
+                   qt(.95 / 2 + .5, 20 - 1) / 20
+               )], 
+             yref = "y")
       ))
     
-    export(p3.1_ci95, file = file.path(fig.opts$path, "plot6.1_ci95_" %s+% 
-                                         params$chrom %s+% "_" %s+% ".png"))
-    export(p3.2_ci95, file = file.path(fig.opts$path, "plot6.2_ci95_" %s+%
-                                         params$chrom %s+% "_" %s+% ".png"))
-    export(p3.1_ci99, file = file.path(fig.opts$path, "plot6.1_ci99_" %s+% 
-                                         params$chrom %s+% "_" %s+% ".png"))
-    export(p3.2_ci99, file = file.path(fig.opts$path, "plot6.2_ci99_" %s+%
-                                         params$chrom %s+% "_" %s+% ".png"))
+    export(p3.1_ci95, file = file.path(fig.opts$path, "plot_final_SNP_ci95_" %s+% 
+                                         ".png"))
+    export(p3.2_ci95, file = file.path(fig.opts$path, "plot_final_INDEL_ci95_" %s+%
+                                         ".png"))
     
     #
     savePNG <- function(plotEXP, plotID, pirnaMAP, wi = 1, hi = 1) {
