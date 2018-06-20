@@ -34,6 +34,9 @@ if(!suppressMessages(require(readr))) {
 if(!suppressMessages(require(data.table))) {
   install.packages("data.table")
 }
+if(!suppressMessages(require(bigmemory))) {
+  install.packages("bigmemory")
+}
 if(!suppressMessages(require(foreach))) {
   install.packages("foreach")
 }
@@ -62,6 +65,7 @@ suppressPackageStartupMessages(require(pbapply))
 suppressPackageStartupMessages(require(magrittr))
 suppressPackageStartupMessages(require(data.table))
 suppressPackageStartupMessages(require(readr))
+suppressPackageStartupMessages(require(bigmemory))
 suppressPackageStartupMessages(require(foreach))
 suppressPackageStartupMessages(require(doSNOW))
 suppressPackageStartupMessages(require(tictoc))
@@ -75,7 +79,6 @@ piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1,
   suppressPackageStartupMessages(require(stringr))
   suppressPackageStartupMessages(require(pbapply))
   suppressPackageStartupMessages(require(magrittr))
-  suppressPackageStartupMessages(require(limSolve))
   suppressPackageStartupMessages(require(data.table))
   suppressPackageStartupMessages(require(readr))
   suppressPackageStartupMessages(require(foreach))
@@ -767,8 +770,8 @@ piRNAcalc2 <- function(vcf_file) {
   suppressPackageStartupMessages(require(stringr))
   suppressPackageStartupMessages(require(pbapply))
   suppressPackageStartupMessages(require(magrittr))
-  suppressPackageStartupMessages(require(limSolve))
   suppressPackageStartupMessages(require(data.table))
+  suppressPackageStartupMessages(require(bigmemory))
   suppressPackageStartupMessages(require(readr))
   suppressPackageStartupMessages(require(foreach))
   suppressPackageStartupMessages(require(doSNOW))
@@ -964,7 +967,6 @@ piRNAcalc2 <- function(vcf_file) {
   #   suppressPackageStartupMessages(require(readr))
   #   suppressPackageStartupMessages(require(data.table))
   #   suppressPackageStartupMessages(require(magrittr))
-  #   suppressPackageStartupMessages(require(limSolve))
   #   suppressPackageStartupMessages(require(foreach))
   #   suppressPackageStartupMessages(require(tictoc))
   #   
@@ -991,7 +993,6 @@ piRNAcalc2 <- function(vcf_file) {
   #   suppressPackageStartupMessages(require(readr))
   #   suppressPackageStartupMessages(require(data.table))
   #   suppressPackageStartupMessages(require(magrittr))
-  #   suppressPackageStartupMessages(require(limSolve))
   #   suppressPackageStartupMessages(require(foreach))
   #   suppressPackageStartupMessages(require(tictoc))
   #   
@@ -1096,7 +1097,6 @@ piRNAcalc2 <- function(vcf_file) {
   #   suppressPackageStartupMessages(require(readr))
   #   suppressPackageStartupMessages(require(data.table))
   #   suppressPackageStartupMessages(require(magrittr))
-  #   suppressPackageStartupMessages(require(limSolve))
   #   suppressPackageStartupMessages(require(foreach))
   #   suppressPackageStartupMessages(require(tictoc))
   #   
@@ -1123,7 +1123,6 @@ piRNAcalc2 <- function(vcf_file) {
   #   suppressPackageStartupMessages(require(readr))
   #   suppressPackageStartupMessages(require(data.table))
   #   suppressPackageStartupMessages(require(magrittr))
-  #   suppressPackageStartupMessages(require(limSolve))
   #   suppressPackageStartupMessages(require(foreach))
   #   suppressPackageStartupMessages(require(tictoc))
   #   
@@ -1243,23 +1242,25 @@ piRNAcalc2 <- function(vcf_file) {
           nt <- mirnaData[ , sum(end - start + 1)]
         }
         
-        mtxNT <- function(vec) {
-          vecDef <- vector()
-          vecAux1 <- vecAux2 <- vec
+        bigMATRIX <- function(vec) {
+          suppressPackageStartupMessages(require(bigmemory))
+          finalMTX <- big.matrix(nrow = max(vec), ncol = length(vec), 
+                                 type = 'integer', init = 0)
+          vecAux1  <- vecAux2 <- vec
           for (i in 1:max(vec)) {
-            vecAux1 <- ifelse(vecAux2 != 0, 1, 0)
-            vecAux2 <- vecAux2 - vecAux1
-            vecDef  <- c(vecDef, vecAux1)
+            vecAux1  <- ifelse(vecAux2 != 0, 1, 0)
+            vecAux2  <- vecAux2 - vecAux1
+            finalMTX[i, ] <- vecAux1
           }
-          return(matrix(vecDef, max(vec), length(vec), byrow = TRUE))
+          return(finalMTX)
         }
         
         AN <- if (chrom == "Y") 2466 else 5008
         mutRate <- data[ , .(
           bases = nt * AN, 
-          rate  = mean(mtxNT(c(ifelse(Total.AC > AN / 2, AN - Total.AC, Total.AC), 
+          rate  = mean(bigMATRIX(c(ifelse(Total.AC > AN / 2, AN - Total.AC, Total.AC), 
                          rep(0, AN * (nt - .N))))),
-          sd    = sd(mtxNT(c(ifelse(Total.AC > AN / 2, AN - Total.AC, Total.AC), 
+          sd    = sd(bigMATRIX(c(ifelse(Total.AC > AN / 2, AN - Total.AC, Total.AC), 
                              rep(0, AN * (nt - .N)))))
         ), by = `Mutação.Tipo`]
         
