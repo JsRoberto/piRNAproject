@@ -1259,9 +1259,9 @@ piRNAcalc2 <- function(vcf_file) {
         mutRate <- data[ , .(
           bases = nt * AN, 
           rate  = mean(bigMATRIX(c(ifelse(Total.AC > AN / 2, AN - Total.AC, Total.AC), 
-                         rep(0, AN * (nt - .N))))),
+                         rep(0, nt - .N)))),
           sd    = sd(bigMATRIX(c(ifelse(Total.AC > AN / 2, AN - Total.AC, Total.AC), 
-                             rep(0, AN * (nt - .N)))))
+                             rep(0, nt - .N))))
         ), by = `Mutação.Tipo`]
         
         mutRate[ , se := sd / sqrt(bases)]
