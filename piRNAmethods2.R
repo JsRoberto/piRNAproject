@@ -242,7 +242,7 @@ piRNAcalc <- function(vcf_file, gff_file, mirna_file, exon_file) {
   suppressPackageStartupMessages(require(stringr))
   suppressPackageStartupMessages(require(pbapply))
   suppressPackageStartupMessages(require(magrittr))
-  suppressPackageStartupMessages(require(limSolve))
+  #suppressPackageStartupMessages(require(limSolve))
   suppressPackageStartupMessages(require(data.table))
   suppressPackageStartupMessages(require(readr))
   suppressPackageStartupMessages(require(foreach))
@@ -586,9 +586,10 @@ piRNAcalc <- function(vcf_file, gff_file, mirna_file, exon_file) {
    expressionTime = "Leitura do arquivo EXON",
    expressionR    = {
        cat("   Lendo o arquivo EXON\n")
-       exonTable <- read_delim(
-         exon_file, delim = "\t", n_max = 128548, col_types = "cccnn-c--",
-         col_names = c("seqid", "seqtype", "seqdef", "start", "end", "sense")
+       exonTable <- read_delim(#128548
+         exon_file, delim = "\t", skip = 5, n_max = 2828317 - 5, 
+         col_types = "cccnn-c--", col_names = c("seqid", "seqtype", "seqdef", 
+                                                "start", "end", "sense")
        )
        exonTable <- data.table(exonTable)
        exonTable <- exonTable[seqid == chrom & seqdef == "exon"]
@@ -2127,15 +2128,7 @@ piRNAgraphics1 <- function(CHROM) {
   vennMUTdata <- list(
     piRNAall = list(
       SNP = vennObject("SNP"), INDEL = vennObject("INDEL")
-    )#,
-    # piRNAmulti = list(
-    #   SNP = vennObject("SNP", pirnaDataAux[ , piRNA.Mapeamento == "Múltiplo"]),
-    #   INDEL = vennObject("INDEL", pirnaDataAux[ , piRNA.Mapeamento == "Múltiplo"])
-    # ),
-    # piRNAuni = list(
-    #   SNP = vennObject("SNP", pirnaDataAux[ , piRNA.Mapeamento == "Único"]),
-    #   INDEL = vennObject("INDEL", pirnaDataAux[ , piRNA.Mapeamento == "Único"])
-    # )
+    )
   )
   
   meltMUTdata <- melt.data.table(
@@ -2295,98 +2288,6 @@ piRNAgraphics1 <- function(CHROM) {
     }
   }
 
-  # fun_rescale <- function(y) {as.numeric(y) ^ {log10(0.5) / log10(0.05)}}
-  # 
-  # plot4 <- ggplot(data = meltMUTdata[AF.Tipo == "AF > 0"],
-  #                 aes(x = variable,  y = fun_rescale(value), fill = variable)) +
-  #   geom_boxplot(width = 0.8) +
-  #   scale_y_continuous(
-  #     breaks = fun_rescale(c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) / 100),
-  #     labels = c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) %s+% "%"
-  #   ) +
-  #   scale_x_discrete(position = "top") +
-  #   labs(title = 'Distribuição de mutações em piRNAs no cromossomo ' %s+%
-  #          stri_extract_all(params$chrom, regex = '[1-9]+|[XY]+|all'),
-  #        subtitle = 'Boxplot de mutações com frequências ' %s+%
-  #          'alélicas não nulas',
-  #        fill = 'Populações Humanas', 
-  #        x = '', y = 'Frequência Alélica') +
-  #   theme(legend.position = "bottom") +
-  #   scale_color_pirna("mixed") +
-  #   scale_fill_pirna("mixed")
-  # 
-  # x.annotate     <- 1:5
-  # label.fun <- function(x) {
-  #   meltMUTdata[AF.Tipo == "AF > 0"][
-  #     order(Mut.TipoAll, variable), .N, by = .(Mut.TipoAll, variable)
-  #     ]$N[c(x, x + 5)]
-  # }
-  # label.annotate <- list(
-  #   label.fun(x.annotate[1]), label.fun(x.annotate[2]),
-  #   label.fun(x.annotate[3]), label.fun(x.annotate[4]),
-  #   label.fun(x.annotate[5])
-  # )
-  # add_annotate4.1 <- function(x, label) {
-  #   ggplot2::annotate("text", size = 3, x = x, 
-  #                     y = fun_rescale(0.01 / 100),
-  #                     label = 'n=' %s+% label)
-  # }
-  # 
-  # saveTIFF(plotID = "plot4", pirnaMAP = "all", wi = 2, plotEXP = {
-  #   plot4 + facet_grid(.~Mut.TipoAll) +
-  #     add_annotate4.1(x.annotate[1], label.annotate[[1]]) +
-  #     add_annotate4.1(x.annotate[2], label.annotate[[2]]) +
-  #     add_annotate4.1(x.annotate[3], label.annotate[[3]]) +
-  #     add_annotate4.1(x.annotate[4], label.annotate[[4]]) +
-  #     add_annotate4.1(x.annotate[5], label.annotate[[5]])
-  # })
-  # 
-  # savePNG(plotID = "plot4", pirnaMAP = "all", wi = 2, plotEXP = {
-  #   plot4 + facet_grid(.~Mut.TipoAll) +
-  #     add_annotate4.1(x.annotate[1], label.annotate[[1]]) +
-  #     add_annotate4.1(x.annotate[2], label.annotate[[2]]) +
-  #     add_annotate4.1(x.annotate[3], label.annotate[[3]]) +
-  #     add_annotate4.1(x.annotate[4], label.annotate[[4]]) +
-  #     add_annotate4.1(x.annotate[5], label.annotate[[5]])
-  # })
-  # 
-  # x.annotate <- 1:5
-  # label.fun <- function(x) {
-  #   meltMUTdata[AF.Tipo == "AF > 0"][
-  #     order(Mut.TipoByMap, piRNA.Mapeamento, variable), .N,
-  #     by = .(variable, piRNA.Mapeamento, Mut.TipoByMap)
-  #     ]$N[c(x, x + 10, x + 5, x + 15)]
-  # }
-  # label.annotate <- list(
-  #   label.fun(x.annotate[1]), label.fun(x.annotate[2]),
-  #   label.fun(x.annotate[3]), label.fun(x.annotate[4]),
-  #   label.fun(x.annotate[5])
-  # )
-  # add_annotate4.2 <- function(x, label) {
-  #   ggplot2::annotate("text", size = 3, x = x, 
-  #                     y = fun_rescale(0.01 / 100),
-  #                     label = 'n=' %s+% label)
-  # }
-  # 
-  # saveTIFF(plotID = "plot4", pirnaMAP = "uni+multi", wi = 2, hi = 2, 
-  #          plotEXP = {
-  #   plot4 + facet_grid(piRNA.Mapeamento~Mut.TipoByMap) +
-  #     add_annotate4.2(x.annotate[1], label.annotate[[1]]) +
-  #     add_annotate4.2(x.annotate[2], label.annotate[[2]]) +
-  #     add_annotate4.2(x.annotate[3], label.annotate[[3]]) +
-  #     add_annotate4.2(x.annotate[4], label.annotate[[4]]) +
-  #     add_annotate4.2(x.annotate[5], label.annotate[[5]])
-  # })
-  # 
-  # savePNG(plotID = "plot4", pirnaMAP = "uni+multi", wi = 2, hi = 2, 
-  #         plotEXP = {
-  #           plot4 + facet_grid(piRNA.Mapeamento~Mut.TipoByMap) +
-  #             add_annotate4.2(x.annotate[1], label.annotate[[1]]) +
-  #             add_annotate4.2(x.annotate[2], label.annotate[[2]]) +
-  #             add_annotate4.2(x.annotate[3], label.annotate[[3]]) +
-  #             add_annotate4.2(x.annotate[4], label.annotate[[4]]) +
-  #             add_annotate4.2(x.annotate[5], label.annotate[[5]])
-  #         })
   if (CHROM == "all") {
     mutDataObtain <- function(mut.type, region) {
       mutData   <- readRDS(paste0("C:/Rdir/piRNAproject/piRNAall/mutDataALL", 
