@@ -69,6 +69,7 @@ suppressPackageStartupMessages(require(bigmemory))
 suppressPackageStartupMessages(require(foreach))
 suppressPackageStartupMessages(require(doSNOW))
 suppressPackageStartupMessages(require(tictoc))
+suppressPackageStartupMessages(require(plotly))
 
 piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1, 
                         MUT.map   = c("all", "uni", "multi"),
@@ -85,16 +86,16 @@ piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1,
   suppressPackageStartupMessages(require(doSNOW))
   suppressPackageStartupMessages(require(tictoc))
   
-  gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-  #gitHubDir <- "C:/Rdir/piRNAproject"
-  pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% CHROM)
+  #gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
+  gitHubDir <- "C:/Rdir/piRNAproject"
+  pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% "all")
   
   rbcombine <- 
     function(..., idcol = NULL) data.table::rbindlist(list(...), idcol = idcol)
   
   source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
   
-  pirnaObj <- file.path(pirnaDir, "pirnaGDF" %s+% CHROM %s+% ".rds")
+  pirnaObj <- file.path(pirnaDir, "pirnaGDF" %s+% "all" %s+% ".rds")
   
   newPirnaGDF <- readRDS(pirnaObj)
   
@@ -235,7 +236,7 @@ piRNAsubset <- function(CHROM, AF.min = 0, AF.max = 1,
 # mutações de acordo com o tipo(SNP ou INDEL ou ambas): realizar a 
 # quantificação para cada piRNA e para cada região alvo (Adjacente -1000; 
 # adjacente 5'; piRNA; adjacente 3'; adjacente +1000).
-piRNAcalc <- function(vcf_file, gff_file) {
+piRNAcalc <- function(vcf_file, gff_file, mirna_file, exon_file) {
   # Pacotes para execução do código piRNAcalc ----------------------------------
   suppressPackageStartupMessages(require(stringi))
   suppressPackageStartupMessages(require(stringr))
@@ -437,7 +438,279 @@ piRNAcalc <- function(vcf_file, gff_file) {
         `Local.Final`    = end)]
     }
   )
+  ###
+  cat("#' \n#' #### Tempos de execução para tratamento do arquivo miRNA:\n")
+  catExeTime(
+    expressionTime = "Leitura do arquivo miRNA",
+    expressionR    = {
+      cat("   Lendo o arquivo miRNA\n")
+      mirnaTable <- read_delim(
+        mirna_file, delim = "\t", skip = 13, n_max = 3841 - 13, col_types = "c-cnn-c-c",
+        col_names = c("seqid", "seqtype", "start", "end", "sense", "seqdef")
+      )
+      mirnaTable <- data.table(mirnaTable)
+      mirnaTable <- mirnaTable[seqid == chrom & seqtype == "miRNA"]
+    }
+  )
   
+  regionStart <- mirnaTable[ , start]
+  regionEnd   <- mirnaTable[ , end]
+  
+  vcfTableAux <- vcfTable
+  
+  indelSearch <-
+    vcfTableAux[ , stri_count(`Alelo.Referência`,  regex = "[ACGT]") !=
+                   stri_count(`Alelo.Alternativo`, regex = "[ACGT]")]
+  
+  eachMIRNA <- function(each) {
+    suppressPackageStartupMessages(require(stringi))
+    suppressPackageStartupMessages(require(stringr))
+    suppressPackageStartupMessages(require(pbapply))
+    suppressPackageStartupMessages(require(readr))
+    suppressPackageStartupMessages(require(data.table))
+    suppressPackageStartupMessages(require(magrittr))
+    suppressPackageStartupMessages(require(foreach))
+    suppressPackageStartupMessages(require(tictoc))
+    
+    vcfTableAux2 <- vcfTableAux[
+      as.numeric(`Mutação.Local`) >= regionStart[each] &
+        as.numeric(`Mutação.Local`) <= regionEnd[each]
+      ]
+    
+    mirnaTableAux2 <- mirnaTable[each, ]
+    
+    mirnaTableAux2 <- SJ(mirnaTableAux2, vcfTableAux2[ , .(
+      `Mutações.Total` = length(`Mutação.Local`),
+      `Mutações.SNP`   = sum(`Mutação.Tipo` == "SNP"),
+      `Mutações.INDEL` = sum(`Mutação.Tipo` == "INDEL"))])
+    
+    return(mirnaTableAux2)
+    
+  }
+  
+  eachPirnaVCF <- function(each) {
+    suppressPackageStartupMessages(require(stringi))
+    suppressPackageStartupMessages(require(stringr))
+    suppressPackageStartupMessages(require(pbapply))
+    suppressPackageStartupMessages(require(readr))
+    suppressPackageStartupMessages(require(data.table))
+    suppressPackageStartupMessages(require(magrittr))
+    suppressPackageStartupMessages(require(foreach))
+    suppressPackageStartupMessages(require(tictoc))
+    
+    vcfTableAux2 <- vcfTableAux[
+      as.numeric(`Mutação.Local`) >= regionStart[each] &
+        as.numeric(`Mutação.Local`) <= regionEnd[each]]
+    
+    return(vcfTableAux2)
+  }
+  
+  cat("\n#' \n#' ##### Processamento para as regiões de miRNAs")
+  catExeTime(
+    expressionTime = "Atualização do objeto mirnaGDF",
+    expressionR    = {
+      cat("\n   Atualizando o objeto mirnaGDF \n")
+      
+      numberOfCluster <- parallel::detectCores() / 2
+      cl <- makeCluster(numberOfCluster)
+      registerDoSNOW(cl)
+      
+      cat("\n   [PARTE I  - Objetos 'mirnaDataNonMut' e 'mirnaDataMut']\n")
+      progressBar1 <- txtProgressBar(
+        min = 0, max = nrow(mirnaTable), char = "=", style = 3
+      )
+      options1 <- list(progress = function(rows) {
+        setTxtProgressBar(progressBar1, rows)
+      })
+      
+      mirnaData <-
+        foreach(rows = seq(nrow(mirnaTable)), .options.snow = options1,
+                .combine = rbind, .multicombine = TRUE,
+                .maxcombine = nrow(mirnaTable)) %dopar%
+        eachMIRNA(rows)
+      close(progressBar1)
+      
+      mirnaData <- data.table(mirnaData, key = c(
+        "seqid", "seqtype", "seqdef", "start", "end"
+      ))
+      mirnaDataNonMut <-
+        mirnaData[`Mutações.Total` == 0][order(start)]
+      mirnaDataMut <- mirnaData[`Mutações.Total` != 0][order(end)]
+      
+      cat("\n   [PARTE II - Objeto 'mutData']\n")
+      if (nrow(mirnaDataMut) == 0) {
+        cat("\n Não ha mutações no cromossomo " %s+% chrom)
+        mutData <- data.frame(c(0, 0), c(0, 0), c(0, 0), c(0, 0), c(0, 0),
+                              c("SNP", "INDEL"), c(0, 0), c(0, 0), c(0, 0),
+                              c(0, 0), c(0, 0), c(0, 0), c(0, 0), c(0, 0),
+                              c(0, 0), c(0, 0), c(0, 0), c(0, 0))
+        colnames(mutData) <- colnames(vcfTableAux)
+        mutData <- list(mutData)
+      } else {
+        progressBar2 <- txtProgressBar(
+          min = 0, max = nrow(mirnaDataMut), char = "=", style = 3
+        )
+        options2 <- list(progress = function(rows) {
+          setTxtProgressBar(progressBar2, rows)
+        })
+        mutData <-
+          foreach(rows = seq(nrow(mirnaTable)), .options.snow = options2,
+                  .combine = list, .multicombine = TRUE,
+                  .maxcombine = nrow(mirnaDataMut)) %:%
+          when(vcfTableAux[ , sum(
+            as.numeric(`Mutação.Local`) >= regionStart[rows] &
+              as.numeric(`Mutação.Local`) <= regionEnd[rows]) != 0]
+          ) %dopar%
+          eachPirnaVCF(rows)
+        names(mutData) <- "Região miRNA::" %s+%
+          mirnaDataMut[ , stri_join(sep = "..", seqid, seqtype, seqdef, start, end
+          )]
+        
+        close(progressBar2)
+      }
+      
+      stopCluster(cl)
+      mirnaGDF <- list(mirnaDataNonMut = mirnaDataNonMut,
+                       mirnaDataMut    = mirnaDataMut,
+                       mutData         = mutData)
+      
+    }
+  )
+  
+  mirnaObject <- "mirnaGDF" %s+% chrom %s+% ".rds"
+  saveRDS(mirnaGDF, file = file.path(pirnaDir, mirnaObject))
+  
+  ###
+  cat("\n#' \n#' #### Tempos de execução para tratamento do arquivo EXON:\n")
+  catExeTime(
+   expressionTime = "Leitura do arquivo EXON",
+   expressionR    = {
+       cat("   Lendo o arquivo EXON\n")
+       exonTable <- read_delim(
+         exon_file, delim = "\t", n_max = 128548, col_types = "cccnn-c--",
+         col_names = c("seqid", "seqtype", "seqdef", "start", "end", "sense")
+       )
+       exonTable <- data.table(exonTable)
+       exonTable <- exonTable[seqid == chrom & seqdef == "exon"]
+     }
+  )
+  
+  regionStart <- exonTable[ , start]
+  regionEnd   <- exonTable[ , end]
+  
+  vcfTableAux <- vcfTable
+  
+  indelSearch <-
+  vcfTableAux[ , stri_count(`Alelo.Referência`,  regex = "[ACGT]") !=
+                 stri_count(`Alelo.Alternativo`, regex = "[ACGT]")]
+  
+  eachEXON <- function(each) {
+     suppressPackageStartupMessages(require(stringi))
+     suppressPackageStartupMessages(require(stringr))
+     suppressPackageStartupMessages(require(pbapply))
+     suppressPackageStartupMessages(require(readr))
+     suppressPackageStartupMessages(require(data.table))
+     suppressPackageStartupMessages(require(magrittr))
+     suppressPackageStartupMessages(require(foreach))
+     suppressPackageStartupMessages(require(tictoc))
+  
+     vcfTableAux2 <- vcfTableAux[
+       as.numeric(`Mutação.Local`) >= regionStart[each] &
+         as.numeric(`Mutação.Local`) <= regionEnd[each]
+       ]
+  
+     exonTableAux2 <- exonTable[each, ]
+  
+     exonTableAux2 <- SJ(exonTableAux2, vcfTableAux2[ , .(
+       `Mutações.Total` = length(`Mutação.Local`),
+       `Mutações.SNP`   = sum(`Mutação.Tipo` == "SNP"),
+       `Mutações.INDEL` = sum(`Mutação.Tipo` == "INDEL"))])
+  
+     return(exonTableAux2)
+  
+   }
+  
+  eachPirnaVCF <- function(each) {
+     suppressPackageStartupMessages(require(stringi))
+     suppressPackageStartupMessages(require(stringr))
+     suppressPackageStartupMessages(require(pbapply))
+     suppressPackageStartupMessages(require(readr))
+     suppressPackageStartupMessages(require(data.table))
+     suppressPackageStartupMessages(require(magrittr))
+     suppressPackageStartupMessages(require(foreach))
+     suppressPackageStartupMessages(require(tictoc))
+  
+     vcfTableAux2 <- vcfTableAux[
+       as.numeric(`Mutação.Local`) >= regionStart[each] &
+         as.numeric(`Mutação.Local`) <= regionEnd[each]]
+  
+     return(vcfTableAux2)
+   }
+  
+  cat("\n#' \n#' ##### Processamento para as regiões de EXON")
+  catExeTime(
+   expressionTime = "Atualização do objeto exonGDF",
+   expressionR    = {
+       cat("\n   Atualizando o objeto exonGDF \n")
+  
+       numberOfCluster <- parallel::detectCores() / 2
+       cl <- makeCluster(numberOfCluster)
+       registerDoSNOW(cl)
+  
+       cat("\n   [PARTE I  - Objetos 'exonDataNonMut' e 'exonDataMut']\n")
+       progressBar1 <- txtProgressBar(
+         min = 0, max = nrow(exonTable), char = "=", style = 3
+       )
+       options1 <- list(progress = function(rows) {
+         setTxtProgressBar(progressBar1, rows)
+       })
+  
+       exonData <-
+         foreach(rows = seq(nrow(exonTable)), .options.snow = options1,
+                 .combine = rbind, .multicombine = TRUE,
+                 .maxcombine = nrow(exonTable)) %dopar%
+         eachEXON(rows)
+       close(progressBar1)
+  
+       exonData <- data.table(exonData, key = c(
+         "seqid", "seqtype", "seqdef", "start", "end"
+       ))
+       exonDataNonMut <-
+         exonData[`Mutações.Total` == 0][order(start)]
+       exonDataMut <- exonData[`Mutações.Total` != 0][order(end)]
+  
+       cat("\n   [PARTE II - Objeto 'mutData']\n")
+       progressBar2 <- txtProgressBar(
+         min = 0, max = nrow(exonDataMut), char = "=", style = 3
+       )
+       options2 <- list(progress = function(rows) {
+         setTxtProgressBar(progressBar2, rows)
+       })
+       mutData <-
+         foreach(rows = seq(nrow(exonTable)), .options.snow = options2,
+                 .combine = list, .multicombine = TRUE,
+                 .maxcombine = nrow(exonDataMut)) %:%
+         when(vcfTableAux[ , sum(
+           as.numeric(`Mutação.Local`) >= regionStart[rows] &
+             as.numeric(`Mutação.Local`) <= regionEnd[rows]) != 0]
+         ) %dopar%
+         eachPirnaVCF(rows)
+       names(mutData) <- "Região EXON::" %s+%
+         exonDataMut[ , stri_join(sep = "..", seqid, seqtype, seqdef, start, end
+         )]
+  
+       close(progressBar2)
+       stopCluster(cl)
+       exonGDF <- list(exonDataNonMut = exonDataNonMut,
+                          exonDataMut    = exonDataMut,
+                          mutData        = mutData)
+  
+     }
+  )
+  
+  exonObject <- "exonGDF" %s+% chrom %s+% ".rds"
+  saveRDS(exonGDF, file = file.path(pirnaDir, exonObject))
+
   ###################################################################
   # Quantificação de mutações em piRNA 
   ###################################################################
@@ -461,97 +734,6 @@ piRNAcalc <- function(vcf_file, gff_file) {
     indelSearch <- 
       vcfTableAux[ , stri_count(`Alelo.Referência`,  regex = "[ACGT]") !=
                      stri_count(`Alelo.Alternativo`, regex = "[ACGT]")]
-    
-    # vcfTableAux[ , `Mutação.Tipo` := 
-    #                factor(ifelse(indelSearch, "INDEL", "SNP"))]
-    
-    # vcfTableAux <- subset(vcfTableAux, subset = TRUE, 
-    #                       select = c(names(vcfTableAux)[1:5],
-    #                                  names(vcfTableAux)[18],
-    #                                  names(vcfTableAux)[6:17]))
-    
-    # if (region == "piRNA") {
-    #   # snpRate <- vcfTableAux[!indelSearch]
-    #   # indelG1 <- vcfTableAux[indelSearch, Mod(
-    #   #   stri_count(`Alelo.Referência`,  regex = "[ACGT]") -
-    #   #     stri_count(`Alelo.Alternativo`, regex = "[ACGT]")
-    #   # ) == 1]
-    #   # cond  <- vcfTableAux[indelSearch, stri_count(
-    #   #   `Alelo.Referência`,  regex = "[ACGT]") < stri_count(
-    #   #     `Alelo.Alternativo`, regex = "[ACGT]"
-    #   #   )]
-    #   # alt <- vcfTableAux[indelSearch, str_sub(
-    #   #   `Alelo.Alternativo`[cond], start = stri_count(
-    #   #     `Alelo.Referência`[cond], regex = "[ACGT]") + 1)]
-    #   # indelG2 <- vcfTableAux[indelSearch, !indelG1 &
-    #   #   ifelse(tapply(alt, gl(length(alt), 1), function(uni) {
-    #   #     sum(uni %% 1:100 == 0) >= 3
-    #   #   }), , )
-    #   # ]
-    #   # indelG3 <- !(indelG1 | indelG2)
-    #   # IndelRate <- vcfTableAux[indelSearch, `Mutação.Tipo` := 
-    #   #   factor(ifelse(indelG1, "INDEL.Group1", "INDEL.other"))]
-    #   
-    #   ## Gives count, mean, standard deviation, standard error of the mean, and confidence interval (default 95%).
-    #   ##   data: a data frame.
-    #   ##   measurevar: the name of a column that contains the variable to be summariezed
-    #   ##   groupvars: a vector containing names of columns that contain grouping variables
-    #   ##   na.rm: a boolean that indicates whether to ignore NA's
-    #   ##   conf.interval: the percent range of the confidence interval (default is 95%)
-    #   summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
-    #                         conf.interval=.95, .drop=TRUE) {
-    #     suppressPackageStartupMessages(require(plyr))
-    #     
-    #     # New version of length which can handle NA's: if na.rm==T, don't count them
-    #     length2 <- function (x, na.rm=FALSE) {
-    #       if (na.rm) sum(!is.na(x))
-    #       else       length(x)
-    #     }
-    #     
-    #     # This does the summary. For each group's data frame, return a vector with
-    #     # N, mean, and sd
-    #     datac <- ddply(data, groupvars, .drop=.drop,
-    #                    .fun = function(xx, col) {
-    #                      c(N    = length2(xx[[col]], na.rm=na.rm),
-    #                        rate = sum    (xx[[col]], na.rm=na.rm) / nt,
-    #                        sd   = sd     (xx[[col]], na.rm=na.rm)
-    #                      )
-    #                    },
-    #                    measurevar
-    #     )
-    #     
-    #     # Rename the "mean" column    
-    #     #datac <- rename(datac, c("rate" = measurevar))
-    #     
-    #     datac$se <- datac$sd / sqrt(datac$N)  # Calculate standard error of the mean
-    #     
-    #     # Confidence interval multiplier for standard error
-    #     # Calculate t-statistic for confidence interval: 
-    #     # e.g., if conf.interval is .95, use .975 (above/below), and use df=N-1
-    #     ciMult <- qt(conf.interval/2 + .5, datac$N-1)
-    #     datac$ci <- datac$se * ciMult
-    #     
-    #     return(datac)
-    #   }
-    #   nt      <- infoData[chromID == chrom, numBases]
-    #   mutRate <- summarySE(
-    #     vcfTableAux, measurevar = "Total.AF", groupvars = "Mutação.Tipo"
-    #   )
-    #   allDir <- file.path(gitHubDir, "piRNAall")
-    #   dir.create(allDir, showWarnings = FALSE)
-    #   fileRate <- file.path(allDir, "mutRate.rds")
-    #   if (!file.exists(fileRate)) {
-    #     tableRate <- cbind(chrom = chrom, region = "all", mutRate)
-    #     saveRDS(tableRate, file = fileRate)
-    #   } else {
-    #     tableRate <- readRDS(fileRate)
-    #     tableRate <- rbind(tableRate, cbind(
-    #       chrom = chrom, region = "all", mutRate
-    #     ))
-    #     tableRate <- tableRate[order(chrom, region, `Mutação.Tipo`)]
-    #     saveRDS(tableRate, file = fileRate)
-    #   }
-    # }
     
     eachPirnaGFF <- function(each) {
       suppressPackageStartupMessages(require(stringi))
@@ -1208,7 +1390,6 @@ piRNAcalc2 <- function(vcf_file) {
   # mirnaObject <- "mirnaGDF" %s+% chrom %s+% ".rds"
   # saveRDS(mirnaGDF, file = file.path(pirnaDir, mirnaObject))
   
-  
   catExeTime(
     expressionTime = "Cálculo das taxas de mutação",
     expressionR    = {
@@ -1225,12 +1406,12 @@ piRNAcalc2 <- function(vcf_file) {
         if (region == "pirnas") {
           nt <- pirnaData[ , sum(Local.Final - `Local.Início` + 1)]
         }
-        if (region == "multi pirnas") {
-          nt <- pirnaDataMulti[ , sum(Local.Final - `Local.Início` + 1)]
-        }
-        if (region == "uni pirnas") {
-          nt <- pirnaDataUni[ , sum(Local.Final - `Local.Início` + 1)]
-        }
+        # if (region == "multi pirnas") {
+        #   nt <- pirnaDataMulti[ , sum(Local.Final - `Local.Início` + 1)]
+        # }
+        # if (region == "uni pirnas") {
+        #   nt <- pirnaDataUni[ , sum(Local.Final - `Local.Início` + 1)]
+        # }
         if (region == "exons") {
           nt <- exonData[ , sum(end - start + 1)]
         }
@@ -1294,8 +1475,8 @@ piRNAcalc2 <- function(vcf_file) {
       exonGDF  <- readRDS(file.path(pirnaDir, exonObject))
       mirnaGDF <- readRDS(file.path(pirnaDir, mirnaObject))
       pirnaGDF <- readRDS(file.path(pirnaDir, pirnaObject))
-      pirnaGDFmulti <- piRNAsubset(chrom, MUT.map = "multi")
-      pirnaGDFuni <- piRNAsubset(chrom, MUT.map = "uni")
+      # pirnaGDFmulti <- piRNAsubset(chrom, MUT.map = "multi")
+      # pirnaGDFuni <- piRNAsubset(chrom, MUT.map = "uni")
       
       
       exonData  <- rbindlist(exonGDF[2:1])
@@ -1304,17 +1485,17 @@ piRNAcalc2 <- function(vcf_file) {
         pirnaGDF["adjRegion:piRNA", "pirnaDataMut"],
         pirnaGDF["adjRegion:piRNA", "pirnaDataNonMut"]
       ))
-      pirnaDataMulti <- pirnaGDFmulti[["piRNA"]][["pirnaData"]]
-      pirnaDataUni   <- pirnaGDFuni[["piRNA"]][["pirnaData"]]
+      # pirnaDataMulti <- pirnaGDFmulti[["piRNA"]][["pirnaData"]]
+      # pirnaDataUni   <- pirnaGDFuni[["piRNA"]][["pirnaData"]]
       
       
       mutExonData  <- rbindlist(exonGDF[[3]], idcol = "exon.Referência")
       mutPirnaData <- rbindlist(pirnaGDF["adjRegion:piRNA", "mutData"],
                                 idcol = "piRNA.Referência")
-      mutPirnaDataMulti <- rbindlist(pirnaDataMulti[["piRNA"]][["mutData"]], 
-                                   idcol = "piRNA.Referência")
-      mutPirnaDataUni <- rbindlist(pirnaDataUni[["piRNA"]][["mutData"]], 
-                                   idcol = "piRNA.Referência")
+      # mutPirnaDataMulti <- rbindlist(pirnaDataMulti[["piRNA"]][["mutData"]], 
+      #                              idcol = "piRNA.Referência")
+      # mutPirnaDataUni <- rbindlist(pirnaDataUni[["piRNA"]][["mutData"]], 
+      #                              idcol = "piRNA.Referência")
       
       saveMutRate(vcfTable, "chrom", "mutRate.rds")
       
@@ -1330,9 +1511,9 @@ piRNAcalc2 <- function(vcf_file) {
       
       saveMutRate(mutPirnaData, "pirnas", "mutRate.rds")
       
-      saveMutRate(mutPirnaDataMulti, "multi pirnas", "mutRate.rds")
-      
-      saveMutRate(mutPirnaDataUni, "uni pirnas", "mutRate.rds")
+      # saveMutRate(mutPirnaDataMulti, "multi pirnas", "mutRate.rds")
+      # 
+      # saveMutRate(mutPirnaDataUni, "uni pirnas", "mutRate.rds")
       
     }
   )
@@ -1353,330 +1534,6 @@ piRNAcalc2 <- function(vcf_file) {
   writeLines(text = newRout, con  = fileRoutCon)
   close(fileRoutCon)
   
-}
-
-piRNAc <- function(CHROM) {
-  suppressPackageStartupMessages(require(stringi))
-  suppressPackageStartupMessages(require(stringr))
-  suppressPackageStartupMessages(require(pbapply))
-  suppressPackageStartupMessages(require(magrittr))
-  suppressPackageStartupMessages(require(limSolve))
-  suppressPackageStartupMessages(require(data.table))
-  suppressPackageStartupMessages(require(readr))
-  suppressPackageStartupMessages(require(foreach))
-  suppressPackageStartupMessages(require(doSNOW))
-  suppressPackageStartupMessages(require(tictoc))
-  
-  gitHubDir <- "/data/projects/metagenomaCG/jose/piRNAproject/piRNAproject"
-  #gitHubDir <- "C:/Rdir/piRNAproject"
-  source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
-  
-  pirnaDir  <- file.path(gitHubDir, "piRNA" %s+% CHROM)
-  dir.create(pirnaDir, showWarnings = FALSE)
-  
-  rbcombine <- function(..., idcol = NULL) 
-    data.table::rbindlist(list(...), idcol = idcol)
-  
-  pirnaObj <- file.path(pirnaDir, "pirnaGDF" %s+% CHROM %s+% ".rds")
-  
-  if (CHROM == "all") {
-    
-    # regions <- c("-1000", "5'", "piRNA", "3'", "+1000")
-    # 
-    # numberOfCluster <- parallel::detectCores() / 2
-    # cl <- makeCluster(numberOfCluster)
-    # registerDoSNOW(cl)
-    # 
-    # cat("\n   [PARTE I  - Objeto auxPirnaGDF]\n")
-    # progressBar1 <- txtProgressBar(
-    #   min = 0, max = 24, char = "=", style = 3
-    # )
-    # options1 <- list(progress = function(rows) {
-    #   setTxtProgressBar(progressBar1, rows)
-    # })
-    # 
-    # auxPirnaGDF <- 
-    #   foreach(chrom = paste0("chr", c(1:22, "X", "Y")), .options.snow = options1,
-    #           .combine = list, .multicombine = TRUE, .maxcombine = 24) %dopar% {
-    #             auxPirnaDir <- file.path(gitHubDir, paste0("piRNA", chrom))
-    #             auxPirnaObj <- file.path(auxPirnaDir, paste0("pirnaGDF", chrom,
-    #                                                          ".rds"))
-    #             return(readRDS(auxPirnaObj))
-    #           }
-    # 
-    # close(progressBar1)
-    # stopCluster(cl)
-    # 
-    # cat("\n   [PARTE II  - Objeto newPirnaGDF]\n")
-    # 
-    # cat("   Carregando pirnaDataNonMut\n")
-    # # numberOfCluster <- parallel::detectCores() / 2
-    # # cl <- makeCluster(numberOfCluster)
-    # # registerDoSNOW(cl)
-    # # progressBarAux <- txtProgressBar(
-    # #   min = 0, max = 24, char = "=", style = 3
-    # # )
-    # # optionsAux <- list(progress = function(rows) {
-    # #   setTxtProgressBar(progressBarAux, rows)
-    # # })
-    # region <- "-1000"
-    # dataAux1 <- foreach(
-    #   chrom = 1:24, .combine = rbcombine, 
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
-    #   }
-    # 
-    # region <- "5'"
-    # dataAux2 <- foreach(
-    #   chrom = 1:24, .combine = rbcombine,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
-    #   }
-    # region <- "piRNA"
-    # dataAux3 <- foreach(
-    #   chrom = 1:24, .combine = rbcombine,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
-    #   }
-    # region <- "3'"
-    # dataAux4 <- foreach(
-    #   chrom = 1:24, .combine = rbcombine,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
-    #   }
-    # region <- "+1000"
-    # dataAux5 <- foreach(
-    #   chrom = 1:24, .combine = rbcombine,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataNonMut"]
-    #   }
-    # pirnaDataNonMut <- list(
-    #   `-1000` = dataAux1,
-    #   `5'` = dataAux2,
-    #   `piRNA` = dataAux3,
-    #   `3'` = dataAux4,
-    #   `+1000` = dataAux5
-    # )
-    # 
-    # cat("   Carregando pirnaDataMut\n")
-    # # numberOfCluster <- parallel::detectCores() / 2
-    # # cl <- makeCluster(numberOfCluster)
-    # # registerDoSNOW(cl)
-    # # progressBarAux <- txtProgressBar(
-    # #   min = 0, max = 24, char = "=", style = 3
-    # # )
-    # # optionsAux <- list(progress = function(rows) {
-    # #   setTxtProgressBar(progressBarAux, rows)
-    # # })
-    # region <- "-1000"
-    # dataAux1 <- foreach(
-    #   chrom = 1:24, .combine = rbcombine, 
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
-    #   }
-    # 
-    # region <- "5'"
-    # dataAux2 <- foreach(
-    #   chrom = 1:24, .combine = rbcombine,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
-    #   }
-    # region <- "piRNA"
-    # dataAux3 <- foreach(
-    #   chrom = 1:24, .combine = rbcombine,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
-    #   }
-    # region <- "3'"
-    # dataAux4 <- foreach(
-    #   chrom = 1:24, .combine = rbcombine,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
-    #   }
-    # region <- "+1000"
-    # dataAux5 <- foreach(
-    #   chrom = 1:24, .combine = rbcombine,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "pirnaDataMut"]
-    #   }
-    # pirnaDataMut <- list(
-    #   `-1000` = dataAux1,
-    #   `5'` = dataAux2,
-    #   `piRNA` = dataAux3,
-    #   `3'` = dataAux4,
-    #   `+1000` = dataAux5
-    # )
-    # 
-    # cat("   Carregando mutData\n")
-    # # numberOfCluster <- parallel::detectCores() / 2
-    # # cl <- makeCluster(numberOfCluster)
-    # # registerDoSNOW(cl)
-    # # progressBarAux <- txtProgressBar(
-    # #   min = 0, max = 24, char = "=", style = 3
-    # # )
-    # # optionsAux <- list(progress = function(rows) {
-    # #   setTxtProgressBar(progressBarAux, rows)
-    # # })
-    # region <- "-1000"
-    # dataAux1 <- foreach(
-    #   chrom = 1:24, .combine = c, 
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
-    #   }
-    # 
-    # region <- "5'"
-    # dataAux2 <- foreach(
-    #   chrom = 1:24, .combine = c,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
-    #   }
-    # region <- "piRNA"
-    # dataAux3 <- foreach(
-    #   chrom = 1:24, .combine = c,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
-    #   }
-    # region <- "3'"
-    # dataAux4 <- foreach(
-    #   chrom = 1:24, .combine = c,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
-    #   }
-    # region <- "+1000"
-    # dataAux5 <- foreach(
-    #   chrom = 1:24, .combine = c,
-    #   .multicombine = TRUE, .maxcombine = 24) %do% {
-    #     auxPirnaGDF[[chrom]][paste0("adjRegion:", region), "mutData"]
-    #   }
-    # mutData <- list(
-    #   `-1000` = dataAux1,
-    #   `5'` = dataAux2,
-    #   `piRNA` = dataAux3,
-    #   `3'` = dataAux4,
-    #   `+1000` = dataAux5
-    # )
-    # 
-    # region <- "-1000" 
-    # assign(
-    #   x     = paste0("adjRegion:", region), 
-    #   envir = .GlobalEnv,
-    #   value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-    #                     pirnaDataMut    = pirnaDataMut[[region]], 
-    #                     mutData         = mutData[[region]])
-    # )
-    # 
-    # region <- "5'" 
-    # assign(
-    #   x     = paste0("adjRegion:", region), 
-    #   envir = .GlobalEnv,
-    #   value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-    #                     pirnaDataMut    = pirnaDataMut[[region]], 
-    #                     mutData         = mutData[[region]])
-    # )
-    # 
-    # region <- "piRNA" 
-    # assign(
-    #   x     = paste0("adjRegion:", region), 
-    #   envir = .GlobalEnv,
-    #   value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-    #                     pirnaDataMut    = pirnaDataMut[[region]], 
-    #                     mutData         = mutData[[region]])
-    # )
-    # 
-    # region <- "3'" 
-    # assign(
-    #   x     = paste0("adjRegion:", region), 
-    #   envir = .GlobalEnv,
-    #   value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-    #                     pirnaDataMut    = pirnaDataMut[[region]], 
-    #                     mutData         = mutData[[region]])
-    # )
-    # 
-    # region <- "+1000" 
-    # assign(
-    #   x     = paste0("adjRegion:", region), 
-    #   envir = .GlobalEnv,
-    #   value = InfoPirna(pirnaDataNonMut = pirnaDataNonMut[[region]],
-    #                     pirnaDataMut    = pirnaDataMut[[region]], 
-    #                     mutData         = mutData[[region]])
-    # )
-    # 
-    # generalInfo <- "INFORMAÇÕES SOBRE TODOS OS CROMOSSOMOS"
-    # 
-    # newPirnaGDF <- PirnaGDF(
-    #   generalInfo       = generalInfo,
-    #   `adjRegion:-1000` = `adjRegion:-1000`,
-    #   `adjRegion:5'`    = `adjRegion:5'`,
-    #   `adjRegion:piRNA` = `adjRegion:piRNA`,
-    #   `adjRegion:3'`    = `adjRegion:3'`,
-    #   `adjRegion:+1000` = `adjRegion:-1000`
-    # )
-    # 
-    # saveRDS(newPirnaGDF, file = pirnaObj)
-    
-    saveMutRate <- function(data, region, fileRate, conf.interval = .95) {
-      if (region == "chrom.all") {
-        nt <- mutData[ , diff(range(`Mutação.Local`)) + 1]
-      } else {
-        nt <- pirnaDataAux[ , sum(Local.Final - `Local.Início` + 1)]
-      }
-      
-      mutRate <- data[ , .(
-        bases = nt, 
-        rate  = mean(c(Total.AF, rep(0, nt - .N))),
-        sd    = sd(c(Total.AF, rep(0, nt - .N)))
-      ), by = `Mutação.Tipo`]
-      
-      mutRate[ , se := sd / sqrt(bases)]
-      
-      mutRate[ , ci := se * qt(conf.interval / 2 + .5, bases - 1)]
-      
-      colnames(mutRate)[1] <- "tipo"
-      
-      allDir <- file.path(params$gitHubDir, "piRNAall")
-      dir.create(allDir, showWarnings = FALSE)
-      pathFileRate <- file.path(allDir, fileRate)
-      if (!file.exists(pathFileRate)) {
-        tableRate <- cbind(chrom = chrom, region = region, mutRate)
-        saveRDS(tableRate, file = pathFileRate)
-      } else {
-        tableRate <- readRDS(pathFileRate)
-        tableRate <- rbind(tableRate, cbind(
-          chrom = chrom, region = region, mutRate
-        ))
-        saveRDS(tableRate, file = pathFileRate)
-      }
-    }
-    
-    cat("\n   Atualizando o arquivo mutRate.rds\n")
-    pb    <- txtProgressBar(min = 0, max = 24 * 3, initial = 0) 
-    stepi <- 0
-    foreach(chrom = paste0("chr", c(1:22, "X", "Y"))) %:% 
-      foreach(mut.map = c("all", "multi", "uni")) %do% {
-        stepi        <- stepi + 1
-        dataAux      <- piRNAsubset(chrom, MUT.map = mut.map)
-        mutDataAux   <- dataAux[["piRNA"]][["mutData"]]  
-        pirnaDataAux <- dataAux[["piRNA"]][["pirnaData"]]
-        saveMutRate(mutDataAux, paste0("piRNA.", mut.map), "mutRate.rds")
-        setTxtProgressBar(pb, stepi)
-      }
-    
-    mutRateFinal <- readRDS(file.path(pirnaDir, "mutRate.rds"))
-    mutRateAux   <- mutRateFinal[ , .(
-      bases = sum(bases),
-      rate  = sum(bases * rate) / sum(bases),
-      sd    = sum(bases * sd)   / sum(bases),
-      se    = sum(bases * se)   / sum(bases), 
-      ci    = sum(bases * ci)   / sum(bases)
-    ), by = .(region, tipo)][order(region, tipo)]
-    mutRateFinal <- rbind(
-      mutRateFinal,
-      data.table(chrom = "chrY", region = paste0("piRNA.", c("all", "multi", "uni")),
-                 tipo = "INDEL", bases = 0, rate = 0, sd = 0, se = 0, ci = 0),
-      cbind(data.table(chrom = "all"), mutRateAux)
-    )
-    saveRDS(mutRateFinal, file = file.path(pirnaDir, "mutRate.rds"))
-  }
 }
 
 piRNAall <- function() {
@@ -2221,6 +2078,11 @@ piRNAgraphics1 <- function(CHROM) {
     no   = 'piRNAs mutados'
   ))]
   
+  # for (i in paste0("pirnaGDFchr",c(2:22,"X","Y"))) {
+  #   aux <- get(i)
+  #   mutData <- rbind(mutData, rbindlist(aux@`adjRegion:piRNA`@mutData, idcol = "piRNA.Referência"))
+  # }
+  
   mutData <- rbindlist(allnewPirnaGDF[["piRNA"]][["mutData"]], 
                        idcol = "piRNA.Referência")
   
@@ -2240,19 +2102,24 @@ piRNAgraphics1 <- function(CHROM) {
   vennObject <- function(mut, map = TRUE) {
     list(
       Africano = mutData[map][
-        `Mutação.Tipo` == mut & Africano.AC >= prevAF, `Mutação.Local`
+        `Mutação.Tipo` == mut & Africano.AF >= prevAF & Africano.AF <= 1 - prevAF,
+        `Mutação.Local`
       ],
       Americano = mutData[map][
-        `Mutação.Tipo` == mut & Americano.AC >= prevAF, `Mutação.Local`
+        `Mutação.Tipo` == mut & Americano.AF >= prevAF & Americano.AF <= 1 - prevAF,
+        `Mutação.Local`
       ],
       Europeu = mutData[map][
-        `Mutação.Tipo` == mut & Europeu.AC >= prevAF, `Mutação.Local`
+        `Mutação.Tipo` == mut & Europeu.AF >= prevAF & Europeu.AF <= 1 - prevAF,
+        `Mutação.Local`
       ],
       `Leste Asiático` = mutData[map][
-        `Mutação.Tipo` == mut & `Leste Asiático.AC` >= prevAF, `Mutação.Local`
+        `Mutação.Tipo` == mut & `Leste Asiático.AF` >= prevAF & `Leste Asiático.AF` <= 1 - prevAF,
+        `Mutação.Local`
       ],
       `Sul Asiático` = mutData[map][
-        `Mutação.Tipo` == mut & `Sul Asiático.AC` >= prevAF, `Mutação.Local`
+        `Mutação.Tipo` == mut & `Sul Asiático.AF` >= prevAF & `Sul Asiático.AF` <= 1 - prevAF,
+        `Mutação.Local`
       ]
     )
   }
@@ -2260,15 +2127,15 @@ piRNAgraphics1 <- function(CHROM) {
   vennMUTdata <- list(
     piRNAall = list(
       SNP = vennObject("SNP"), INDEL = vennObject("INDEL")
-    ),
-    piRNAmulti = list(
-      SNP = vennObject("SNP", pirnaDataAux[ , piRNA.Mapeamento == "Múltiplo"]),
-      INDEL = vennObject("INDEL", pirnaDataAux[ , piRNA.Mapeamento == "Múltiplo"])
-    ),
-    piRNAuni = list(
-      SNP = vennObject("SNP", pirnaDataAux[ , piRNA.Mapeamento == "Único"]),
-      INDEL = vennObject("INDEL", pirnaDataAux[ , piRNA.Mapeamento == "Único"])
-    )
+    )#,
+    # piRNAmulti = list(
+    #   SNP = vennObject("SNP", pirnaDataAux[ , piRNA.Mapeamento == "Múltiplo"]),
+    #   INDEL = vennObject("INDEL", pirnaDataAux[ , piRNA.Mapeamento == "Múltiplo"])
+    # ),
+    # piRNAuni = list(
+    #   SNP = vennObject("SNP", pirnaDataAux[ , piRNA.Mapeamento == "Único"]),
+    #   INDEL = vennObject("INDEL", pirnaDataAux[ , piRNA.Mapeamento == "Único"])
+    # )
   )
   
   meltMUTdata <- melt.data.table(
@@ -2379,14 +2246,14 @@ piRNAgraphics1 <- function(CHROM) {
            x = '', y = 'Quantidade de\nmutações')
   })
   
-  for (mapPirna in c("piRNAall", "piRNAuni", "piRNAmulti")) {
+  for (mapPirna in c("piRNAall")) {
     for (nameMut in c("INDEL", "SNP")) {
       png(filename = file.path(fig.opts$path, "plot3" %s+% "_" %s+% 
                                  params$chrom %s+% "_" %s+% mapPirna %s+% "_" %s+%
                                  nameMut %s+% ".png"),
           width = fig.opts$width[2], height = fig.opts$height,
           units = fig.opts$unit, res = fig.opts$res, type = fig.opts$type)
-      if (sum(sapply(vennMUTdata[[mapPirna]][[nameMut]], length)) == 0) {
+      if (length(unlist(vennMUTdata[[mapPirna]][[nameMut]])) == 0) {
         venn(length(vennMUTdata[[mapPirna]][[nameMut]]),
              snames = names(vennMUTdata[[mapPirna]][[nameMut]]),
              zcolor = "lightgray", col = "lightgray",
@@ -2406,16 +2273,17 @@ piRNAgraphics1 <- function(CHROM) {
                    "Diagrama de Venn para prevalência de mutações com AF >= 1%")
       )
       if (mapPirna == "piRNAall") {
-        nmut <- mutData[ , sum(`Mutação.Tipo` == nameMut)]
+        #nmut <- mutData[ , sum(`Mutação.Tipo` == nameMut & )]
+        nmut <- length(unique(unlist(vennMUTdata[[mapPirna]][[nameMut]])))
       }
-      if (mapPirna == "piRNAmulti") {
-        nmut <- mutData[piRNA.Mapeamento == "Múltiplo",
-                        sum(`Mutação.Tipo` == nameMut)]
-      }
-      if (mapPirna == "piRNAuni") {
-        nmut <- mutData[piRNA.Mapeamento == "Único", 
-                        sum(`Mutação.Tipo` == nameMut)]
-      } 
+      # if (mapPirna == "piRNAmulti") {
+      #   nmut <- mutData[piRNA.Mapeamento == "Múltiplo",
+      #                   sum(`Mutação.Tipo` == nameMut)]
+      # }
+      # if (mapPirna == "piRNAuni") {
+      #   nmut <- mutData[piRNA.Mapeamento == "Único", 
+      #                   sum(`Mutação.Tipo` == nameMut)]
+      # } 
       text(x = 500, y = 10, cex = 1.25, pos = 1,
            labels = nameMut %s+% "(n=" %s+% nmut %s+% ")")
       segments(0, 0, 0, 1000, col = "white", lty = 1, lwd = 1)
@@ -2519,6 +2387,184 @@ piRNAgraphics1 <- function(CHROM) {
   #             add_annotate4.2(x.annotate[4], label.annotate[[4]]) +
   #             add_annotate4.2(x.annotate[5], label.annotate[[5]])
   #         })
+  if (CHROM == "all") {
+    mutDataObtain <- function(mut.type, region) {
+      mutData   <- readRDS(paste0("C:/Rdir/piRNAproject/piRNAall/mutDataALL", 
+                                  region, ".rds"))
+      
+      mutData2 <- mutData[`Mutação.Tipo` == mut.type, `Mutação.Grupo` := {
+        cond1 <- ((Africano.AC != 0 & Africano.AC != ifelse(`Mutação.Cromossomo` != "Y", 1322, 638)) +
+                    (Americano.AC != 0 & Americano.AC != ifelse(`Mutação.Cromossomo` != "Y", 694, 340)) +
+                    (`Leste Asiático.AC` != 0 & `Leste Asiático.AC` != ifelse(`Mutação.Cromossomo` != "Y", 1008, 488)) + 
+                    (Europeu.AC != 0 & Europeu.AC != ifelse(`Mutação.Cromossomo` != "Y", 1006, 480)) + 
+                    (`Sul Asiático.AC` != 0 & `Sul Asiático.AC` != ifelse(`Mutação.Cromossomo` != "Y", 978, 520))) == 1
+        # cond2 <- (Africano.AC + Americano.AC + `Leste Asiático.AC` + Europeu.AC +
+        #             `Sul Asiático.AC`) <= 3
+        cond2 <- Total.AC <= 3 | Total.AC >= 5006
+        uniCond <- multiply_by(cond1 & cond2, 1)
+        g2Cond  <- multiply_by(!uniCond & (Total.AF <= 0.005 | 
+                                 Total.AF >= 1 - 0.005), 2)
+        g3Cond  <- multiply_by((Total.AF > 0.005 & Total.AF <= 0.01) |
+                                 (Total.AF < 1 - 0.005 & Total.AF >= 1 - 0.01), 3)
+        g4Cond  <- multiply_by((Total.AF > 0.01 & Total.AF <= 0.02) |
+                                 (Total.AF < 1 - 0.01 & Total.AF >= 1 - 0.02), 4)
+        g5Cond  <- multiply_by((Total.AF > 0.02 & Total.AF <= 0.05) |
+                                 (Total.AF < 1 - 0.02 & Total.AF >= 1 - 0.05), 5)
+        g6Cond  <- multiply_by((Total.AF > 0.05 & Total.AF <= 0.1) |
+                                 (Total.AF < 1 - 0.05 & Total.AF >= 1 - 0.1), 6)
+        g7Cond  <- multiply_by((Total.AF > 0.1 & Total.AF <= 0.2) |
+                                 (Total.AF < 1 - 0.1 & Total.AF >= 1 - 0.2), 7)
+        g8Cond  <- multiply_by((Total.AF > 0.2 & Total.AF <= 0.5) |
+                                 (Total.AF < 1 - 0.2 & Total.AF >= 1 - 0.5), 8)
+        gALL <- data.frame(uniCond = uniCond, g2Cond = g2Cond, g3Cond = g3Cond,
+                           g4Cond = g4Cond, g5Cond = g5Cond, g6Cond = g6Cond,
+                           g7Cond = g7Cond, g8Cond = g8Cond)
+        
+        gALLresult <- rowSums(gALL)
+        gALLlabels <- c(
+          "População única & AC < 3", "0% < AF <= 0.5%", "0.5% < AF <= 1%",
+          "1% < AF <= 2%", "2% < AF <= 5%", "5% < AF <= 10%", "10% < AF <= 20%",
+          "20% < AF <= 50%" #, "50% < AF <= 80%", "80% < AF <= 100%"
+        )[colSums(gALL) != 0]
+        
+        gALLresult <- factor(gALLresult, labels = gALLlabels)
+        
+        return(gALLresult)
+      }]
+      
+      return(mutData2)
+    } 
+  } else {
+    mutDataObtain <- function(mut.type, region) {
+      mutData   <- allnewPirnaGDF[[region]][["mutData"]]
+      
+      mutData   <- rbindlist(mutData, idcol = "piRNA.Referência")
+      
+      mutData2 <- mutData[`Mutação.Tipo` == mut.type, `Mutação.Grupo` := {
+        cond1 <- ((Africano.AC != 0 & Africano.AC != ifelse(`Mutação.Cromossomo` != "Y", 1322, 638)) +
+                    (Americano.AC != 0 & Americano.AC != ifelse(`Mutação.Cromossomo` != "Y", 694, 340)) +
+                    (`Leste Asiático.AC` != 0 & `Leste Asiático.AC` != ifelse(`Mutação.Cromossomo` != "Y", 1008, 488)) + 
+                    (Europeu.AC != 0 & Europeu.AC != ifelse(`Mutação.Cromossomo` != "Y", 1006, 480)) + 
+                    (`Sul Asiático.AC` != 0 & `Sul Asiático.AC` != ifelse(`Mutação.Cromossomo` != "Y", 978, 520))) == 1
+        # cond2 <- (Africano.AC + Americano.AC + `Leste Asiático.AC` + Europeu.AC +
+        #             `Sul Asiático.AC`) <= 3
+        cond2 <- Total.AC <= 3 | Total.AC >= 5006
+        uniCond <- multiply_by(cond1 & cond2, 1)
+        g2Cond  <- multiply_by(!uniCond & (Total.AF <= 0.005 | 
+                                             Total.AF >= 1 - 0.005), 2)
+        g3Cond  <- multiply_by((Total.AF > 0.005 & Total.AF <= 0.01) |
+                                 (Total.AF < 1 - 0.005 & Total.AF >= 1 - 0.01), 3)
+        g4Cond  <- multiply_by((Total.AF > 0.01 & Total.AF <= 0.02) |
+                                 (Total.AF < 1 - 0.01 & Total.AF >= 1 - 0.02), 4)
+        g5Cond  <- multiply_by((Total.AF > 0.02 & Total.AF <= 0.05) |
+                                 (Total.AF < 1 - 0.02 & Total.AF >= 1 - 0.05), 5)
+        g6Cond  <- multiply_by((Total.AF > 0.05 & Total.AF <= 0.1) |
+                                 (Total.AF < 1 - 0.05 & Total.AF >= 1 - 0.1), 6)
+        g7Cond  <- multiply_by((Total.AF > 0.1 & Total.AF <= 0.2) |
+                                 (Total.AF < 1 - 0.1 & Total.AF >= 1 - 0.2), 7)
+        g8Cond  <- multiply_by((Total.AF > 0.2 & Total.AF <= 0.5) |
+                                 (Total.AF < 1 - 0.2 & Total.AF >= 1 - 0.5), 8)
+        gALL <- data.frame(uniCond = uniCond, g2Cond = g2Cond, g3Cond = g3Cond,
+                           g4Cond = g4Cond, g5Cond = g5Cond, g6Cond = g6Cond,
+                           g7Cond = g7Cond, g8Cond = g8Cond)
+        
+        gALLresult <- rowSums(gALL)
+        gALLlabels <- c(
+          "População única & AC < 3", "0% < AF <= 0.5%", "0.5% < AF <= 1%",
+          "1% < AF <= 2%", "2% < AF <= 5%", "5% < AF <= 10%", "10% < AF <= 20%",
+          "20% < AF <= 50%" #, "50% < AF <= 80%", "80% < AF <= 100%"
+        )[colSums(gALL) != 0]
+        
+        gALLresult <- factor(gALLresult, labels = gALLlabels)
+        
+        return(gALLresult)
+      }]
+      
+      return(mutData2)
+    }
+  }
+  regions    <- c("less1000", "5linha", "pirna", "3linha", "more1000")
+  regions2   <- c("-1000", "5'", "piRNA", "3'", "+1000")
+  regions3   <- if (CHROM == "all") {regions} else {regions2} 
+  mutDataSNP <- foreach(region = regions3, .combine = list, 
+                        .multicombine = TRUE, .maxcombine = 5) %do%
+    mutDataObtain("SNP", region)
+  mutDataINDEL <- foreach(region = regions3, .combine = list, 
+                          .multicombine = TRUE, .maxcombine = 5) %do%
+    mutDataObtain("INDEL", region)
+  names(mutDataINDEL) <- names(mutDataSNP) <- regions2
+  mutDataSNP <- rbindlist(mutDataSNP, idcol = "Região.Referência")
+  mutDataINDEL <- rbindlist(mutDataINDEL, idcol = "Região.Referência")
+  #
+  # groupLevels <- c(
+  #   "População única & AC < 3", "0% < AF <= 0.5%", "0.5% < AF <= 1%",
+  #   "1% < AF <= 2%", "2% < AF <= 5%", "5% < AF <= 10%", "10% < AF <= 20%",
+  #   "20% < AF <= 50%" #, "50% < AF <= 80%", "80% < AF <= 100%"
+  # )
+  
+  mutDataFinalSNP <- foreach(region = regions2, .combine = rbind,
+                             .multicombine = TRUE, .maxcombine = 5) %do%
+    mutDataSNP[`Região.Referência` == region, table(`Mutação.Grupo`)]
+    
+  mutDataFinalINDEL <- foreach(region = regions2, .combine = rbind,
+                               .multicombine = TRUE, .maxcombine = 5) %do%
+    mutDataINDEL[`Região.Referência` == region, table(`Mutação.Grupo`)]
+  
+  #colnames(mutDataFinalINDEL) <- colnames(mutDataFinalSNP) <- groupLevels
+  rownames(mutDataFinalINDEL) <- rownames(mutDataFinalSNP) <- regions2
+  mutDataFinalSNP   <- data.table(mutDataFinalSNP, keep.rownames = TRUE)
+  mutDataFinalINDEL <- data.table(mutDataFinalINDEL, keep.rownames = TRUE)
+  
+  addBars2 <- function(p, groupMut) {
+    plotly::add_bars(
+      p, y = ~get(groupMut), name = groupMut,
+      text = ~paste('Região: ', rn, '\n Mutações: ', get(groupMut)),
+      hoverinfo = 'text'
+    )
+  }
+  
+  p2 <- plot_ly(mutDataFinalSNP, x = ~rn) %>% 
+    addBars2("População única & AC < 3") %>% addBars2("0% < AF <= 0.5%") %>% 
+    addBars2("0.5% < AF <= 1%") %>% addBars2("1% < AF <= 2%") %>% 
+    addBars2("2% < AF <= 5%") %>% addBars2("5% < AF <= 10%") %>% 
+    addBars2("10% < AF <= 20%") %>% addBars2("20% < AF <= 50%") %>%
+    #addBars2("50% < AF <= 80%") %>% 
+    #addBars2("80% < AF <= 100%") %>%
+    layout(title       = '<b> Distribuição de Mutações SNP por Região <b> ',
+           xaxis       = list(title         = '', 
+                              categoryorder = "array",
+                              categoryarray = c(
+                                "-1000", "5'", "piRNA", "3'","+1000"
+                              )),
+           yaxis       = list(title = 'Quantidade Mutações'),
+           legend      = list(x = 1, y = 0.5),
+           annotations = list(yref = 'paper', xref = "paper", 
+                              align = 'left', y = 1, x = 1.15, showarrow = F, 
+                              text = "Grupos de Mutações"),
+           barmode     = 'stack')
+  p2.2 <- plot_ly(mutDataFinalINDEL, x = ~rn) %>% 
+    addBars2("População única & AC < 3") %>% addBars2("0% < AF <= 0.5%") %>% 
+    addBars2("0.5% < AF <= 1%") %>% addBars2("1% < AF <= 2%") %>% 
+    addBars2("2% < AF <= 5%") %>% addBars2("5% < AF <= 10%") %>% 
+    addBars2("10% < AF <= 20%") %>% addBars2("20% < AF <= 50%") %>% 
+    #addBars2("50% < AF <= 80%") %>% 
+    #addBars2("80% < AF <= 100%") %>%
+    layout(title       = '<b> Distribuição de Mutações INDEL por Região <b> ',
+           xaxis       = list(title         = '', 
+                              categoryorder = "array",
+                              categoryarray = c(
+                                "-1000", "5'", "piRNA", "3'","+1000"
+                              )),
+           yaxis       = list(title = 'Quantidade Mutações'),
+           legend      = list(x = 1, y = 0.5),
+           annotations = list(yref = 'paper', xref = "paper", 
+                              align = 'left', y = 1, x = 1.15, showarrow = F, 
+                              text = "Grupos de Mutações"),
+           barmode     = 'stack')
+  export(p2, file = file.path(fig.opts$path, "plot8_SNP_" %s+% params$chrom %s+% 
+                                "_all.png"))
+  export(p2.2, file = file.path(fig.opts$path, "plot8_INDEL_" %s+% params$chrom %s+% 
+                                  "_all.png"))
 }
 
 piRNAgraphics2 <- function(CHROM) {
@@ -3757,28 +3803,33 @@ piRNAgraphics <- function(CHROM) {
       cond1 <- ((Africano.AC != 0) + (Americano.AC != 0) +
                   (`Leste Asiático.AC` != 0) + (Europeu.AC != 0) + 
                   (`Sul Asiático.AC` != 0)) == 1
-      cond2 <- (Africano.AC + Americano.AC + `Leste Asiático.AC` + Europeu.AC +
-                  `Sul Asiático.AC`) <= 3
+      # cond2 <- (Africano.AC + Americano.AC + `Leste Asiático.AC` + Europeu.AC +
+      #             `Sul Asiático.AC`) <= 3
+      cond2 <- Total.AC <= 3 & Total.AC >= 5006
       uniCond <- multiply_by(cond1 & cond2, 1)
-      g2Cond  <- multiply_by(!uniCond & Total.AF <= 0.005, 2)
-      g3Cond  <- multiply_by(Total.AF > 0.005 & Total.AF <= 0.01, 3)
-      g4Cond  <- multiply_by(Total.AF > 0.01 & Total.AF <= 0.02, 4)
-      g5Cond  <- multiply_by(Total.AF > 0.02 & Total.AF <= 0.05, 5)
-      g6Cond  <- multiply_by(Total.AF > 0.05 & Total.AF <= 0.1, 6)
-      g7Cond  <- multiply_by(Total.AF > 0.1 & Total.AF <= 0.2, 7)
-      g8Cond  <- multiply_by(Total.AF > 0.2 & Total.AF <= 0.5, 8)
-      g9Cond  <- multiply_by(Total.AF > 0.5 & Total.AF <= 0.8, 9)
-      g10Cond <- multiply_by(Total.AF > 0.8 & Total.AF <= 1, 10)
+      g2Cond  <- multiply_by(!uniCond & Total.AF <= 0.005 & 
+                               Total.AF >= 1 - 0.005, 2)
+      g3Cond  <- multiply_by(Total.AF > 0.005 & Total.AF <= 0.01 &
+                               Total.AF < 1 - 0.005 & Total.AF >= 1 - 0.01, 3)
+      g4Cond  <- multiply_by(Total.AF > 0.01 & Total.AF <= 0.02 &
+                               Total.AF < 1 - 0.01 & Total.AF >= 1 - 0.02, 4)
+      g5Cond  <- multiply_by(Total.AF > 0.02 & Total.AF <= 0.05 &
+                               Total.AF < 1 - 0.02 & Total.AF >= 1 - 0.05, 5)
+      g6Cond  <- multiply_by(Total.AF > 0.05 & Total.AF <= 0.1 &
+                               Total.AF < 1 - 0.05 & Total.AF >= 1 - 0.1, 6)
+      g7Cond  <- multiply_by(Total.AF > 0.1 & Total.AF <= 0.2 &
+                               Total.AF < 1 - 0.1 & Total.AF >= 1 - 0.2, 7)
+      g8Cond  <- multiply_by(Total.AF > 0.2 & Total.AF <= 0.5 &
+                               Total.AF < 1 - 0.2 & Total.AF >= 1 - 0.5, 8)
       gALL <- data.frame(uniCond = uniCond, g2Cond = g2Cond, g3Cond = g3Cond,
                          g4Cond = g4Cond, g5Cond = g5Cond, g6Cond = g6Cond,
-                         g7Cond = g7Cond, g8Cond = g8Cond, g9Cond = g9Cond,
-                         g10Cond = g10Cond)
+                         g7Cond = g7Cond, g8Cond = g8Cond)
       
       gALLresult <- rowSums(gALL)
       gALLlabels <- c(
         "População única & AC < 3", "0% < AF <= 0.5%", "0.5% < AF <= 1%",
         "1% < AF <= 2%", "2% < AF <= 5%", "5% < AF <= 10%", "10% < AF <= 20%",
-        "20% < AF <= 50%", "50% < AF <= 80%", "80% < AF <= 100%"
+        "20% < AF <= 50%" #, "50% < AF <= 80%", "80% < AF <= 100%"
       )[colSums(gALL) != 0]
       
       gALLresult <- factor(gALLresult, labels = gALLlabels)
@@ -3800,7 +3851,7 @@ piRNAgraphics <- function(CHROM) {
   groupLevels <- c(
     "População única & AC < 3", "0% < AF <= 0.5%", "0.5% < AF <= 1%",
     "1% < AF <= 2%", "2% < AF <= 5%", "5% < AF <= 10%", "10% < AF <= 20%",
-    "20% < AF <= 50%", "50% < AF <= 80%", "80% < AF <= 100%"
+    "20% < AF <= 50%" #, "50% < AF <= 80%", "80% < AF <= 100%"
   )
   
   mutDataFinal <- foreach(region = regions, .combine = rbind,
@@ -3950,8 +4001,8 @@ piRNAgraphics <- function(CHROM) {
     addBars2("0.5% < AF <= 1%") %>% addBars2("1% < AF <= 2%") %>% 
     addBars2("2% < AF <= 5%") %>% addBars2("5% < AF <= 10%") %>% 
     addBars2("10% < AF <= 20%") %>% addBars2("20% < AF <= 50%") %>% 
-    addBars2("20% < AF <= 50%") %>% addBars2("50% < AF <= 80%") %>% 
-    addBars2("80% < AF <= 100%") %>%
+    addBars2("20% < AF <= 50%") %>% #addBars2("50% < AF <= 80%") %>% 
+    #addBars2("80% < AF <= 100%") %>%
     layout(title       = '<b> Distribuição das Mutações por Região <b> ',
            xaxis       = list(title         = '', 
                               categoryorder = "array",
@@ -4019,109 +4070,3 @@ piRNAgraphics <- function(CHROM) {
   
 }
 
-#Transformacão dos 4 primeiros graficos de ggplot2 para plotly (ideia excluida)
-# pirnaData <- allnewPirnaGDF[[region]][["pirnaData"]]
-# 
-# pirnaData1 <- pirnaData[ , .(
-#   piRNA.Tipo  = c("piRNAs mutados", "piRNAs não mutados"),
-#   piRNA.Quant = table(`Mutações.Total` == 0)
-# )]
-# 
-# mutData   <- allnewPirnaGDF[[region]][["mutData"]]
-# 
-# mutData   <- rbindlist(mutData, idcol = "piRNA.Referência")
-# 
-# mutData2 <- mutData[ , .(
-#   mut.id    = c("Com RS", "Sem RS"),
-#   mut.indel = c(mutData[`Mutação.ID` != ".", table(`Mutação.Tipo`)["INDEL"]],
-#                 mutData[`Mutação.ID` == ".", table(`Mutação.Tipo`)["INDEL"]]),
-#   mut.snp   = c(mutData[`Mutação.ID` != ".", table(`Mutação.Tipo`)["SNP"]],
-#                 mutData[`Mutação.ID` == ".", table(`Mutação.Tipo`)["SNP"]])
-# )]
-# 
-# mutMelt4 <- mutData[ , rbind(
-#   data.table(
-#     mut.pop  = "Africano",
-#     mut.af   = Africano.AF[Africano.AF != 0],
-#     mut.tipo = `Mutação.Tipo`[Africano.AF != 0]
-#   ),
-#   data.table(
-#     mut.pop  = "Americano",
-#     mut.af   = Americano.AF[Americano.AF != 0],
-#     mut.tipo = `Mutação.Tipo`[Americano.AF != 0]
-#   ),
-#   data.table(
-#     mut.pop  = "Leste Asiático",
-#     mut.af   = `Leste Asiático.AF`[`Leste Asiático.AF` != 0],
-#     mut.tipo = `Mutação.Tipo`[`Leste Asiático.AF` != 0]
-#   ),
-#   data.table(
-#     mut.pop  = "Europeu",
-#     mut.af   = Europeu.AF[Europeu.AF != 0],
-#     mut.tipo = `Mutação.Tipo`[Europeu.AF != 0]
-#   ),
-#   data.table(
-#     mut.pop  = "Sul Asiático",
-#     mut.af   = `Sul Asiático.AF`[`Sul Asiático.AF` != 0],
-#     mut.tipo = `Mutação.Tipo`[`Sul Asiático.AF` != 0]
-#   )
-# )]
-# 
-# fun_rescale    <- function(y) {as.numeric(y) ^ {log10(0.5) / log10(0.05)}}
-# fun_rescaleInv <- function(y) {as.numeric(y) ^ {log10(0.05) / log10(0.5)}}
-# 
-# # plot4 <- plot_ly(mutMelt4, x = ~mut.tipo, y = ~fun_rescale(mut.af), 
-# #                  color = ~mut.pop, type = 'box') %>% 
-# plot4 <- plot_ly(type = "box") %>%
-#   add_boxplot(data   = mutMelt4[mut.tipo == "SNP" & mut.pop == "Africano"], 
-#               x      = ~mut.pop, y = ~mut.af, boxpoints = 'outliers',
-#               marker = list(color = pirna_colors[1])) %>%
-#   add_boxplot(data   = mutMelt4[mut.tipo == "INDEL"], 
-#               x      = ~mut.pop, y = ~mut.af, boxpoints = 'outliers',
-#               marker = list(color = pirna_colors[1:5])) %>%
-#   layout(
-#     colorway = stri_flatten(pirna_colors[1:5]),
-#     title    = 'Distribuicão de mutacões em piRNAs no cromossomo 1',
-#     xaxis       = list(title = ''),
-#     yaxis       = list(
-#       title    = 'Frequência Alélica',
-#       tickvals = fun_rescale(c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100) / 100),
-#       ticktext = paste(c(0.01, 0.1, 0.5, 1, 2, 5, 10, 20, 50, 80, 100), "%")),
-#     legend      = list(orientation = 'h'),
-#     annotations = list(yref = 'paper', xref = "paper",
-#                        align = 'left', y = 1, x = 1.1, showarrow = F,
-#                        text = "Populações Humanas")
-#   )
-
-
-# distrPirnas <- function(dataGFF, chrom) {
-#       pirnas <- dataGFF$attributes[dataGFF$seqid==chrom] %>%
-#             as.factor
-#       
-#       regexCondition <- pirnas %>% levels %>% 
-#             stri_replace_all("\\+", fixed = "+") %>%
-#             stri_flatten("|")
-#       
-#       pirnaName <- levels(pirnas) %>% stri_split_fixed("transcript_id ") %>%
-#             sapply(function(x) {x[2] %>% stri_replace_all_fixed(";","")})
-#       pirnaMap <- numMap <- 
-#             tabulate(as.factor(dataGFF$attributes))[
-#                   stri_detect(levels(as.factor(dataGFF$attributes)),
-#                               regex=regexCondition)]
-#       
-#       pirnaMapData <<- data.frame(pirnaName=pirnaName,
-#                                   pirnaMap=pirnaMap,
-#                                   numOfMap=factor(ifelse(
-#                                         numMap<=3,"uniMap","multiMap")))
-#       
-#       distrData <- data.frame(numMap=as.numeric(levels(as.factor(numMap))),
-#                              numPirna=tabulate(as.factor(numMap)))
-#       
-#       distrData$numOfMap <- factor(ifelse(distrAux$numMap<=3,"uniMap","multiMap"))
-#       
-#       distrData
-#       ##
-#       
-# }
-# 
-# pirnaMapData <- distrPirnas(gffTable, chrom)
