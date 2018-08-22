@@ -242,8 +242,8 @@ piRNAcalc <- function(vcf_file, gff_file, mirna_file, exon_file) {
   suppressPackageStartupMessages(require(stringr))
   suppressPackageStartupMessages(require(pbapply))
   suppressPackageStartupMessages(require(magrittr))
-  #suppressPackageStartupMessages(require(limSolve))
   suppressPackageStartupMessages(require(data.table))
+  suppressPackageStartupMessages(require(bigmemory))
   suppressPackageStartupMessages(require(readr))
   suppressPackageStartupMessages(require(foreach))
   suppressPackageStartupMessages(require(doSNOW))
@@ -267,8 +267,7 @@ piRNAcalc <- function(vcf_file, gff_file, mirna_file, exon_file) {
   dir.create(gitHubDir, showWarnings = FALSE)
   
   source(file.path(gitHubDir, "PirnaGDF-class.R"), encoding = "UTF-8")
-  chrom <- stri_extract_all_regex(file.path(mainDir, vcf_file),
-                                  "chr+[0-9]+|chr+[XY]+")[[1]]
+  chrom <- stri_extract_all_regex(vcf_file, "chr+[0-9]+|chr+[XY]+")[[1]]
   
   pirnaDir <- file.path(gitHubDir, "piRNA" %s+% chrom)
   dir.create(pirnaDir, showWarnings = FALSE)
